@@ -1,0 +1,3 @@
+[submodule "addons/blender-debugger-for-vscode"]
+	path = addons/blender-debugger-for-vscode
+	url = https://github.com/bombsquad02420/blender-debugger-for-vscode.git
