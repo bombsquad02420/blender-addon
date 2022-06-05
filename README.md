@@ -2,9 +2,7 @@
 
 # SETUP
 
-```bash
-git clone --recursive https://github.com/bombsquad02420/blender-addon.git
-```
+Read [SETUP.md](./SETUP.md)
 
 > **WIP**
 
