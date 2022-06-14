@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Blender Remote Attach",
+      "name": "Python: Blender Attach",
       "type": "python",
       "request": "attach",
       "connect": {
@@ -12,10 +12,26 @@
       "pathMappings": [
         {
           "localRoot": "${workspaceFolder}",
-          "remoteRoot": "${localWorkspaceFolder}"
+          "remoteRoot": "${workspaceFolder}"
         }
       ],
       "justMyCode": true
-    }
+    },
+    {
+      "name": "Docker: Blender Attach",
+      "type": "python",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}",
+          "remoteRoot": "${env:LOCAL_WORKSPACE_FOLDER}"
+        }
+      ],
+      "justMyCode": true
+    },
   ]
 }

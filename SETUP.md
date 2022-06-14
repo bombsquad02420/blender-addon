@@ -4,77 +4,71 @@ Instructions for setting up the dev environment
 
 ## Pre-reqs:
 
-- VS Code with Remote Containers extension (`ms-vscode-remote.vscode-remote-extensionpack`)
-- Docker
-- Blender (I am using Flatpak)
+- VS Code
+- Blender
+- Python 3.10
+- *[optional]* Docker
+- *[optional]* Remote Containers extension for VS Code (`ms-vscode-remote.vscode-remote-extensionpack`)
 
-> NOTE: Using docker is not a strict requirement, however it will take care of doing most of the setup for you
 
-## Steps
+## Setup
 
-### Installation
+1. Clone the repo
 
-- Clone the repo
+    ```bash
+    git clone --recursive https://github.com/bombsquad02420/blender-addon.git
 
-```bash
-git clone --recursive https://github.com/bombsquad02420/blender-addon.git
+    cd blender-addon
+    ```
 
-cd blender-addon
-```
+1. Install additional modules (for Blender to use)
 
-- Install additional modules (for Blender to use)
+    > Skip this step if using Docker devcontainer
 
-```bash
-pip install --target=modules -r requirements.blender.txt
-```
+    ```bash
+    pip install --target=modules -r requirements.blender.txt
+    ```
 
-### Blender
+1. Add the repo's root folder (from STEP 1) to Blender's `script` data path. `Edit` > `Preferences` > `File Path`
 
-- Add the cloned folder (`blender-addon`) to Blender's `script` data path. `Edit` > `Preferences` > `File Path`
+    ![Blender Preferences](.github/images/setup_blenderPreferences.png)
 
-![Blender Preferences](.github/images/setup_blenderPreferences.png)
+1. Search for `debugger` in `Add-ons` panel and enable the `Debugger for VS Code` extension. Under the extension's preferences the path (from STEP 2) to `debugpy` should be auto-detected.
 
-- Search for `debugger` in `Add-ons` panel and enable the `Debugger for VS Code` extension. Under the extension's preferences the path to `debugpy` should be auto-detected.
+    ![Debugger Addon Preferences](.github/images/setup_blenderDebuggerAddonPreferences.png)
 
-![Debugger Addon Preferences](.github/images/setup_blenderDebuggerAddonPreferences.png)
+1. Make sure the port is `5678` and timeout is set to a large enough value.
 
-- Make sure the port is `5678` and timeout is set to a large enough value (in seconds)
+1. Search for debugger and start the debugger
 
-### Docker 
+    ![Blender Start Debugger](.github/images/setup_blenderStartDebugger.png)
 
-- make sure the docker daemon is running and has proper priviledges (user must be added to the docker group. sudo must not be used)
+1. Open repo in VS Code
 
-- add links
+1. Open in Container
 
-### VS Code
+    > Skip this step if not using docker / devcontainer
 
-- Open the folder in VS code and Click on open in container prompt. Wait for the setup. 
+    Make sure the docker daemon is running and has proper priviledges (user must be added to the docker group. sudo must not be used)
 
-### Blender
+    Click `Open in Container` in notification prompt
 
-- Restart Blender
+    ![VSCode Open in Container Prompt](.github/images/setup_vscOpenInContainer.png)
 
-- Search for debugger and start the debugger
+    Or use the Command Palette
 
-### VS Code
+    ![VSCode Open in Container Command Palette](.github/images/setup_vscOpenInContainerAlt.png)
 
-- open `.vscode/launch.json` and replace `${localWorkspaceFolder}` with the path from step 1
 
-```diff
-      "pathMappings": [
-        {
-          "localRoot": "${workspaceFolder}",
--          "remoteRoot": "${localWorkspaceFolder}"
-+          "remoteRoot": "/home/aryan/Projects/GitHub/bombsquad02420/blender-addon/"
-        }
-      ],
-```
+1. In VSCode's Debug Panel (`Ctrl + Shift + D`), start the debugger (`F5`) with `Python: Blender Attach` configuration (or `Docker: Blender Attach` if using docker).
 
-- In Debug Panel (`Ctrl + Shift + D`), start the debugger (`F5`).
+    ![VSCode Launch Debugger](.github/images/setup_vscLaunchDebugger.png)
 
-![](.github/images/setup_vscLaunchDebugger.png)
+1. Debug Terminal and Blender Console should show attached message
 
-- Debug Terminal will show connected message
+    ![VSCode Debugger Attached](.github/images/setup_vscDebuggerAttached.png)
+
+    ![Blender Debugger Attached](.github/images/setup_blenderDebuggerAttached.png)
 
 
 
