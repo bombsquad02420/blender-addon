@@ -2,16 +2,18 @@
 
 Instructions for setting up the dev environment
 
+[Read Original](https://github.com/bombsquad02420/blender-debugger-for-vscode)
+
 ## Pre-reqs:
 
 - VS Code
 - Blender
-- Python 3.10
-- *[optional]* Docker
-- *[optional]* Remote Containers extension for VS Code (`ms-vscode-remote.vscode-remote-extensionpack`)
+- Python 3.10<sup>[1](#ref1)</sup>
+- Docker<sup>[2](#ref2)</sup>
+- Remote Containers extension for VS Code (`ms-vscode-remote.vscode-remote-extensionpack`)<sup>[2](#ref2)</sup>
 
 
-## Setup
+## Steps
 
 1. Clone the repo
 
@@ -21,9 +23,7 @@ Instructions for setting up the dev environment
     cd blender-addon
     ```
 
-1. Install additional modules (for Blender to use)
-
-    > Skip this step if using Docker devcontainer
+1. Install additional modules (for Blender to use)<sup>[1](#ref1)</sup>
 
     ```bash
     pip install --target=modules -r requirements.blender.txt
@@ -45,9 +45,7 @@ Instructions for setting up the dev environment
 
 1. Open repo in VS Code
 
-1. Open in Container
-
-    > Skip this step if not using docker / devcontainer
+1. Open in Container<sup>[2](#ref2)</sup>
 
     Make sure the docker daemon is running and has proper priviledges (user must be added to the docker group. sudo must not be used)
 
@@ -72,3 +70,8 @@ Instructions for setting up the dev environment
 
 
 
+# Notes
+
+[1](#): Skip if using Docker Devcontainer
+
+[2](#): Skip if **not** using Docker Devcontainer
