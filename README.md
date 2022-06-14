@@ -24,4 +24,5 @@ and
 - [Alan North](https://github.com/AlansCodeLog/blender-debugger-for-vscode): VS Code debugger addon
 
 ## License
-[MIT](https://choosealicense.com/licenses/mit/)
+
+[GPL-2.0](LICENSE)
