@@ -9,6 +9,8 @@ Instructions for setting up the dev environment
 - VS Code
 - Blender
 - Python 3.10<sup>[1](#ref1)</sup>
+- Python extension for VS Code (`ms-python.python`)<sup>[1](#ref1)</sup>
+- Pylance extension for VS Code (`ms-python.vscode-pylance`)<sup>[1](#ref1)</sup>
 - Docker<sup>[2](#ref2)</sup>
 - Remote Containers extension for VS Code (`ms-vscode-remote.vscode-remote-extensionpack`)<sup>[2](#ref2)</sup>
 
@@ -23,6 +25,12 @@ Instructions for setting up the dev environment
     cd blender-addon
     ```
 
+1. Install modules for development<sup>[1](#ref1)</sup>
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
 1. Install additional modules (for Blender to use)<sup>[1](#ref1)</sup>
 
     ```bash
@@ -33,7 +41,7 @@ Instructions for setting up the dev environment
 
     ![Blender Preferences](.github/images/setup_blenderPreferences.png)
 
-1. Search for `debugger` in `Add-ons` panel and enable the `Debugger for VS Code` extension. Under the extension's preferences the path (from STEP 2) to `debugpy` should be auto-detected.
+1. Search for `debugger` in `Add-ons` panel and enable the `Debugger for VS Code` extension. Under the extension's preferences the path (from STEP 3) to `debugpy` should be auto-detected.
 
     ![Debugger Addon Preferences](.github/images/setup_blenderDebuggerAddonPreferences.png)
 
@@ -62,16 +70,24 @@ Instructions for setting up the dev environment
 
     ![VSCode Launch Debugger](.github/images/setup_vscLaunchDebugger.png)
 
-1. Debug Terminal and Blender Console should show attached message
+1. VSCode's Debug Console and Blender Console should show attached message
 
     ![VSCode Debugger Attached](.github/images/setup_vscDebuggerAttached.png)
 
     ![Blender Debugger Attached](.github/images/setup_blenderDebuggerAttached.png)
 
+# Other Stuff
 
+1. Update submodules<sup>[1](#ref1)</sup>
+
+    *TODO*
+
+1. Auto-reload Blender scripts 
+
+    *TODO*
 
 # Notes
 
-[1](#): Skip if using Docker Devcontainer
+<span id="ref1">[1](#)</span>: Skip if using Docker Devcontainer
 
-[2](#): Skip if **not** using Docker Devcontainer
+<span id="ref2">[2](#)</span>: Skip if **not** using Docker Devcontainer
