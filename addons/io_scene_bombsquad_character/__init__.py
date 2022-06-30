@@ -3,7 +3,7 @@ bl_info = {
     "description": "provides batch import-exports and character assembly",
     "author": "Aryan",
     "blender": (2, 80, 0),
-    "version": (2, 0),
+    "version": (2, 1),
     "category": "BombSquad",
     "location": "3D View > UI > Create",
     "warning": "bob_plugin must be installed and enabled",

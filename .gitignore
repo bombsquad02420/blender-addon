@@ -1,2 +1,6 @@
 # This folder is used by blender to import additional python packages
 modules
+
+# python cache
+.pyc
+__pycache__

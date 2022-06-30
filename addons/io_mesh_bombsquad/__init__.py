@@ -15,7 +15,7 @@ bl_info = {
     "name": "BOB/COB format",
     "description": "Import-Export BombSquad .bob and .cob files.",
     "author": "Mrmaxmeier, Aryan",
-    "version": (2, 6),
+    "version": (2, 7),
     "blender": (2, 80, 0),
     "location": "File > Import-Export",
     "warning": "",
