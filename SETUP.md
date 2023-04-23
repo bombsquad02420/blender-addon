@@ -8,11 +8,20 @@ Instructions for setting up the dev environment
 
 - VS Code
 - Blender
-- Python 3.10<sup>[1](#ref1)</sup>
-- Python extension for VS Code (`ms-python.python`)<sup>[1](#ref1)</sup>
-- Pylance extension for VS Code (`ms-python.vscode-pylance`)<sup>[1](#ref1)</sup>
-- Docker<sup>[2](#ref2)</sup>
-- Remote Containers extension for VS Code (`ms-vscode-remote.vscode-remote-extensionpack`)<sup>[2](#ref2)</sup>
+
+If you are not using Docker
+- Python 3.10[^1]
+- Python extension for VS Code (`ms-python.python`)[^1]
+- Pylance extension for VS Code (`ms-python.vscode-pylance`)[^1]
+
+If you are using docker
+- Docker[^2]
+- Remote Containers extension for VS Code (`ms-vscode-remote.vscode-remote-extensionpack`)[^2]
+
+[^1]:
+    Only if not using Docker
+[^2]:
+    Only if uusing Docker
 
 
 ## Steps
@@ -25,13 +34,13 @@ Instructions for setting up the dev environment
     cd blender-addon
     ```
 
-1. Install modules for development<sup>[1](#ref1)</sup>
+1. Install modules for development[^1]
 
     ```bash
     pip install -r requirements.txt
     ```
 
-1. Install additional modules (for Blender to use)<sup>[1](#ref1)</sup>
+1. Install additional modules (for Blender to use)[^1]
 
     ```bash
     pip install --target=modules -r requirements.blender.txt
@@ -53,7 +62,7 @@ Instructions for setting up the dev environment
 
 1. Open repo in VS Code
 
-1. Open in Container<sup>[2](#ref2)</sup>
+1. Open in Container[^2]
 
     Make sure the docker daemon is running and has proper priviledges (user must be added to the docker group. sudo must not be used)
 
@@ -66,7 +75,7 @@ Instructions for setting up the dev environment
     ![VSCode Open in Container Command Palette](.github/images/setup_vscOpenInContainerAlt.png)
 
 
-1. In VSCode's Debug Panel (`Ctrl + Shift + D`), start the debugger (`F5`) with `Python: Blender Attach` configuration (or `Docker: Blender Attach` if using docker).
+1. In VSCode's Debug Panel (`Ctrl + Shift + D`), start the debugger (`F5`) with `Python: Blender Attach` configuration (or `Docker: Blender Attach`).
 
     ![VSCode Launch Debugger](.github/images/setup_vscLaunchDebugger.png)
 
@@ -78,16 +87,10 @@ Instructions for setting up the dev environment
 
 # Other Stuff
 
-1. Update submodules<sup>[1](#ref1)</sup>
+1. Update submodules[^1]
 
     *TODO*
 
 1. Auto-reload Blender scripts 
 
     *TODO*
-
-# Notes
-
-<span id="ref1">[1](#)</span>: Skip if using Docker Devcontainer
-
-<span id="ref2">[2](#)</span>: Skip if **not** using Docker Devcontainer
