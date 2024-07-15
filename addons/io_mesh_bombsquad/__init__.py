@@ -15,7 +15,7 @@ bl_info = {
     "name": "BOB/COB format",
     "description": "Import-Export BombSquad .bob and .cob files.",
     "author": "Mrmaxmeier, Aryan",
-    "version": (2, 7),
+    "version": (2, 8),  
     "blender": (2, 80, 0),
     "location": "File > Import-Export",
     "warning": "",
@@ -254,15 +254,15 @@ def load(operator, context, filepath):
                 for vi, vert in enumerate(face.verts):
                     vert.normal = normal_list[vert.index]
 
-        uv_texture = mesh.uv_layers.new(name=texname.decode("ascii", "ignore"))
-        texture = None
-        if has_texture:
-            texture = bpy.data.images.load(texpath)
+        # uv_texture = mesh.uv_layers.new(name=texname.decode("ascii", "ignore"))
+        # texture = None
+        # if has_texture:
+        #     texture = bpy.data.images.load(texpath)
         #    uv_texture.data[0].image = texture
 
         with to_bmesh(mesh, save=True) as bm:
             uv_layer = bm.loops.layers.uv.verify()
-            tex_layer = bm.faces.layers.face_map.verify()
+        #   tex_layer = bm.faces.layers.face_map.verify()
             for i, face in enumerate(bm.faces):
                 for vi, vert in enumerate(face.verts):
                     uv = uv_list[vert.index]
