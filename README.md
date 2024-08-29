@@ -2,8 +2,6 @@
 
 Import-Export BombSquad's bob and cob files
 
-> **WIP**
-
 ## Installation
 
 | Blender version | Download URL                                                                            |
