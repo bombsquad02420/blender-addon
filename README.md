@@ -6,6 +6,11 @@ Import-Export BombSquad's bob and cob files
 
 ## Installation
 
+| Blender version | Download URL                                                                            |
+|:----------------|:----------------------------------------------------------------------------------------|
+| 2.79b           | https://github.com/Mrmaxmeier/BombSquad-Community-Mod-Manager/tree/master/utils/blender |
+| 2.8 - 4.2       | https://github.com/bombsquad02420/blender-addon/releases/tag/blender4.2                 |
+
 ## Usage
 
 ## Contributing
