@@ -89,8 +89,54 @@ If you are using docker
 
 1. Update submodules[^1]
 
-    *TODO*
+    ```bash
+    git submodule update --remote --merge
+    ```
 
 1. Auto-reload Blender scripts 
 
     *TODO*
+
+    ```json
+    // .vscode/tasks.json
+    {
+        "version": "2.0.0",
+        "tasks": [
+            {
+                "label": "Blender: Reload Scripts",
+                "command": "${input:blender.reloadScripts}",
+                "problemMatcher": [],
+            },
+        ],
+        "inputs": [
+            {
+                "id": "blender.reloadScripts",
+                "type": "command",
+                "command": "debugadapter-evaluate.evaluate",
+                "args": "import bpy; bpy.ops.script.reload()",
+            },
+        ],
+    }
+    ```
+
+    Preferences: Open Keyboard Shortcuts (JSON)
+
+    ```json
+    // /home/aryan/.config/Code/User/keybindings.json
+    [
+        {
+            "key": "ctrl+k t",
+            "command": "debugadapter-evaluate.evaluate",
+            "args": "import bpy; bpy.ops.script.reload()",
+        }
+    ]
+    ```
+
+    Autoatically on save (figure out how to run task (reload scripts in blender) on save)
+    
+    ```json
+    // .vscode/settings.json
+    {
+        "editor.codeActionsOnSave": {},
+    }
+    ```

@@ -13,6 +13,24 @@ Import-Export BombSquad's bob and cob files
 
 ## Contributing
 
+You can contribute to this repo with issues and PRs. Simply filing issues for problems you encounter is a great way to contribute. Contributing implementations is greatly appreciated.
+- finding typos
+- testing with multiple os/ blender versrions
+- adding useful features (discuss first)
+- reporting issues
+- fixing existing issues
+- help other with issues
+- writing docs/wiki
+- creating tutorials
+- star! fork! watch! show! tell!
+
+https://github.com/dotnet/runtime/blob/main/CONTRIBUTING.md
+https://www.coursehero.com/file/85457690/CONTRIBUTINGmd/
+
+### Reporting Issues
+
+### Contributing Changes
+
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
 Instructions for setting up dev environment can be found in [SETUP.md](./SETUP.md)
