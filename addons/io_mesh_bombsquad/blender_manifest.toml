@@ -1,0 +1,20 @@
+schema_version = "1.0.0"
+
+id = "io_mesh_bombsquad"
+version = "3.0.0"
+name = "Import/Export BombSquad models"
+tagline = "Import and export BombSquad models in the .bob and .cob file formats"
+maintainer = "aryan02420 <aryan02420@gmail.com>"
+type = "add-on"
+website = "https://github.com/bombsquad02420/blender-addon"
+tags = ["Import-Export", "Mesh"]
+blender_version_min = "4.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+copyright = [
+	"2016-2023 Mrmaxmeier",
+	"2020-2025 aryan02420",
+]
+
+[permissions]
+files = "Import/export .bob and .cob files from/to disk"

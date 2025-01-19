@@ -4,10 +4,14 @@ Import-Export BombSquad's bob and cob files
 
 ## Installation
 
-| Blender version | Download URL                                                                            |
-|:----------------|:----------------------------------------------------------------------------------------|
-| 2.79b           | https://github.com/Mrmaxmeier/BombSquad-Community-Mod-Manager/tree/master/utils/blender |
-| 2.8 - 4.2       | https://github.com/bombsquad02420/blender-addon/releases/tag/blender4.2                 |
+| Blender version |Bombsquad Version | Status        | Download URL                                                                            |
+|:----------------|:-----------------|:--------------|:----------------------------------------------------------------------------------------|
+| 2.79b           | >=1.4            | Unmaintained  | https://github.com/Mrmaxmeier/BombSquad-Community-Mod-Manager/tree/master/utils/blender |
+| >=2.80          | >=1.4            | Supported     | https://github.com/bombsquad02420/blender-addon/releases/tag/blender4.2                 |
+| >=4.2           | >=2.0            | Experimental  | https://extensions.blender.org/add-ons/io-mesh-bombsquad/                               |
+
+> [!NOTE]  
+> other versions of blender and bombsquad may be supported.
 
 ## Usage
 
@@ -28,4 +32,4 @@ and
 
 ## License
 
-[GPL-2.0](LICENSE)
+[GNU General Public License v3.0](LICENSE)
