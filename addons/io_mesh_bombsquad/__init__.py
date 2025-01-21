@@ -173,58 +173,15 @@ def load(operator, context, filepath):
 
 
 def save(operator, context, filepath, triangulate, check_existing):
-    print("exporting", filepath)
-    global_matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
     scene = context.scene
     obj = bpy.context.active_object
     mesh = obj.to_mesh()
-    mesh.transform(global_matrix @ obj.matrix_world)  # inverse transformation
-
-    with to_bmesh(mesh) as bm:
-        triangulate = triangulate or any([len(face.verts) != 3 for face in bm.faces])
-    if triangulate or any([len(face.vertices) != 3 for face in mesh.loop_triangles]):
-        print("triangulating...")
-        with to_bmesh(mesh, save=True) as bm:
-            bmesh.ops.triangulate(bm, faces=bm.faces)
-        mesh.update(calc_edges=True)
 
     filepath = os.fsencode(filepath)
 
     with open(filepath, 'wb') as file:
-        verts = Verts()
-        faces = []
-        with to_bmesh(mesh) as bm:
-            uv_layer = None
-            if len(bm.loops.layers.uv) > 0:
-                uv_layer = bm.loops.layers.uv[0]
-            for i, face in enumerate(bm.faces):
-                faceverts = []
-                for vi, vert in enumerate(face.verts):
-                    uv = face.loops[vi][uv_layer].uv if uv_layer else None
-                    v = verts.get(coords=vert.co, normal=vert.normal, uv=uv, blender_index=vert.index)
-                    faceverts.append(v)
-                faces.append(faceverts)
-
-            print("verts: {} [best: {}, worst: {}]".format(len(verts), len(mesh.vertices), len(faces) * 3))
-            print("faces:", len(faces))
-            writestruct('I', len(verts))
-            writestruct('I', len(faces))
-
-            for vert in verts:
-                writestruct('fff', *vert.coords)
-                if vert.uv:
-                    uv = vert.uv
-                    writestruct('HH', int(clamp(uv[0]) * 65535), int((1 - clamp(uv[1])) * 65535))
-                else:
-                    writestruct('HH', 0, 0)
-                normal = tuple(map(lambda n: int(clamp(n, -1, 1) * 32767), vert.normal))
-                writestruct('hhh', *normal)
-                writestruct('xx')
-
-            for face in faces:
-                assert len(face) == 3
-                for vert in face:
-                    writestruct('H', vert.index)
+        bob_data = bob.from_mesh(mesh)
+        bob.serialize(bob_data, file)
 
     return {'FINISHED'}
 

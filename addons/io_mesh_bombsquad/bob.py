@@ -104,7 +104,22 @@ def to_mesh(mesh, bob_data):
 
 	return mesh
 
-def from_mesh():
+
+def _find_index(lst, ref_item, comparator):
+	for i, item in enumerate(lst):
+		if comparator(ref_item, item):
+			return i
+	return -1
+
+
+def _is_same_vertex(vert1, vert2):
+	is_same_pos = (vert1["pos"] - vert2["pos"]).length < 0.001
+	is_same_norm = (vert1["norm"] - vert2["norm"]).length < 0.001
+	is_same_uv = (vert1["uv"] - vert2["uv"]).length < 0.001
+	return is_same_pos and is_same_norm and is_same_uv
+
+
+def from_mesh(mesh):
 	"""
 	.bob only supports faces with exactly 3 vertices,
 	so we need to triangulate our mesh first.
@@ -127,6 +142,9 @@ def from_mesh():
 	bm.from_mesh(mesh)
 	bm.faces.ensure_lookup_table()
 
+	matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
+	bm.transform(matrix)
+
 	bmesh.ops.triangulate(bm, faces=bm.faces)
 
 	uv_layer = None
@@ -136,8 +154,17 @@ def from_mesh():
 		faceverts = []
 		for vi, vert in enumerate(face.verts):
 			uv = face.loops[vi][uv_layer].uv if uv_layer else (0, 0)
-			v = verts.get(coords=vert.co, normal=vert.normal, uv=uv, blender_index=vert.index)
-			faceverts.append(v)
+			current_vertex = {
+				"pos": vert.co,
+				"uv":  uv,
+				"norm": vert.normal,
+			}
+			index = _find_index(vertices, current_vertex, _is_same_vertex)
+			if index == -1:
+				vertices.append(current_vertex)
+				faceverts.append(len(vertices) - 1)
+			else:
+				faceverts.append(index)
 		faces.append({
 			"indices": faceverts
 		})
@@ -145,7 +172,11 @@ def from_mesh():
 	bm.free()
 
 	return {
-		"vertices": vertices,
+		"vertices": [{
+			"pos": vertex["pos"],
+			"uv": (int(vertex["uv"][0] * 65535), int((1 - vertex["uv"][1]) * 65535)),
+			"norm": tuple(map(lambda n: int(n * 32767), vertex["norm"])),
+		} for vertex in vertices],
 		"faces": faces,
 	}
 
@@ -173,6 +204,7 @@ def serialize(data, file):
 		writestruct('<HHH' if meshFormat == 1 else '<III', face["indices"][0], face["indices"][1], face["indices"][2])
 
 	return
+
 
 def deserialize(file):
 	def readstruct(s):
