@@ -167,10 +167,10 @@ def menu_func_export_leveldefs(self, context):
 def load(operator, context, filepath):
     filepath = os.fsencode(filepath)
     with open(filepath, 'rb') as file:
-        bob_data = bob.deserialize_bob(file)
+        bob_data = bob.deserialize(file)
         bob_name = bpy.path.display_name_from_filepath(filepath)
         mesh = bpy.data.meshes.new(name=bob_name)
-        return bob.bob_to_mesh(mesh=mesh, bob_data=bob_data)
+        return bob.to_mesh(mesh=mesh, bob_data=bob_data)
 
 
 def save(operator, context, filepath, triangulate, check_existing):

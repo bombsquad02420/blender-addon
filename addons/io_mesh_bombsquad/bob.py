@@ -68,7 +68,7 @@ struct VertexObjectFull {
 
 """
 
-def bob_to_mesh(mesh, bob_data):
+def to_mesh(mesh, bob_data):
 	verts = [vert["pos"] for vert in bob_data["vertices"]]
 	faces = [face["indices"] for face in bob_data["faces"]]
 	mesh.from_pydata(verts, [], faces)
@@ -101,7 +101,7 @@ def bob_to_mesh(mesh, bob_data):
 
 	return mesh
 
-def mesh_to_bob():
+def from_mesh():
 	"""
 	.bob only supports faces with exactly 3 vertices,
 	so we need to triangulate our mesh first.
@@ -147,7 +147,7 @@ def mesh_to_bob():
 	}
 
 
-def serialize_bob(data, file):
+def serialize(data, file):
 	def writestruct(s, *args):
 		file.write(struct.pack(s, *args))
 
@@ -171,7 +171,7 @@ def serialize_bob(data, file):
 
 	return
 
-def deserialize_bob(file):
+def deserialize(file):
 	def readstruct(s):
 		tup = struct.unpack(s, file.read(struct.calcsize(s)))
 		return tup[0] if len(tup) == 1 else tup
