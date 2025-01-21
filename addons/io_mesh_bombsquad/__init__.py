@@ -1,16 +1,18 @@
 import os
 import bpy
 import bmesh
-import struct
+import bpy_extras
 import math
 from mathutils import Vector
 
 from contextlib import contextmanager
 from collections import defaultdict
 
+from . import bob
+
 bl_info = {
     "name": "Import/Export BombSquad models",
-    "description": "Import and export BombSquad models in the .bob and .cob file formats",
+    "description": "Import and export BombSquad models in the .bob and .cob formats",
     "author": "Mrmaxmeier, aryan02420",
     "version": (3, 0),  
     "blender": (4, 2, 0),
@@ -164,83 +166,11 @@ def menu_func_export_leveldefs(self, context):
 
 def load(operator, context, filepath):
     filepath = os.fsencode(filepath)
-    bs_dir = os.path.dirname(os.path.dirname(filepath))
-    texname = os.path.basename(filepath).rstrip(b".bob") + b".dds"
-    texpath = os.path.join(bs_dir, b"textures", texname)
-    print(texpath)
-    has_texture = os.path.isfile(texpath)
-    print("texture file found:", has_texture)
-
     with open(filepath, 'rb') as file:
-        def readstruct(s):
-            tup = struct.unpack(s, file.read(struct.calcsize(s)))
-            return tup[0] if len(tup) == 1 else tup
-
-        assert readstruct("I") == BOB_FILE_ID
-        meshFormat = readstruct("I")
-        assert meshFormat in [0, 1]
-
-        vertexCount = readstruct("I")
-        faceCount = readstruct("I")
-
-        verts = []
-        faces = []
-        edges = []
-        indices = []
-        uv_list = []
-        normal_list = []
-
-        for i in range(vertexCount):
-            vertexObj = readstruct("fff HH hhh xx")
-            position = (vertexObj[0], vertexObj[1], vertexObj[2])
-            uv = (vertexObj[3] / 65535, vertexObj[4] / 65535)
-            normal = (vertexObj[5] / 32767, vertexObj[6] / 32767, vertexObj[7] / 32767)
-            verts.append(position)
-            uv_list.append(uv)
-            normal_list.append(normal)
-
-        for i in range(faceCount * 3):
-            if meshFormat == 0:
-                # MESH_FORMAT_UV16_N8_INDEX8
-                indices.append(readstruct("b"))
-            elif meshFormat == 1:
-                # MESH_FORMAT_UV16_N8_INDEX16
-                indices.append(readstruct("H"))
-
-        for i in range(faceCount):
-            faces.append((indices[i * 3], indices[i * 3 + 1], indices[i * 3 + 2]))
-
+        bob_data = bob.deserialize_bob(file)
         bob_name = bpy.path.display_name_from_filepath(filepath)
         mesh = bpy.data.meshes.new(name=bob_name)
-        mesh.from_pydata(verts, edges, faces)
-
-        with to_bmesh(mesh, save=True) as bm:
-            for i, face in enumerate(bm.faces):
-                for vi, vert in enumerate(face.verts):
-                    vert.normal = normal_list[vert.index]
-
-        # uv_texture = mesh.uv_layers.new(name=texname.decode("ascii", "ignore"))
-        # texture = None
-        # if has_texture:
-        #     texture = bpy.data.images.load(texpath)
-        #    uv_texture.data[0].image = texture
-
-        with to_bmesh(mesh, save=True) as bm:
-            uv_layer = bm.loops.layers.uv.verify()
-        #   tex_layer = bm.faces.layers.face_map.verify()
-            for i, face in enumerate(bm.faces):
-                for vi, vert in enumerate(face.verts):
-                    uv = uv_list[vert.index]
-                    uv = (uv[0], 1 - uv[1])
-                    face.loops[vi][uv_layer].uv = uv
-        #            if texture:
-        #                face[tex_layer].image = texture
-
-        mesh.validate()
-        mesh.update()
-
-        return mesh
-
+        return bob.bob_to_mesh(mesh=mesh, bob_data=bob_data)
 
 
 def save(operator, context, filepath, triangulate, check_existing):
@@ -262,13 +192,6 @@ def save(operator, context, filepath, triangulate, check_existing):
     filepath = os.fsencode(filepath)
 
     with open(filepath, 'wb') as file:
-
-        def writestruct(s, *args):
-            file.write(struct.pack(s, *args))
-
-        writestruct('I', BOB_FILE_ID)
-        writestruct('I', 1)  # MESH_FORMAT_UV16_N8_INDEX16
-
         verts = Verts()
         faces = []
         with to_bmesh(mesh) as bm:
@@ -527,32 +450,39 @@ classes = (
     IMPORT_MESH_OT_bombsquad_cob,
     EXPORT_MESH_OT_bombsquad_cob,
     IMPORT_SCENE_OT_bombsquad_leveldefs,
-    EXPORT_SCENE_OT_bombsquad_leveldefs
+    EXPORT_SCENE_OT_bombsquad_leveldefs,
+)
+
+import_funcs = (
+    menu_func_import_bob,
+    menu_func_import_cob,
+    menu_func_import_leveldefs,
+)
+
+export_funcs = (
+    menu_func_export_bob,
+    menu_func_export_cob,
+    menu_func_export_leveldefs,
 )
 
 def register():
     from bpy.utils import register_class
     for cls in classes:
         register_class(cls)
-    bpy.types.TOPBAR_MT_file_import.append(menu_func_import_bob)
-    bpy.types.TOPBAR_MT_file_export.append(menu_func_export_bob)
-    bpy.types.TOPBAR_MT_file_import.append(menu_func_import_cob)
-    bpy.types.TOPBAR_MT_file_export.append(menu_func_export_cob)
-    bpy.types.TOPBAR_MT_file_import.append(menu_func_import_leveldefs)
-    bpy.types.TOPBAR_MT_file_export.append(menu_func_export_leveldefs)
+    for import_func in import_funcs:
+        bpy.types.TOPBAR_MT_file_import.append(import_func)
+    for export_func in export_funcs:
+        bpy.types.TOPBAR_MT_file_export.append(export_func)
 
 
 def unregister():
     from bpy.utils import unregister_class
+    for export_func in reversed(export_funcs):
+        bpy.types.TOPBAR_MT_file_export.remove(export_func)
+    for import_func in reversed(import_funcs):
+        bpy.types.TOPBAR_MT_file_import.remove(import_func)
     for cls in reversed(classes):
         unregister_class(cls)
-    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_bob)
-    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_bob)
-    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_cob)
-    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_cob)
-    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_leveldefs)
-    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_leveldefs)
-
 
 if __name__ == "__main__":
     register()
