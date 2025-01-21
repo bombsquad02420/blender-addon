@@ -1,6 +1,6 @@
 import struct
-import bpy
 import bmesh
+import bpy_extras
 
 # import to mesh.py
 # export to bob
@@ -92,6 +92,9 @@ def to_mesh(mesh, bob_data):
 			uv = bob_data["vertices"][faces[i][vi]]["uv"]
 			uv = (uv[0] / 65535, 1 - uv[1] / 65535)
 			face.loops[vi][uv_layer].uv = uv
+
+	matrix = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up='Y').to_4x4()
+	bm.transform(matrix)
 
 	bm.to_mesh(mesh)
 	bm.free()

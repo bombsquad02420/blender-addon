@@ -64,7 +64,6 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
         bpy.ops.object.select_all(action='DESELECT')
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
-        obj.matrix_world = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up='Y').to_4x4()
         bpy.context.view_layer.update()
         return {'FINISHED'}
 
