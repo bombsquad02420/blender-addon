@@ -36,10 +36,27 @@ def to_bmesh(mesh, save=False):
         del bm
 
 
-def clamp(val, minimum=0, maximum=1):
-    if max(min(val, maximum), minimum) != val:
-        print("clamped", val, "to", max(min(val, maximum), minimum))
-    return max(min(val, maximum), minimum)
+def load(operator, context, filepath):
+    filepath = os.fsencode(filepath)
+    with open(filepath, 'rb') as file:
+        bob_data = bob.deserialize(file)
+        bob_name = bpy.path.display_name_from_filepath(filepath)
+        mesh = bpy.data.meshes.new(name=bob_name)
+        return bob.to_mesh(mesh=mesh, bob_data=bob_data)
+
+
+def save(operator, context, filepath, triangulate, check_existing):
+    scene = context.scene
+    obj = bpy.context.active_object
+    mesh = obj.to_mesh()
+
+    filepath = os.fsencode(filepath)
+
+    with open(filepath, 'wb') as file:
+        bob_data = bob.from_mesh(mesh)
+        bob.serialize(bob_data, file)
+
+    return {'FINISHED'}
 
 
 class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
@@ -153,37 +170,6 @@ def menu_func_import_cob(self, context):
 
 def menu_func_export_cob(self, context):
     self.layout.operator(EXPORT_MESH_OT_bombsquad_cob.bl_idname, text="Bombsquad Collision Mesh (.cob)")
-
-
-def menu_func_import_leveldefs(self, context):
-    self.layout.operator(IMPORT_SCENE_OT_bombsquad_leveldefs.bl_idname, text="Bombsquad Level Definitions (.json)")
-
-
-def menu_func_export_leveldefs(self, context):
-    self.layout.operator(EXPORT_SCENE_OT_bombsquad_leveldefs.bl_idname, text="Bombsquad Level Definitions (.json)")
-
-
-def load(operator, context, filepath):
-    filepath = os.fsencode(filepath)
-    with open(filepath, 'rb') as file:
-        bob_data = bob.deserialize(file)
-        bob_name = bpy.path.display_name_from_filepath(filepath)
-        mesh = bpy.data.meshes.new(name=bob_name)
-        return bob.to_mesh(mesh=mesh, bob_data=bob_data)
-
-
-def save(operator, context, filepath, triangulate, check_existing):
-    scene = context.scene
-    obj = bpy.context.active_object
-    mesh = obj.to_mesh()
-
-    filepath = os.fsencode(filepath)
-
-    with open(filepath, 'wb') as file:
-        bob_data = bob.from_mesh(mesh)
-        bob.serialize(bob_data, file)
-
-    return {'FINISHED'}
 
 
 def loadcob(operator, context, filepath):
@@ -398,6 +384,14 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
                 file.write(" + (0, 0, 0) + {}\n".format(v_to_str(scale, isScale=True)))
 
         return {'FINISHED'}
+
+
+def menu_func_import_leveldefs(self, context):
+    self.layout.operator(IMPORT_SCENE_OT_bombsquad_leveldefs.bl_idname, text="Bombsquad Level Definitions (.json)")
+
+
+def menu_func_export_leveldefs(self, context):
+    self.layout.operator(EXPORT_SCENE_OT_bombsquad_leveldefs.bl_idname, text="Bombsquad Level Definitions (.json)")
 
 
 classes = (
