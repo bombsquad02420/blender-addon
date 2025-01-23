@@ -2,6 +2,8 @@ import struct
 import bmesh
 import bpy_extras
 
+from . import utils
+
 # import to mesh.py
 # export to bob
 
@@ -81,16 +83,19 @@ def to_mesh(mesh, bob_data):
 		for vi, vert in enumerate(face.verts):
 			normal = bob_data["vertices"][faces[i][vi]]["norm"]
 			vert.normal = (
-				normal[0] / 32767,
-				normal[1] / 32767,
-				normal[2] / 32767,
+				utils.map_range(normal[0], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True),
+				utils.map_range(normal[1], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True),
+				utils.map_range(normal[2], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True),
 			)
 
 	uv_layer = bm.loops.layers.uv.verify()
 	for i, face in enumerate(bm.faces):
 		for vi, vert in enumerate(face.verts):
 			uv = bob_data["vertices"][faces[i][vi]]["uv"]
-			uv = (uv[0] / 65535, 1 - uv[1] / 65535)
+			uv = (
+				utils.map_range(uv[0], from_start=0, from_end=65535, to_start=0, to_end=1, clamp=True),
+				utils.map_range(uv[1], from_start=0, from_end=65535, to_start=1, to_end=0, clamp=True),
+			)
 			face.loops[vi][uv_layer].uv = uv
 
 	matrix = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up='Y').to_4x4()
@@ -131,7 +136,7 @@ def from_mesh(mesh):
 	since the same vertex can have different uv coordinates in different faces.
 	To work around this limitation,
 	we create a new vertex whenever we encounter a vertex with different uv coordinates.
-	This is also call "Rip Vertex" in blender,
+	This is also call "Rip Vertex" or "Split Edge" in blender,
 	but here we implement it manually.
 	"""
 
@@ -174,8 +179,15 @@ def from_mesh(mesh):
 	return {
 		"vertices": [{
 			"pos": vertex["pos"],
-			"uv": (int(vertex["uv"][0] * 65535), int((1 - vertex["uv"][1]) * 65535)),
-			"norm": tuple(map(lambda n: int(n * 32767), vertex["norm"])),
+			"uv": (
+				utils.map_range(vertex["uv"][0], from_start=0, from_end=1, to_start=0, to_end=65535, clamp=True, cast_to_int=True),
+				utils.map_range(vertex["uv"][1], from_start=1, from_end=0, to_start=0, to_end=65535, clamp=True, cast_to_int=True),
+			),
+			"norm": (
+				utils.map_range(vertex["norm"][0], from_start=-1, from_end=1, to_start=-32767, to_end=32767, clamp=True, cast_to_int=True),
+				utils.map_range(vertex["norm"][1], from_start=-1, from_end=1, to_start=-32767, to_end=32767, clamp=True, cast_to_int=True),
+				utils.map_range(vertex["norm"][2], from_start=-1, from_end=1, to_start=-32767, to_end=32767, clamp=True, cast_to_int=True),
+			),
 		} for vertex in vertices],
 		"faces": faces,
 	}
