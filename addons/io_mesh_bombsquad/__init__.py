@@ -14,7 +14,7 @@ bl_info = {
     "name": "Import/Export BombSquad models",
     "description": "Import and export BombSquad models in the .bob and .cob formats",
     "author": "Mrmaxmeier, aryan02420",
-    "version": (3, 0),  
+    "version": (3, 0),
     "blender": (4, 2, 0),
     "location": "File > Import-Export",
     "warning": "",
@@ -45,7 +45,7 @@ def load(operator, context, filepath):
         return bob.to_mesh(mesh=mesh, bob_data=bob_data)
 
 
-def save(operator, context, filepath, triangulate, check_existing):
+def save(operator, context, filepath):
     scene = context.scene
     obj = bpy.context.active_object
     mesh = obj.to_mesh()
@@ -100,18 +100,16 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
     check_extension = True
     filename_ext = ".bob"
 
-    triangulate: bpy.props.BoolProperty(
-        name="Force Triangulation",
-        description="force triangulation of .bob files",
-        default=False,
-    )
-
     @classmethod
     def poll(cls, context):
         return context.active_object is not None
 
     def execute(self, context):
-        keywords = self.as_keywords(ignore=('filter_glob',))
+        keywords = self.as_keywords(ignore=(
+            "check_existing",
+            'filter_glob',
+        ))
+        print(self.as_keywords())
         return save(self, context, **keywords)
 
 
