@@ -83,9 +83,9 @@ def to_mesh(mesh, bob_data):
 		for vi, vert in enumerate(face.verts):
 			normal = bob_data["vertices"][faces[i][vi]]["norm"]
 			vert.normal = (
-				utils.map_range(normal[0], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True),
-				utils.map_range(normal[1], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True),
-				utils.map_range(normal[2], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True),
+				utils.map_range(normal[0], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True, precision=6),
+				utils.map_range(normal[1], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True, precision=6),
+				utils.map_range(normal[2], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True, precision=6),
 			)
 
 	uv_layer = bm.loops.layers.uv.verify()
@@ -93,8 +93,8 @@ def to_mesh(mesh, bob_data):
 		for vi, vert in enumerate(face.verts):
 			uv = bob_data["vertices"][faces[i][vi]]["uv"]
 			uv = (
-				utils.map_range(uv[0], from_start=0, from_end=65535, to_start=0, to_end=1, clamp=True),
-				utils.map_range(uv[1], from_start=0, from_end=65535, to_start=1, to_end=0, clamp=True),
+				utils.map_range(uv[0], from_start=0, from_end=65535, to_start=0, to_end=1, clamp=True, precision=6),
+				utils.map_range(uv[1], from_start=0, from_end=65535, to_start=1, to_end=0, clamp=True, precision=6),
 			)
 			face.loops[vi][uv_layer].uv = uv
 
@@ -180,13 +180,13 @@ def from_mesh(mesh):
 		"vertices": [{
 			"pos": vertex["pos"],
 			"uv": (
-				utils.map_range(vertex["uv"][0], from_start=0, from_end=1, to_start=0, to_end=65535, clamp=True, cast_to_int=True),
-				utils.map_range(vertex["uv"][1], from_start=1, from_end=0, to_start=0, to_end=65535, clamp=True, cast_to_int=True),
+				utils.map_range(vertex["uv"][0], from_start=0, from_end=1, to_start=0, to_end=65535, clamp=True, precision=0),
+				utils.map_range(vertex["uv"][1], from_start=1, from_end=0, to_start=0, to_end=65535, clamp=True, precision=0),
 			),
 			"norm": (
-				utils.map_range(vertex["norm"][0], from_start=-1, from_end=1, to_start=-32767, to_end=32767, clamp=True, cast_to_int=True),
-				utils.map_range(vertex["norm"][1], from_start=-1, from_end=1, to_start=-32767, to_end=32767, clamp=True, cast_to_int=True),
-				utils.map_range(vertex["norm"][2], from_start=-1, from_end=1, to_start=-32767, to_end=32767, clamp=True, cast_to_int=True),
+				utils.map_range(vertex["norm"][0], from_start=-1, from_end=1, to_start=-32767, to_end=32767, clamp=True, precision=0),
+				utils.map_range(vertex["norm"][1], from_start=-1, from_end=1, to_start=-32767, to_end=32767, clamp=True, precision=0),
+				utils.map_range(vertex["norm"][2], from_start=-1, from_end=1, to_start=-32767, to_end=32767, clamp=True, precision=0),
 			),
 		} for vertex in vertices],
 		"faces": faces,
