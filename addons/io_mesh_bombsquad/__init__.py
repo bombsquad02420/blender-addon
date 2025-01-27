@@ -107,6 +107,19 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
         return save(self, context, **keywords)
 
 
+class IO_FH_bombsquad_bob(bpy.types.FileHandler):
+    bl_idname = "IO_FH_bombsquad_bob"
+    bl_label = "BombSquad Mesh"
+    bl_import_operator = "import_mesh.bombsquad_bob"
+    bl_export_operator = "export_mesh.bombsquad_bob"
+    bl_file_extensions = ".bob"
+
+    @classmethod
+    def poll_drop(cls, context):
+        # drop sohuld only be allowed in 3d view and outliner
+        return bpy_extras.io_utils.poll_file_object_drop(context)
+
+
 def menu_func_import_bob(self, context):
     self.layout.operator(IMPORT_MESH_OT_bombsquad_bob.bl_idname, text="Bombsquad Mesh (.bob)")
 
@@ -397,6 +410,7 @@ def menu_func_export_leveldefs(self, context):
 classes = (
     IMPORT_MESH_OT_bombsquad_bob,
     EXPORT_MESH_OT_bombsquad_bob,
+    IO_FH_bombsquad_bob,
     IMPORT_MESH_OT_bombsquad_cob,
     EXPORT_MESH_OT_bombsquad_cob,
     IMPORT_SCENE_OT_bombsquad_leveldefs,
