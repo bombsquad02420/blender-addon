@@ -63,6 +63,8 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
     """Load an Bombsquad Mesh file"""
     bl_idname = "import_mesh.bombsquad_bob"
     bl_label = "Import Bombsquad Mesh"
+    bl_options = {'REGISTER', 'UNDO'}
+
     filename_ext = ".bob"
     filter_glob: bpy.props.StringProperty(
         default="*.bob",
@@ -89,6 +91,8 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
     """Save an Bombsquad Mesh file"""
     bl_idname = "export_mesh.bombsquad_bob"
     bl_label = "Export Bombsquad Mesh"
+    bl_options = {'REGISTER'}
+
     filter_glob: bpy.props.StringProperty(
         default="*.bob",
         options={'HIDDEN'},
@@ -101,6 +105,10 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
         description="force triangulation of .bob files",
         default=False,
     )
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
 
     def execute(self, context):
         keywords = self.as_keywords(ignore=('filter_glob',))
