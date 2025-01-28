@@ -4,8 +4,6 @@ import bpy_extras
 
 from . import utils
 
-# import to mesh.py
-# export to bob
 
 BOB_FILE_ID = 45623
 

@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from collections import defaultdict
 
 from . import bob
+from . import cob
 
 bl_info = {
     "name": "Import/Export BombSquad models",
@@ -37,7 +38,7 @@ def to_bmesh(mesh, save=False):
 
 
 class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
-    """Load an Bombsquad Mesh file"""
+    """Load a Bombsquad Mesh file"""
     bl_idname = "import_mesh.bombsquad_bob"
     bl_label = "Import Bombsquad Mesh"
     bl_options = {'REGISTER', 'UNDO', 'PRESET'}
@@ -73,7 +74,7 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 
 
 class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
-    """Save an Bombsquad Mesh file"""
+    """Save a Bombsquad Mesh file"""
     bl_idname = "export_mesh.bombsquad_bob"
     bl_label = "Export Bombsquad Mesh"
     bl_options = {'REGISTER', 'PRESET'}
@@ -100,7 +101,6 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
             'check_existing',
             'filter_glob',
         ))
-        print(self.as_keywords())
         return self.export_bob(context, **keywords)
 
     def export_bob(self, context, filepath,
@@ -143,9 +143,11 @@ def menu_func_export_bob(self, context):
 
 
 class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
-    """Load an Bombsquad Collision Mesh"""
+    """Load a Bombsquad Collision Mesh"""
     bl_idname = "import_mesh.bombsquad_cob"
     bl_label = "Import Bombsquad Collision Mesh"
+    bl_options = {'REGISTER', 'UNDO', 'PRESET'}
+
     filename_ext = ".cob"
     filter_glob: bpy.props.StringProperty(
         default="*.cob",
@@ -154,7 +156,7 @@ class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Impor
 
     def execute(self, context):
         keywords = self.as_keywords(ignore=('filter_glob',))
-        mesh = loadcob(self, context, **keywords)
+        mesh = self.import_cob(context, **keywords)
         if not mesh:
             return {'CANCELLED'}
 
@@ -164,15 +166,25 @@ class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Impor
         bpy.ops.object.select_all(action='DESELECT')
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
-        obj.matrix_world = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up='Y').to_4x4()
         bpy.context.view_layer.update()
         return {'FINISHED'}
 
+    def import_cob(self, context, filepath):
+        filepath = os.fsencode(filepath)
+        with open(filepath, 'rb') as file:
+            cob_data = cob.deserialize(file)
+            print(cob_data)
+            cob_name = bpy.path.display_name_from_filepath(filepath)
+            mesh = bpy.data.meshes.new(name=cob_name)
+            return cob.to_mesh(mesh=mesh, cob_data=cob_data)
+
 
 class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
-    """Save an Bombsquad Collision Mesh file"""
+    """Save a Bombsquad Collision Mesh file"""
     bl_idname = "export_mesh.bombsquad_cob"
     bl_label = "Export Bombsquad Collision Mesh"
+    bl_options = {'REGISTER', 'PRESET'}
+
     filter_glob: bpy.props.StringProperty(
         default="*.cob",
         options={'HIDDEN'},
@@ -180,15 +192,52 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
     check_extension = True
     filename_ext = ".cob"
 
-    triangulate: bpy.props.BoolProperty(
-        name="Force Triangulation",
-        description="force triangulation of .cob files",
-        default=True,
+    apply_object_transformations: bpy.props.BoolProperty(
+        name="Apply Object Transformations",
+        description="",
+        default=False,
     )
 
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
     def execute(self, context):
-        keywords = self.as_keywords(ignore=('filter_glob',))
-        return savecob(self, context, **keywords)
+        keywords = self.as_keywords(ignore=(
+            'check_existing',
+            'filter_glob',
+        ))
+        return self.export_cob(context, **keywords)
+
+    def export_cob(self, context, filepath,
+            apply_object_transformations):
+        scene = context.scene
+        obj = bpy.context.active_object
+        mesh = obj.to_mesh()
+
+        if apply_object_transformations:
+            mesh.transform(obj.matrix_world)
+
+        filepath = os.fsencode(filepath)
+
+        with open(filepath, 'wb') as file:
+            cob_data = cob.from_mesh(mesh)
+            cob.serialize(cob_data, file)
+
+        return {'FINISHED'}
+
+
+class IO_FH_bombsquad_cob(bpy.types.FileHandler):
+    bl_idname = "IO_FH_bombsquad_cob"
+    bl_label = "BombSquad Collision Mesh"
+    bl_import_operator = "import_mesh.bombsquad_cob"
+    bl_export_operator = "export_mesh.bombsquad_cob"
+    bl_file_extensions = ".cob"
+
+    @classmethod
+    def poll_drop(cls, context):
+        # drop sohuld only be allowed in 3d view and outliner
+        return bpy_extras.io_utils.poll_file_object_drop(context)
 
 
 def menu_func_import_cob(self, context):
@@ -197,94 +246,6 @@ def menu_func_import_cob(self, context):
 
 def menu_func_export_cob(self, context):
     self.layout.operator(EXPORT_MESH_OT_bombsquad_cob.bl_idname, text="Bombsquad Collision Mesh (.cob)")
-
-
-def loadcob(operator, context, filepath):
-    with open(os.fsencode(filepath), 'rb') as file:
-        def readstruct(s):
-            tup = struct.unpack(s, file.read(struct.calcsize(s)))
-            return tup[0] if len(tup) == 1 else tup
-
-        assert readstruct("I") == COB_FILE_ID
-
-        vertexCount = readstruct("I")
-        faceCount = readstruct("I")
-
-        verts = []
-        faces = []
-        edges = []
-        indices = []
-
-        for i in range(vertexCount):
-            vertexObj = readstruct("fff")
-            position = (vertexObj[0], vertexObj[1], vertexObj[2])
-            verts.append(position)
-
-        for i in range(faceCount * 3):
-            indices.append(readstruct("I"))
-
-        for i in range(faceCount):
-            faces.append((indices[i * 3], indices[i * 3 + 1], indices[i * 3 + 2]))
-
-        bob_name = bpy.path.display_name_from_filepath(filepath)
-        mesh = bpy.data.meshes.new(name=bob_name)
-        mesh.from_pydata(verts, edges, faces)
-
-        mesh.validate()
-        mesh.update()
-
-        return mesh
-
-
-def savecob(operator, context, filepath, triangulate, check_existing):
-    print("exporting", filepath)
-    global_matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
-    scene = context.scene
-    obj = bpy.context.active_object
-    mesh = obj.to_mesh()
-    mesh.transform(global_matrix @ obj.matrix_world)  # inverse transformation
-    mesh.calc_loop_triangles();
-
-    with to_bmesh(mesh) as bm:
-        triangulate = triangulate or any([len(face.verts) != 3 for face in bm.faces])
-    if triangulate or any([len(face.vertices) != 3 for face in mesh.loop_triangles]):
-        print("triangulating...")
-        with to_bmesh(mesh, save=True) as bm:
-            bmesh.ops.triangulate(bm, faces=bm.faces)
-        mesh.update(calc_edges=True)
-
-    with open(os.fsencode(filepath), 'wb') as file:
-
-        def writestruct(s, *args):
-            file.write(struct.pack(s, *args))
-
-        writestruct('I', COB_FILE_ID)
-        writestruct('I', len(mesh.vertices))
-
-        faceVerts = []
-        faceNormal = []
-        with to_bmesh(mesh) as bm:
-            for i, face in enumerate(bm.faces):
-                for vi, vert in enumerate(face.verts):
-                    faceVerts.append(vert.index)
-                faceNormal.append(face.normal)
-
-        writestruct('I', int(len(faceVerts)/3))
-
-        for i, vert in enumerate(mesh.vertices):
-            writestruct('fff', *vert.co)
-            print(*vert.co)
-
-
-        for vertid in faceVerts:
-            writestruct('I', vertid)
-
-        for norm in faceNormal:
-            writestruct('fff', *norm)
-
-        print('finished')
-
-    return {'FINISHED'}
 
 
 def flpV(vector):
@@ -427,6 +388,7 @@ classes = (
     IO_FH_bombsquad_bob,
     IMPORT_MESH_OT_bombsquad_cob,
     EXPORT_MESH_OT_bombsquad_cob,
+    IO_FH_bombsquad_cob,
     IMPORT_SCENE_OT_bombsquad_leveldefs,
     EXPORT_SCENE_OT_bombsquad_leveldefs,
 )
