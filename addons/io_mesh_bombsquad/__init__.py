@@ -40,7 +40,7 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
     """Load an Bombsquad Mesh file"""
     bl_idname = "import_mesh.bombsquad_bob"
     bl_label = "Import Bombsquad Mesh"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
     filename_ext = ".bob"
     filter_glob: bpy.props.StringProperty(
@@ -76,7 +76,7 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
     """Save an Bombsquad Mesh file"""
     bl_idname = "export_mesh.bombsquad_bob"
     bl_label = "Export Bombsquad Mesh"
-    bl_options = {'REGISTER'}
+    bl_options = {'REGISTER', 'PRESET'}
 
     filter_glob: bpy.props.StringProperty(
         default="*.bob",
@@ -85,22 +85,32 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
     check_extension = True
     filename_ext = ".bob"
 
+    apply_object_transformations: bpy.props.BoolProperty(
+        name="Apply Object Transformations",
+        description="",
+        default=False,
+    )
+
     @classmethod
     def poll(cls, context):
         return context.active_object is not None
 
     def execute(self, context):
         keywords = self.as_keywords(ignore=(
-            "check_existing",
+            'check_existing',
             'filter_glob',
         ))
         print(self.as_keywords())
         return self.export_bob(context, **keywords)
 
-    def export_bob(self, context, filepath):
+    def export_bob(self, context, filepath,
+            apply_object_transformations):
         scene = context.scene
         obj = bpy.context.active_object
         mesh = obj.to_mesh()
+        
+        if apply_object_transformations:
+            mesh.transform(obj.matrix_world)
 
         filepath = os.fsencode(filepath)
 
