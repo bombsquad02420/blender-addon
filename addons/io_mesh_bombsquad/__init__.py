@@ -121,6 +121,8 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
         return {'FINISHED'}
 
 
+# Enables importing files by draggin and dropping into the blender UI
+# Enables export via collection exporter
 class IO_FH_bombsquad_bob(bpy.types.FileHandler):
     bl_idname = "IO_FH_bombsquad_bob"
     bl_label = "BombSquad Mesh"
@@ -227,6 +229,8 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
         return {'FINISHED'}
 
 
+# Enables importing files by draggin and dropping into the blender UI
+# Enables export via collection exporter
 class IO_FH_bombsquad_cob(bpy.types.FileHandler):
     bl_idname = "IO_FH_bombsquad_cob"
     bl_label = "BombSquad Collision Mesh"
