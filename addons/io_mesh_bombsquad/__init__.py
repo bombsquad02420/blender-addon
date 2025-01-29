@@ -288,7 +288,7 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
             for index, location in enumerate(locations):
                 if "center" in location and "size" in location:
                     center = Vector(location["center"][0:3]) @ matrix
-                    size = Vector(location["size"][0:3]) @ matrix
+                    size = Vector(location["size"][0:3]).xzy
                     self.add_region(
                         context,
                         center=center,
@@ -332,48 +332,67 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 
 
 class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
-    """Export Bombsquad Level Defs"""
+    """Save Bombsquad Level Defs"""
     bl_idname = "export_scene.bombsquad_leveldefs"
     bl_label = "Export Bombsquad Level Definitions"
+    bl_options = {'REGISTER', 'PRESET'}
+
     filename_ext = ".json"
+    check_extension = True
     filter_glob: bpy.props.StringProperty(
         default="*.json",
         options={'HIDDEN'},
     )
 
+    @classmethod
+    def poll(cls, context):
+        return context.collection is not None and len(context.collection.objects) > 0
+
     def execute(self, context):
         keywords = self.as_keywords(ignore=('filter_glob',))
-        filepath = keywords["filepath"]
-        print("writing level defs", filepath)
+        filepath = os.fsencode(keywords["filepath"])
 
-        if len(bpy.data.collections["points"].objects)==0 or len(bpy.data.collections["boxes"].objects)==0:
+        collection = context.collection
+        objects = sorted(collection.objects.values(), key=lambda obj: obj.name)
+
+        if len(objects)==0:
             return {'CANCELLED'}
 
-        def v_to_str(v, flip=True, isScale=False):
-            if flip:
-                v = flpV(v)
-            if isScale:
-                v = Vector([abs(n) for n in v])
-            return repr(tuple([round(n, 5) for n in tuple(v)]))
+        # This matrix is different from the one used in bob and cob formats
+        matrix = bpy_extras.io_utils.axis_conversion(to_forward='Z', to_up='-Y').to_3x3()
 
-        with open(os.fsencode(filepath), "w+") as file:
-            file.write("# This file generated from '{}'\n".format(os.path.basename(bpy.data.filepath)))
-            file.write("points, boxes = {}, {}\n")
+        data_locations = {}
+        for obj in objects:
+            if obj.type == "EMPTY" and obj.empty_display_type  == "CUBE":
+                assert obj.empty_display_size == 0.5
+                center = obj.matrix_world.to_translation() @ matrix
+                size = obj.matrix_world.to_scale().xzy
+                location_name = obj.name.split('.')[0]
+                if location_name not in data_locations:
+                    data_locations[location_name] = []
+                data_locations[location_name].append({
+                    "center": [round(n, 2) for n in center],
+                    "size": [round(n, 2) for n in size],
+                })
+            elif obj.type == "EMPTY" and obj.empty_display_type  == "PLAIN_AXES":
+                center = obj.matrix_world.to_translation() @ matrix
+                location_name = obj.name.split('.')[0]
+                if location_name not in data_locations:
+                    data_locations[location_name] = []
+                data_locations[location_name].append({
+                    "center": [round(n, 2) for n in center],
+                })
 
-            for point in bpy.data.collections["points"].objects:
-                pos = point.matrix_world.to_translation()
-                if point.type == 'MESH':  # spawn point with random variance
-                    scale = point.scale
-                    file.write("points['{}'] = {}".format(point.name, v_to_str(pos)))
-                    file.write(" + {}\n".format(v_to_str(scale, False, isScale=True)))
-                else:
-                    file.write("points['{}'] = {}\n".format(point.name, v_to_str(pos)))
+        data = {}
+        # TODO: add check_existing flag
+        if os.path.exists(filepath):
+            with open(filepath, 'r') as file:
+                data = json.load(file)
 
-            for box in bpy.data.collections["boxes"].objects:
-                pos = box.matrix_world.to_translation()
-                scale = box.scale*2
-                file.write("boxes['{}'] = {}".format(box.name, v_to_str(pos)))
-                file.write(" + (0, 0, 0) + {}\n".format(v_to_str(scale, isScale=True)))
+        data["locations"] = data_locations
+
+        with open(filepath, "w") as file:
+            json.dump(data, file, indent=2, sort_keys=True)
 
         return {'FINISHED'}
 
