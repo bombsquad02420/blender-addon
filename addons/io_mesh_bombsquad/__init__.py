@@ -11,6 +11,10 @@ from collections import defaultdict
 from . import bob
 from . import cob
 
+
+# region Addon Metadata
+
+
 bl_info = {
     "name": "Import/Export BombSquad models",
     "description": "Import and export BombSquad models in the .bob and .cob formats",
@@ -23,18 +27,8 @@ bl_info = {
     "category": "Import-Export"
 }
 
-@contextmanager
-def to_bmesh(mesh, save=False):
-    try:
-        bm = bmesh.new()
-        bm.from_mesh(mesh)
-        bm.faces.ensure_lookup_table()
-        yield bm
-    finally:
-        if save:
-            bm.to_mesh(mesh)
-        bm.free()
-        del bm
+
+# region BOB
 
 
 class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
@@ -142,6 +136,9 @@ def menu_func_import_bob(self, context):
 
 def menu_func_export_bob(self, context):
     self.layout.operator(EXPORT_MESH_OT_bombsquad_bob.bl_idname, text="Bombsquad Mesh (.bob)")
+
+
+# region COB
 
 
 class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
@@ -252,10 +249,7 @@ def menu_func_export_cob(self, context):
     self.layout.operator(EXPORT_MESH_OT_bombsquad_cob.bl_idname, text="Bombsquad Collision Mesh (.cob)")
 
 
-def flpV(vector):
-    vector = vector.copy()
-    vector.y = -vector.y
-    return vector.xzy
+# region LevelDefs
 
 
 class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
@@ -386,6 +380,9 @@ def menu_func_export_leveldefs(self, context):
     self.layout.operator(EXPORT_SCENE_OT_bombsquad_leveldefs.bl_idname, text="Bombsquad Level Definitions (.json)")
 
 
+# region Addon Lifecycle
+
+
 classes = (
     IMPORT_MESH_OT_bombsquad_bob,
     EXPORT_MESH_OT_bombsquad_bob,
@@ -397,17 +394,20 @@ classes = (
     EXPORT_SCENE_OT_bombsquad_leveldefs,
 )
 
+
 import_funcs = (
     menu_func_import_bob,
     menu_func_import_cob,
     menu_func_import_leveldefs,
 )
 
+
 export_funcs = (
     menu_func_export_bob,
     menu_func_export_cob,
     menu_func_export_leveldefs,
 )
+
 
 def register():
     from bpy.utils import register_class
@@ -427,6 +427,7 @@ def unregister():
         bpy.types.TOPBAR_MT_file_import.remove(import_func)
     for cls in reversed(classes):
         unregister_class(cls)
+
 
 if __name__ == "__main__":
     register()
