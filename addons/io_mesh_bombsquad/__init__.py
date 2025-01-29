@@ -327,12 +327,14 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
                         size = size / 2
                     if location_type in location_metadata and location_metadata[location_type]['draw'] == 'PLANE':
                         size.z = 0.01
-                    self.add_region(
+                    # blender will autoincrement the counter if the name already exists
+                    name = location_type + '.000'
+                    self.add_cube(
                         context,
                         center=center,
                         size=size,
                         collection=collection.name,
-                        location_type=location_type,
+                        name=name
                     )
                 elif "center" in location:
                     center = Vector(location["center"][0:3]) @ matrix
@@ -340,7 +342,7 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
                         context,
                         center=center,
                         collection=collection.name,
-                        location_type=location_type,
+                        name=name
                     )
 
         bpy.ops.object.select_all(action='DESELECT')
@@ -348,24 +350,22 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
         return {'FINISHED'}
 
     def add_point(self, context,
-            center, collection, location_type):
+            center, collection, name):
         bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', radius=0.25, location=center, scale=(1, 1, 1))
         empty = context.active_object
         empty.show_name = True
-        # blender will autoincrement this counter if the name already exists
-        empty.name = location_type + ".000"
+        empty.name = name
         bpy.data.collections[collection].objects.link(empty)
         context.collection.objects.unlink(empty)
         return empty
 
-    def add_region(self, context,
-            center, size, collection, location_type):
+    def add_cube(self, context,
+            center, size, collection, name):
         bpy.ops.object.empty_add(type='CUBE', align='WORLD', radius=1, location=center, scale=(1, 1, 1))
         empty = context.active_object
         empty.scale = size
         empty.show_name = True
-        # blender will autoincrement tis counter if the name already exists
-        empty.name = location_type + ".000"
+        empty.name = name
         bpy.data.collections[collection].objects.link(empty)
         context.collection.objects.unlink(empty)
         return empty
