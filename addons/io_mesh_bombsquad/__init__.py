@@ -1,4 +1,5 @@
 import os
+import json
 import bpy
 import bmesh
 import bpy_extras
@@ -256,6 +257,8 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
     """Load Bombsquad Level Defs"""
     bl_idname = "import_scene.bombsquad_leveldefs"
     bl_label = "Import Bombsquad Level Definitions"
+    bl_options = {'REGISTER', 'UNDO', 'PRESET'}
+    
     filename_ext = ".json"
     filter_glob: bpy.props.StringProperty(
         default="*.json",
@@ -264,65 +267,68 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 
     def execute(self, context):
         keywords = self.as_keywords(ignore=('filter_glob',))
-        print("executing", keywords["filepath"])
-        data = {}
-        with open(os.fsencode(keywords["filepath"]), "r") as file:
-            exec(file.read(), data)
-        del data["__builtins__"]
-        if "points" not in data or "boxes" not in data:
+        filepath = os.fsencode(keywords["filepath"])
+        data = None
+        with open(filepath, "r") as file:
+            data = json.load(file)
+
+        if data is None or "locations" not in data:
             return {'CANCELLED'}
 
+        collection_name = bpy.path.display_name_from_filepath(filepath)
         scene = bpy.context.scene
-        points = bpy.data.collections.new("points")
-        bpy.context.scene.collection.children.link(points)
-        boxes = bpy.data.collections.new("boxes")
-        scene.collection.children.link(boxes)
-        scene.cursor.location = (0,0,0)
+        collection = bpy.data.collections.new(collection_name)
+        bpy.context.scene.collection.children.link(collection)
         bpy.context.view_layer.update()
 
-        def makeBox(middle, scale, collection):
-            bpy.ops.mesh.primitive_cube_add(location=middle)
-            cube = bpy.context.active_object
-            cube.scale = scale
-            cube.show_name = True
-            cube.show_wire = True
-            cube.display_type = 'WIRE'
-            cube.name = key
-            bpy.data.collections[collection].objects.link(cube)
-            bpy.context.collection.objects.unlink(cube)
-            return cube
+        # This matrix is different from the one used in bob and cob formats
+        matrix = bpy_extras.io_utils.axis_conversion(from_forward='Z', from_up='-Y').to_3x3()
 
-        for key, pos in data["points"].items():
-            if len(pos) == 6:
-                middle, size = Vector(pos[:3]), Vector(pos[3:])
-                if "spawn" in key.lower():
-                    size.y = 0.05
-                cube = makeBox((middle.x,-middle.z,middle.y), size, 'points')
-                bpy.ops.object.select_all(action='DESELECT')
-                cube.select_set(True)
-                bpy.context.view_layer.objects.active = cube
-                scene.tool_settings.transform_pivot_point = 'CURSOR'
-                bpy.ops.transform.rotate(value=-math.pi/2, orient_axis='X', orient_type='GLOBAL')
+        for location_name, locations in data["locations"].items():
+            for index, location in enumerate(locations):
+                if "center" in location and "size" in location:
+                    center = Vector(location["center"][0:3]) @ matrix
+                    size = Vector(location["size"][0:3]) @ matrix
+                    self.add_region(
+                        context,
+                        center=center,
+                        size=size,
+                        collection=collection.name,
+                        name=location_name + "." + str(index).zfill(3),
+                    )
+                elif "center" in location:
+                    center = Vector(location["center"][0:3]) @ matrix
+                    self.add_point(
+                        context,
+                        center=center,
+                        collection=collection.name,
+                        name=location_name + "." + str(index).zfill(3),
+                    )
 
-            else:
-                empty = bpy.data.objects.new(key, None)
-                middle = Vector(pos[:3])
-                empty.location = (middle.x,-middle.z,middle.y)
-                empty.empty_display_size = 0.45
-                points.objects.link(empty)
-                empty.show_name = True
-                bpy.ops.object.select_all(action='DESELECT')
-                empty.select_set(True)
-                bpy.context.view_layer.objects.active = empty
-                scene.tool_settings.transform_pivot_point = 'CURSOR'
-                bpy.ops.transform.rotate(value=-math.pi/2, orient_axis='X', orient_type='GLOBAL')
-
-        for key, pos in data["boxes"].items():
-            middle, size = Vector(pos[:3]), flpV(Vector(pos[6:9]))
-            cube = makeBox((middle.x,-middle.z,middle.y), size/2, 'boxes')
-
+        bpy.ops.object.select_all(action='DESELECT')
         bpy.context.view_layer.update()
         return {'FINISHED'}
+
+    def add_point(self, context,
+            center, collection, name):
+        bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', radius=0.5, location=center, scale=(1, 1, 1))
+        empty = context.active_object
+        empty.show_name = True
+        empty.name = name
+        bpy.data.collections[collection].objects.link(empty)
+        context.collection.objects.unlink(empty)
+        return empty
+
+    def add_region(self, context,
+            center, size, collection, name):
+        bpy.ops.object.empty_add(type='CUBE', align='WORLD', radius=0.5, location=center, scale=(1, 1, 1))
+        empty = context.active_object
+        empty.scale = size
+        empty.show_name = True
+        empty.name = name
+        bpy.data.collections[collection].objects.link(empty)
+        context.collection.objects.unlink(empty)
+        return empty
 
 
 class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
