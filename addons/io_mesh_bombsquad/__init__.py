@@ -237,6 +237,102 @@ def menu_func_export_cob(self, context):
 # region LevelDefs
 
 
+"""
+importing and exporting other types will work
+but they may not be sensibly mapped in blender
+"""
+LEVEL_DEFS_RECOGNIZED_LOCATION_TYPES = [
+    'area_of_interest_bounds',
+    'b',
+    'edge_box',
+    'ffa_spawn',
+    'flag',
+    'flag_default',
+    'goal',
+    'map_bounds',
+    'powerup_region',
+    'powerup_spawn',
+    'race_mine',
+    'race_point',
+    'score_region',
+    'shadow_lower_bottom',
+    'shadow_lower_top',
+    'shadow_upper_bottom',
+    'shadow_upper_top',
+    'spawn',
+    'spawn_by_flag',
+    'tnt',
+    'tnt_loc',
+]
+
+
+"""
+these were known as boxes in previous versions of the game.
+for boxes, the size represents the overall dimension (diameter).
+otherwise, size is the distance of the edges of the box from the center (radius).
+this is why we halve the internal size for "boxes",
+so that the numbers you see in blender ui match those in the level definitions json file.
+
+see: get_def_bound_box and get_start_position in ballistica source code
+or search for `boxes['` in thhe ballistica source code
+"""
+LEVEL_DEFS_SIZE_IS_DIAMETER_LOCATION_TYPES = [
+    'area_of_interest_bounds',
+    'b',
+    'edge_box',
+    'goal',
+    'map_bounds',
+    'powerup_region',
+    'score_region',
+]
+
+
+"""
+unused
+"""
+LEVEL_DEFS_CUBE_LOCATION_TYPES = [
+    'area_of_interest_bounds',
+    'b',
+    'edge_box',
+    'goal',
+    'map_bounds',
+    'race_point',
+    'score_region',
+]
+
+
+"""
+bombsquad ignores the vertical size for these regions,
+so we reduce the cube down to a plain
+to make it easier to read in the 3d view,
+
+see: get_start_position and RunaroundGame in ballistica source code
+"""
+LEVEL_DEFS_PLAIN_LOCATION_TYPES = [
+    'ffa_spawn',
+    'powerup_region',
+    'spawn',
+    'spawn_by_flag',
+]
+
+
+"""
+unused
+"""
+LEVEL_DEFS_POINT_LOCATION_TYPES = [
+    'flag',
+    'flag_default',
+    'powerup_spawn',
+    'race_mine',
+    'shadow_lower_bottom',
+    'shadow_lower_top',
+    'shadow_upper_bottom',
+    'shadow_upper_top',
+    'tnt',
+    'tnt_loc',
+]
+
+
 class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     """Load Bombsquad Level Defs"""
     bl_idname = "import_scene.bombsquad_leveldefs"
@@ -269,6 +365,8 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
         matrix = bpy_extras.io_utils.axis_conversion(from_forward='Z', from_up='-Y').to_3x3()
 
         for location_type, locations in data["locations"].items():
+            if location_type not in LEVEL_DEFS_RECOGNIZED_LOCATION_TYPES:
+                self.report({'WARNING'}, f"Unrecognized key `{location_type}` in `{filepath}`. Continuing with the import but the result may not be drawn correctly. If this is supposed to be a valid key, please open an issue.")
             for location in locations:
                 if "center" in location and "size" in location:
                     center = Vector(location["center"][0:3]) @ matrix
@@ -306,22 +404,12 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 
     def add_region(self, context,
             center, size, collection, location_type):
-        radius = 1.0
-        if location_type in ['area_of_interest_bounds', 'map_bounds']:
-            # these were known as boxes in previuos versions
-            # for boxes, the size represents the overall dimension
-            # otherwise, size is the distance of the lower and upper limit from the center
-            # this is why we halve the internal size for "boxes"
-            # so that the numbers you see in blender ui match those in the level definitions json file
-            # see: get_def_bound_box and get_start_position in ballistica source code
-            radius = 0.5
-        bpy.ops.object.empty_add(type='CUBE', align='WORLD', radius=radius, location=center, scale=(1, 1, 1))
+        bpy.ops.object.empty_add(type='CUBE', align='WORLD', radius=1, location=center, scale=(1, 1, 1))
         empty = context.active_object
-        if location_type in ['ffa_spawn', 'spawn', 'spawn_by_flag']:
-            # bombsquad ignores the vertical size for spawn points,
-            # so we can set it to some small number to make it easier to read in the 3d view
-            # see: get_start_position in ballistica source code
-            size.z = 0.05
+        if location_type in LEVEL_DEFS_SIZE_IS_DIAMETER_LOCATION_TYPES:
+            size = size / 2
+        if location_type in LEVEL_DEFS_PLAIN_LOCATION_TYPES:
+            size.z = 0.0
         empty.scale = size
         empty.show_name = True
         # blender will autoincrement tis counter if the name already exists
@@ -363,28 +451,33 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 
         data_locations = {}
         for obj in objects:
+            location_type = obj.name.split('.')[0]
+            if location_type not in LEVEL_DEFS_RECOGNIZED_LOCATION_TYPES:
+                self.report({'WARNING'}, f"Unrecognized location empty `{obj.name}` in collection `{collection.name}`. Continuing with the export but the result may not be drawn correctly. If this is supposed to be a valid location, please open an issue.")
             if obj.type == "EMPTY" and obj.empty_display_type  == "CUBE":
-                location_type = obj.name.split('.')[0]
-                if location_type in ['area_of_interest_bounds', 'map_bounds']:
-                    assert obj.empty_display_size == 0.5
-                else:
-                    assert obj.empty_display_size == 1.0
-                center = obj.matrix_world.to_translation() @ matrix
-                size = obj.matrix_world.to_scale().xzy
+                center = obj.matrix_world.to_translation()
+                size = obj.matrix_world.to_scale()
+                if location_type in LEVEL_DEFS_SIZE_IS_DIAMETER_LOCATION_TYPES:
+                    size = size * 2
+                if location_type in LEVEL_DEFS_PLAIN_LOCATION_TYPES:
+                    size.z = 0.05
                 if location_type not in data_locations:
                     data_locations[location_type] = []
                 data_locations[location_type].append({
-                    "center": [round(n, 2) for n in center],
-                    "size": [round(n, 2) for n in size],
+                    "center": [round(n, 2) for n in center @ matrix],
+                    "size": [round(n, 2) for n in size.xzy],
                 })
             elif obj.type == "EMPTY" and obj.empty_display_type  == "PLAIN_AXES":
-                location_type = obj.name.split('.')[0]
                 center = obj.matrix_world.to_translation() @ matrix
                 if location_type not in data_locations:
                     data_locations[location_type] = []
                 data_locations[location_type].append({
                     "center": [round(n, 2) for n in center],
                 })
+
+        if len(data_locations) == 0:
+            self.report({'WARNING'}, f"Collection `{collection.name}` has no location data to export. Is the correct collection selected?")
+            return {'FINISHED'}
 
         data = {}
         # TODO: add check_existing flag
