@@ -13,22 +13,6 @@ from . import bob
 from . import cob
 
 
-# region Addon Metadata
-
-
-bl_info = {
-    "name": "Import/Export BombSquad models",
-    "description": "Import and export BombSquad models in the .bob and .cob formats",
-    "author": "Mrmaxmeier, aryan02420",
-    "version": (3, 0),
-    "blender": (4, 2, 0),
-    "location": "File > Import-Export",
-    "warning": "",
-    "wiki_url": "",
-    "category": "Import-Export"
-}
-
-
 # region BOB
 
 
