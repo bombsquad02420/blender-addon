@@ -397,6 +397,21 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
         return {'FINISHED'}
 
 
+# Enables importing files by draggin and dropping into the blender UI
+# Enables export via collection exporter
+class IO_FH_bombsquad_leveldefs(bpy.types.FileHandler):
+    bl_idname = "IO_FH_bombsquad_leveldefs"
+    bl_label = "BombSquad Collision Mesh"
+    bl_import_operator = "import_mesh.bombsquad_leveldefs"
+    bl_export_operator = "export_mesh.bombsquad_leveldefs"
+    bl_file_extensions = ".json"
+
+    @classmethod
+    def poll_drop(cls, context):
+        # drop sohuld only be allowed in 3d view and outliner
+        return bpy_extras.io_utils.poll_file_object_drop(context)
+
+
 def menu_func_import_leveldefs(self, context):
     self.layout.operator(IMPORT_SCENE_OT_bombsquad_leveldefs.bl_idname, text="Bombsquad Level Definitions (.json)")
 
@@ -417,6 +432,7 @@ classes = (
     IO_FH_bombsquad_cob,
     IMPORT_SCENE_OT_bombsquad_leveldefs,
     EXPORT_SCENE_OT_bombsquad_leveldefs,
+    IO_FH_bombsquad_leveldefs,
 )
 
 
