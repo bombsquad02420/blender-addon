@@ -106,7 +106,6 @@ class IO_FH_bombsquad_bob(bpy.types.FileHandler):
     bl_idname = "IO_FH_bombsquad_bob"
     bl_label = "BombSquad Mesh"
     bl_import_operator = "import_mesh.bombsquad_bob"
-    bl_export_operator = "export_mesh.bombsquad_bob"
     bl_file_extensions = ".bob"
 
     @classmethod
@@ -217,7 +216,6 @@ class IO_FH_bombsquad_cob(bpy.types.FileHandler):
     bl_idname = "IO_FH_bombsquad_cob"
     bl_label = "BombSquad Collision Mesh"
     bl_import_operator = "import_mesh.bombsquad_cob"
-    bl_export_operator = "export_mesh.bombsquad_cob"
     bl_file_extensions = ".cob"
 
     @classmethod
@@ -450,8 +448,8 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 class IO_FH_bombsquad_leveldefs(bpy.types.FileHandler):
     bl_idname = "IO_FH_bombsquad_leveldefs"
     bl_label = "BombSquad Level Definitions"
-    bl_import_operator = "import_mesh.bombsquad_leveldefs"
-    bl_export_operator = "export_mesh.bombsquad_leveldefs"
+    bl_import_operator = "import_scene.bombsquad_leveldefs"
+    bl_export_operator = "export_scene.bombsquad_leveldefs"
     bl_file_extensions = ".json"
 
     @classmethod
