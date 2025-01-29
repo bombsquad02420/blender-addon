@@ -240,97 +240,49 @@ def menu_func_export_cob(self, context):
 """
 importing and exporting other types will work
 but they may not be sensibly mapped in blender
-"""
-LEVEL_DEFS_RECOGNIZED_LOCATION_TYPES = [
-    'area_of_interest_bounds',
-    'b',
-    'edge_box',
-    'ffa_spawn',
-    'flag',
-    'flag_default',
-    'goal',
-    'map_bounds',
-    'powerup_region',
-    'powerup_spawn',
-    'race_mine',
-    'race_point',
-    'score_region',
-    'shadow_lower_bottom',
-    'shadow_lower_top',
-    'shadow_upper_bottom',
-    'shadow_upper_top',
-    'spawn',
-    'spawn_by_flag',
-    'tnt',
-    'tnt_loc',
-]
 
 
-"""
+{ 'size_represents': 'DIAMETER' }
+
 these were known as boxes in previous versions of the game.
 for boxes, the size represents the overall dimension (diameter).
 otherwise, size is the distance of the edges of the box from the center (radius).
-this is why we halve the internal size for "boxes",
-so that the numbers you see in blender ui match those in the level definitions json file.
 
 see: get_def_bound_box and get_start_position in ballistica source code
 or search for `boxes['` in thhe ballistica source code
-"""
-LEVEL_DEFS_SIZE_IS_DIAMETER_LOCATION_TYPES = [
-    'area_of_interest_bounds',
-    'b',
-    'edge_box',
-    'goal',
-    'map_bounds',
-    'powerup_region',
-    'score_region',
-]
 
 
-"""
-unused
-"""
-LEVEL_DEFS_CUBE_LOCATION_TYPES = [
-    'area_of_interest_bounds',
-    'b',
-    'edge_box',
-    'goal',
-    'map_bounds',
-    'race_point',
-    'score_region',
-]
+{ 'draw': 'PLANE' }
 
-
-"""
 bombsquad ignores the vertical size for these regions,
 so we reduce the cube down to a plain
 to make it easier to read in the 3d view,
 
 see: get_start_position and RunaroundGame in ballistica source code
 """
-LEVEL_DEFS_PLAIN_LOCATION_TYPES = [
-    'ffa_spawn',
-    'powerup_region',
-    'spawn',
-    'spawn_by_flag',
-]
-
-
-"""
-unused
-"""
-LEVEL_DEFS_POINT_LOCATION_TYPES = [
-    'flag',
-    'flag_default',
-    'powerup_spawn',
-    'race_mine',
-    'shadow_lower_bottom',
-    'shadow_lower_top',
-    'shadow_upper_bottom',
-    'shadow_upper_top',
-    'tnt',
-    'tnt_loc',
-]
+location_metadata = {
+    'area_of_interest_bounds':  { 'draw': 'CUBE',   'size_represents': 'DIAMETER',  'description': "The region of the map that the player can normally access. This is used to position the camera. Only 1 per map is allowed." },
+    'b':                        { 'draw': 'CUBE',   'size_represents': 'DIAMETER',  'description': "TODO." },
+    'edge_box':                 { 'draw': 'CUBE',   'size_represents': 'DIAMETER',  'description': "TODO." },
+    'ffa_spawn':                { 'draw': 'PLANE',  'size_represents': 'RADIUS',    'description': "The spawn region in free-for-all game mode." },
+    'flag':                     { 'draw': 'POINT',  'size_represents': 'NA',        'description': "TODO." },
+    'flag_default':             { 'draw': 'POINT',  'size_represents': 'NA',        'description': "The location of the main flag in gae modes like king-of-the-hill and choosen-one. Only 1 per map is allowed." },
+    'goal':                     { 'draw': 'CUBE',   'size_represents': 'DIAMETER',  'description': "TODO." },
+    'map_bounds':               { 'draw': 'CUBE',   'size_represents': 'DIAMETER',  'description': "The maximum region of the map. Actors outside this region will be despawned be the game immediately. Keep the ceiling sufficiently high so that bombs do not go outside the bounds while throwing. Only 1 per map is allowed." },
+    'powerup_region':           { 'draw': 'PLANE',  'size_represents': 'DIAMETER',  'description': "TODO." },
+    'powerup_spawn':            { 'draw': 'POINT',  'size_represents': 'NA',        'description': "Exact points where powerups will be spawned." },
+    'race_mine':                { 'draw': 'POINT',  'size_represents': 'NA',        'description': "Exact points where mines and bombs will be spawned in race mode." },
+    'race_point':               { 'draw': 'CUBE',   'size_represents': 'RADIUS',    'description': "Regions which measure the progression in the race." },
+    'score_region':             { 'draw': 'CUBE',   'size_represents': 'DIAMETER',  'description': "TODO." },
+    'shadow_lower_bottom':      { 'draw': 'POINT',  'size_represents': 'NA',        'description': "TODO. Only the vertical height is used by bombsquad." },
+    'shadow_lower_top':         { 'draw': 'POINT',  'size_represents': 'NA',        'description': "TODO. Only the vertical height is used by bombsquad." },
+    'shadow_upper_bottom':      { 'draw': 'POINT',  'size_represents': 'NA',        'description': "TODO. Only the vertical height is used by bombsquad." },
+    'shadow_upper_top':         { 'draw': 'POINT',  'size_represents': 'NA',        'description': "TODO. Only the vertical height is used by bombsquad." },
+    'spawn':                    { 'draw': 'PLANE',  'size_represents': 'RADIUS',    'description': "Spawn regions for the teams. Make sure they are in teh correct otder. Only 2 per map are allowed." },
+    'spawn_by_flag':            { 'draw': 'PLANE',  'size_represents': 'RADIUS',    'description': "TODO" },
+    'tnt':                      { 'draw': 'POINT',  'size_represents': 'NA',        'description': "The location of TNT." },
+    'tnt_loc':                  { 'draw': 'POINT',  'size_represents': 'NA',        'description': "The location of TNT in the runaround game mode." },
+}
 
 
 class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
@@ -365,12 +317,16 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
         matrix = bpy_extras.io_utils.axis_conversion(from_forward='Z', from_up='-Y').to_3x3()
 
         for location_type, locations in data["locations"].items():
-            if location_type not in LEVEL_DEFS_RECOGNIZED_LOCATION_TYPES:
+            if location_type not in location_metadata:
                 self.report({'WARNING'}, f"Unrecognized key `{location_type}` in `{filepath}`. Continuing with the import but the result may not be drawn correctly. If this is supposed to be a valid key, please open an issue.")
             for location in locations:
                 if "center" in location and "size" in location:
                     center = Vector(location["center"][0:3]) @ matrix
                     size = Vector(location["size"][0:3]).xzy
+                    if location_type in location_metadata and location_metadata[location_type]['size_represents'] == 'DIAMETER':
+                        size = size / 2
+                    if location_type in location_metadata and location_metadata[location_type]['draw'] == 'PLANE':
+                        size.z = 0.01
                     self.add_region(
                         context,
                         center=center,
@@ -406,10 +362,6 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
             center, size, collection, location_type):
         bpy.ops.object.empty_add(type='CUBE', align='WORLD', radius=1, location=center, scale=(1, 1, 1))
         empty = context.active_object
-        if location_type in LEVEL_DEFS_SIZE_IS_DIAMETER_LOCATION_TYPES:
-            size = size / 2
-        if location_type in LEVEL_DEFS_PLAIN_LOCATION_TYPES:
-            size.z = 0.0
         empty.scale = size
         empty.show_name = True
         # blender will autoincrement tis counter if the name already exists
@@ -452,15 +404,15 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
         data_locations = {}
         for obj in objects:
             location_type = obj.name.split('.')[0]
-            if location_type not in LEVEL_DEFS_RECOGNIZED_LOCATION_TYPES:
+            if location_type not in location_metadata:
                 self.report({'WARNING'}, f"Unrecognized location empty `{obj.name}` in collection `{collection.name}`. Continuing with the export but the result may not be drawn correctly. If this is supposed to be a valid location, please open an issue.")
             if obj.type == "EMPTY" and obj.empty_display_type  == "CUBE":
                 center = obj.matrix_world.to_translation()
                 size = obj.matrix_world.to_scale()
-                if location_type in LEVEL_DEFS_SIZE_IS_DIAMETER_LOCATION_TYPES:
+                if location_type in location_metadata and location_metadata[location_type]['size_represents'] == 'DIAMETER':
                     size = size * 2
-                if location_type in LEVEL_DEFS_PLAIN_LOCATION_TYPES:
-                    size.z = 0.05
+                if location_type in location_metadata and location_metadata[location_type]['draw'] == 'PLANE':
+                    size.z = 1 # arbitrary value since it is not used by bobmsquad
                 if location_type not in data_locations:
                     data_locations[location_type] = []
                 data_locations[location_type].append({
@@ -468,11 +420,11 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
                     "size": [round(n, 2) for n in size.xzy],
                 })
             elif obj.type == "EMPTY" and obj.empty_display_type  == "PLAIN_AXES":
-                center = obj.matrix_world.to_translation() @ matrix
+                center = obj.matrix_world.to_translation()
                 if location_type not in data_locations:
                     data_locations[location_type] = []
                 data_locations[location_type].append({
-                    "center": [round(n, 2) for n in center],
+                    "center": [round(n, 2) for n in center @ matrix],
                 })
 
         if len(data_locations) == 0:
