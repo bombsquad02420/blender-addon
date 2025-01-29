@@ -268,8 +268,8 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
         # This matrix is different from the one used in bob and cob formats
         matrix = bpy_extras.io_utils.axis_conversion(from_forward='Z', from_up='-Y').to_3x3()
 
-        for location_name, locations in data["locations"].items():
-            for index, location in enumerate(locations):
+        for location_type, locations in data["locations"].items():
+            for location in locations:
                 if "center" in location and "size" in location:
                     center = Vector(location["center"][0:3]) @ matrix
                     size = Vector(location["size"][0:3]).xzy
@@ -278,7 +278,7 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
                         center=center,
                         size=size,
                         collection=collection.name,
-                        name=location_name + "." + str(index).zfill(3),
+                        location_type=location_type,
                     )
                 elif "center" in location:
                     center = Vector(location["center"][0:3]) @ matrix
@@ -286,7 +286,7 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
                         context,
                         center=center,
                         collection=collection.name,
-                        name=location_name + "." + str(index).zfill(3),
+                        location_type=location_type,
                     )
 
         bpy.ops.object.select_all(action='DESELECT')
@@ -294,22 +294,38 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
         return {'FINISHED'}
 
     def add_point(self, context,
-            center, collection, name):
-        bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', radius=0.5, location=center, scale=(1, 1, 1))
+            center, collection, location_type):
+        bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', radius=0.25, location=center, scale=(1, 1, 1))
         empty = context.active_object
         empty.show_name = True
-        empty.name = name
+        # blender will autoincrement this counter if the name already exists
+        empty.name = location_type + ".000"
         bpy.data.collections[collection].objects.link(empty)
         context.collection.objects.unlink(empty)
         return empty
 
     def add_region(self, context,
-            center, size, collection, name):
-        bpy.ops.object.empty_add(type='CUBE', align='WORLD', radius=0.5, location=center, scale=(1, 1, 1))
+            center, size, collection, location_type):
+        radius = 1.0
+        if location_type in ['area_of_interest_bounds', 'map_bounds']:
+            # these were known as boxes in previuos versions
+            # for boxes, the size represents the overall dimension
+            # otherwise, size is the distance of the lower and upper limit from the center
+            # this is why we halve the internal size for "boxes"
+            # so that the numbers you see in blender ui match those in the level definitions json file
+            # see: get_def_bound_box and get_start_position in ballistica source code
+            radius = 0.5
+        bpy.ops.object.empty_add(type='CUBE', align='WORLD', radius=radius, location=center, scale=(1, 1, 1))
         empty = context.active_object
+        if location_type in ['ffa_spawn', 'spawn', 'spawn_by_flag']:
+            # bombsquad ignores the vertical size for spawn points,
+            # so we can set it to some small number to make it easier to read in the 3d view
+            # see: get_start_position in ballistica source code
+            size.z = 0.05
         empty.scale = size
         empty.show_name = True
-        empty.name = name
+        # blender will autoincrement tis counter if the name already exists
+        empty.name = location_type + ".000"
         bpy.data.collections[collection].objects.link(empty)
         context.collection.objects.unlink(empty)
         return empty
@@ -348,22 +364,25 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
         data_locations = {}
         for obj in objects:
             if obj.type == "EMPTY" and obj.empty_display_type  == "CUBE":
-                assert obj.empty_display_size == 0.5
+                location_type = obj.name.split('.')[0]
+                if location_type in ['area_of_interest_bounds', 'map_bounds']:
+                    assert obj.empty_display_size == 0.5
+                else:
+                    assert obj.empty_display_size == 1.0
                 center = obj.matrix_world.to_translation() @ matrix
                 size = obj.matrix_world.to_scale().xzy
-                location_name = obj.name.split('.')[0]
-                if location_name not in data_locations:
-                    data_locations[location_name] = []
-                data_locations[location_name].append({
+                if location_type not in data_locations:
+                    data_locations[location_type] = []
+                data_locations[location_type].append({
                     "center": [round(n, 2) for n in center],
                     "size": [round(n, 2) for n in size],
                 })
             elif obj.type == "EMPTY" and obj.empty_display_type  == "PLAIN_AXES":
+                location_type = obj.name.split('.')[0]
                 center = obj.matrix_world.to_translation() @ matrix
-                location_name = obj.name.split('.')[0]
-                if location_name not in data_locations:
-                    data_locations[location_name] = []
-                data_locations[location_name].append({
+                if location_type not in data_locations:
+                    data_locations[location_type] = []
+                data_locations[location_type].append({
                     "center": [round(n, 2) for n in center],
                 })
 
@@ -385,7 +404,7 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 # Enables export via collection exporter
 class IO_FH_bombsquad_leveldefs(bpy.types.FileHandler):
     bl_idname = "IO_FH_bombsquad_leveldefs"
-    bl_label = "BombSquad Collision Mesh"
+    bl_label = "BombSquad Level Definitions"
     bl_import_operator = "import_mesh.bombsquad_leveldefs"
     bl_export_operator = "export_mesh.bombsquad_leveldefs"
     bl_file_extensions = ".json"
