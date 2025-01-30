@@ -76,6 +76,7 @@ def to_mesh(mesh, bob_data):
 	bm = bmesh.new()
 	bm.from_mesh(mesh)
 	bm.faces.ensure_lookup_table()
+	# bm.verts.ensure_lookup_table()
 	
 	for i, face in enumerate(bm.faces):
 		for vi, vert in enumerate(face.verts):
@@ -85,6 +86,7 @@ def to_mesh(mesh, bob_data):
 				utils.map_range(normal[1], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True, precision=6),
 				utils.map_range(normal[2], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True, precision=6),
 			)
+			# bm.verts[vi].normal = vert.normal
 
 	uv_layer = bm.loops.layers.uv.verify()
 	for i, face in enumerate(bm.faces):
@@ -144,6 +146,7 @@ def from_mesh(mesh):
 	bm = bmesh.new()
 	bm.from_mesh(mesh)
 	bm.faces.ensure_lookup_table()
+	# bm.verts.ensure_lookup_table()
 
 	matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
 	bm.transform(matrix)
@@ -157,6 +160,7 @@ def from_mesh(mesh):
 		faceverts = []
 		for vi, vert in enumerate(face.verts):
 			uv = face.loops[vi][uv_layer].uv if uv_layer else (0, 0)
+			# orig_vert = bm.verts[vi]
 			current_vertex = {
 				"pos": vert.co,
 				"uv":  uv,
