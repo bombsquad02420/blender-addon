@@ -5,8 +5,6 @@ import bpy_extras
 from . import utils
 
 
-COB_FILE_ID = 13466
-
 """
 .COB File Structure:
 
@@ -19,6 +17,12 @@ normal x faceCount (fff)
 """
 
 
+COB_FILE_ID = 13466
+
+bs_to_bl_matrix = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up='Y').to_4x4()
+bl_to_bs_matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
+
+
 def to_mesh(mesh, cob_data):
 	verts = [vert["pos"] for vert in cob_data["vertices"]]
 	faces = [face["indices"] for face in cob_data["faces"]]
@@ -27,8 +31,7 @@ def to_mesh(mesh, cob_data):
 	bm = bmesh.new()
 	bm.from_mesh(mesh)
 
-	matrix = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up='Y').to_4x4()
-	bm.transform(matrix)
+	bm.transform(bs_to_bl_matrix)
 
 	bm.to_mesh(mesh)
 	bm.free()
@@ -48,8 +51,7 @@ def from_mesh(mesh):
 	bm.from_mesh(mesh)
 	bm.faces.ensure_lookup_table()
 
-	matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
-	bm.transform(matrix)
+	bm.transform(bl_to_bs_matrix)
 
 	bmesh.ops.triangulate(bm, faces=bm.faces)
 

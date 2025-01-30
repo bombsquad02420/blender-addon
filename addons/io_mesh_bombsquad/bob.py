@@ -5,8 +5,6 @@ import bpy_extras
 from . import utils
 
 
-BOB_FILE_ID = 45623
-
 """
 .BOB File Structure:
 
@@ -23,50 +21,35 @@ struct VertexObjectFull {
     bs_sint16  normal[3]; // normalized to 16 bit signed ints -32768 - 32767
     bs_uint8 _padding[2];
 };
+
+.
+. Blender 3D Coordinates         BombSquad 3D Coordinates
+.
+.       +Z                               +Y
+.       ^                                ^
+.       | ^ +Y                           |
+.       |/                               |
+.       +-----> +X                       +-----> +X
+.                                       /
+.                                      v +Z
+.
+.
+. Blender UV Coordinates         BombSquad UV Coordinates
+.
+.       +Y [0,1]                         +-----> +X Int[0,65535]
+.       ^                                |
+.       |                                |
+.       |                                v
+.       +-----> +X [0,1]                 +Y Int[0,65535]
+.
 """
 
 
-"""
+BOB_FILE_ID = 45623
 
-    Blender 3D Coordinates
+bs_to_bl_matrix = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up='Y').to_4x4()
+bl_to_bs_matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
 
-            +Z
-            ^
-            | ^ +Y
-            |/
-            +-----> +X
-
-
-    BombSquad 3D Coordinates
-
-            +Y
-            ^
-            |
-            |
-            +-----> +X
-           /
-          v +Z
-
-
-
-    Blender UV Coordinates
-
-            +Y [0,1]
-            ^
-            |
-            |
-            +-----> +X [0,1]
-
-
-    BombSquad UV Coordinates
-
-            +-----> +X Int[0,65535]
-            |
-            |
-            v
-            +Y Int[0,65535]
-
-"""
 
 def to_mesh(mesh, bob_data):
 	verts = [vert["pos"] for vert in bob_data["vertices"]]
@@ -98,8 +81,7 @@ def to_mesh(mesh, bob_data):
 			)
 			face.loops[vi][uv_layer].uv = uv
 
-	matrix = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up='Y').to_4x4()
-	bm.transform(matrix)
+	bm.transform(bs_to_bl_matrix)
 
 	bm.to_mesh(mesh)
 	bm.free()
@@ -148,8 +130,7 @@ def from_mesh(mesh):
 	bm.faces.ensure_lookup_table()
 	# bm.verts.ensure_lookup_table()
 
-	matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
-	bm.transform(matrix)
+	bm.transform(bl_to_bs_matrix)
 
 	bmesh.ops.triangulate(bm, faces=bm.faces)
 
