@@ -1,4 +1,6 @@
+import os
 import struct
+import bpy
 import bmesh
 import bpy_extras
 
@@ -16,10 +18,10 @@ VertexObject x vertexCount (fff HH hhh xx)
 index x faceCount*3 (b / H / I)
 
 struct VertexObjectFull {
-    float position[3];
-    bs_uint16 uv[2]; // normalized to 16 bit unsigned ints 0 - 65535
-    bs_sint16  normal[3]; // normalized to 16 bit signed ints -32768 - 32767
-    bs_uint8 _padding[2];
+	float position[3];
+	bs_uint16 uv[2]; // normalized to 16 bit unsigned ints 0 - 65535
+	bs_sint16  normal[3]; // normalized to 16 bit signed ints -32768 - 32767
+	bs_uint8 _padding[2];
 };
 
 .
@@ -251,3 +253,135 @@ def deserialize(file):
 		"vertices": vertices,
 		"faces": faces,
 	}
+
+
+class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
+	"""Load a Bombsquad Mesh file"""
+	bl_idname = "import_mesh.bombsquad_bob"
+	bl_label = "Import Bombsquad Mesh"
+	bl_options = {'REGISTER', 'UNDO', 'PRESET'}
+
+	filename_ext = ".bob"
+	filter_glob: bpy.props.StringProperty(
+		default="*.bob",
+		options={'HIDDEN'},
+	)
+
+	def execute(self, context):
+		keywords = self.as_keywords(ignore=('filter_glob',))
+		mesh = self.import_bob(context, **keywords)
+		if not mesh:
+			return {'CANCELLED'}
+
+		scene = bpy.context.scene
+		obj = bpy.data.objects.new(mesh.name, mesh)
+		scene.collection.objects.link(obj)
+		bpy.ops.object.select_all(action='DESELECT')
+		obj.select_set(True)
+		bpy.context.view_layer.objects.active = obj
+		bpy.context.view_layer.update()
+		return {'FINISHED'}
+	
+	def import_bob(self, context, filepath):
+		filepath = os.fsencode(filepath)
+		with open(filepath, 'rb') as file:
+			bob_data = deserialize(file)
+			bob_name = bpy.path.display_name_from_filepath(filepath)
+			mesh = bpy.data.meshes.new(name=bob_name)
+			return to_mesh(mesh=mesh, bob_data=bob_data)
+
+
+class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
+	"""Save a Bombsquad Mesh file"""
+	bl_idname = "export_mesh.bombsquad_bob"
+	bl_label = "Export Bombsquad Mesh"
+	bl_options = {'REGISTER', 'PRESET'}
+
+	filter_glob: bpy.props.StringProperty(
+		default="*.bob",
+		options={'HIDDEN'},
+	)
+	check_extension = True
+	filename_ext = ".bob"
+
+	apply_object_transformations: bpy.props.BoolProperty(
+		name="Apply Object Transformations",
+		description="",
+		default=False,
+	)
+
+	@classmethod
+	def poll(cls, context):
+		return context.active_object is not None
+
+	def execute(self, context):
+		keywords = self.as_keywords(ignore=(
+			'check_existing',
+			'filter_glob',
+		))
+		return self.export_bob(context, **keywords)
+
+	def export_bob(self, context, filepath,
+			apply_object_transformations):
+		scene = context.scene
+		obj = bpy.context.active_object
+		mesh = obj.to_mesh()
+		
+		if apply_object_transformations:
+			mesh.transform(obj.matrix_world)
+
+		filepath = os.fsencode(filepath)
+
+		with open(filepath, 'wb') as file:
+			bob_data = from_mesh(mesh)
+			serialize(bob_data, file)
+
+		return {'FINISHED'}
+
+
+# Enables importing files by draggin and dropping into the blender UI
+# Enables export via collection exporter
+class IO_FH_bombsquad_bob(bpy.types.FileHandler):
+	bl_idname = "IO_FH_bombsquad_bob"
+	bl_label = "BombSquad Mesh"
+	bl_import_operator = "import_mesh.bombsquad_bob"
+	bl_file_extensions = ".bob"
+
+	@classmethod
+	def poll_drop(cls, context):
+		# drop sohuld only be allowed in 3d view and outliner
+		return bpy_extras.io_utils.poll_file_object_drop(context)
+
+
+def menu_func_import_bob(self, context):
+	self.layout.operator(IMPORT_MESH_OT_bombsquad_bob.bl_idname, text="Bombsquad Mesh (.bob)")
+
+
+def menu_func_export_bob(self, context):
+	self.layout.operator(EXPORT_MESH_OT_bombsquad_bob.bl_idname, text="Bombsquad Mesh (.bob)")
+
+
+classes = (
+	IMPORT_MESH_OT_bombsquad_bob,
+	EXPORT_MESH_OT_bombsquad_bob,
+	IO_FH_bombsquad_bob,
+)
+
+
+_register, _unregister = bpy.utils.register_classes_factory(classes)
+
+
+def register():
+	_register()
+	bpy.types.TOPBAR_MT_file_import.append(menu_func_import_bob)
+	bpy.types.TOPBAR_MT_file_export.append(menu_func_export_bob)
+
+
+def unregister():
+	bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_bob)
+	bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_bob)
+	_unregister()
+
+
+if __name__ == "__main__":
+	register()

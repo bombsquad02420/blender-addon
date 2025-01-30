@@ -1,4 +1,6 @@
+import os
 import struct
+import bpy
 import bmesh
 import bpy_extras
 
@@ -135,3 +137,136 @@ def deserialize(file):
 		"faces": faces,
 		"normals": normals,
 	}
+
+
+class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
+	"""Load a Bombsquad Collision Mesh"""
+	bl_idname = "import_mesh.bombsquad_cob"
+	bl_label = "Import Bombsquad Collision Mesh"
+	bl_options = {'REGISTER', 'UNDO', 'PRESET'}
+
+	filename_ext = ".cob"
+	filter_glob: bpy.props.StringProperty(
+		default="*.cob",
+		options={'HIDDEN'},
+	)
+
+	def execute(self, context):
+		keywords = self.as_keywords(ignore=('filter_glob',))
+		mesh = self.import_cob(context, **keywords)
+		if not mesh:
+			return {'CANCELLED'}
+
+		scene = bpy.context.scene
+		obj = bpy.data.objects.new(mesh.name, mesh)
+		scene.collection.objects.link(obj)
+		bpy.ops.object.select_all(action='DESELECT')
+		obj.select_set(True)
+		bpy.context.view_layer.objects.active = obj
+		bpy.context.view_layer.update()
+		return {'FINISHED'}
+
+	def import_cob(self, context, filepath):
+		filepath = os.fsencode(filepath)
+		with open(filepath, 'rb') as file:
+			cob_data = deserialize(file)
+			print(cob_data)
+			cob_name = bpy.path.display_name_from_filepath(filepath)
+			mesh = bpy.data.meshes.new(name=cob_name)
+			return to_mesh(mesh=mesh, cob_data=cob_data)
+
+
+class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
+	"""Save a Bombsquad Collision Mesh file"""
+	bl_idname = "export_mesh.bombsquad_cob"
+	bl_label = "Export Bombsquad Collision Mesh"
+	bl_options = {'REGISTER', 'PRESET'}
+
+	filter_glob: bpy.props.StringProperty(
+		default="*.cob",
+		options={'HIDDEN'},
+	)
+	check_extension = True
+	filename_ext = ".cob"
+
+	apply_object_transformations: bpy.props.BoolProperty(
+		name="Apply Object Transformations",
+		description="",
+		default=False,
+	)
+
+	@classmethod
+	def poll(cls, context):
+		return context.active_object is not None
+
+	def execute(self, context):
+		keywords = self.as_keywords(ignore=(
+			'check_existing',
+			'filter_glob',
+		))
+		return self.export_cob(context, **keywords)
+
+	def export_cob(self, context, filepath,
+			apply_object_transformations):
+		scene = context.scene
+		obj = bpy.context.active_object
+		mesh = obj.to_mesh()
+
+		if apply_object_transformations:
+			mesh.transform(obj.matrix_world)
+
+		filepath = os.fsencode(filepath)
+
+		with open(filepath, 'wb') as file:
+			cob_data = from_mesh(mesh)
+			serialize(cob_data, file)
+
+		return {'FINISHED'}
+
+
+# Enables importing files by draggin and dropping into the blender UI
+# Enables export via collection exporter
+class IO_FH_bombsquad_cob(bpy.types.FileHandler):
+	bl_idname = "IO_FH_bombsquad_cob"
+	bl_label = "BombSquad Collision Mesh"
+	bl_import_operator = "import_mesh.bombsquad_cob"
+	bl_file_extensions = ".cob"
+
+	@classmethod
+	def poll_drop(cls, context):
+		# drop sohuld only be allowed in 3d view and outliner
+		return bpy_extras.io_utils.poll_file_object_drop(context)
+
+
+def menu_func_import_cob(self, context):
+	self.layout.operator(IMPORT_MESH_OT_bombsquad_cob.bl_idname, text="Bombsquad Collision Mesh (.cob)")
+
+
+def menu_func_export_cob(self, context):
+	self.layout.operator(EXPORT_MESH_OT_bombsquad_cob.bl_idname, text="Bombsquad Collision Mesh (.cob)")
+
+
+classes = (
+	IMPORT_MESH_OT_bombsquad_cob,
+	EXPORT_MESH_OT_bombsquad_cob,
+	IO_FH_bombsquad_cob,
+)
+
+
+_register, _unregister = bpy.utils.register_classes_factory(classes)
+
+
+def register():
+	_register()
+	bpy.types.TOPBAR_MT_file_import.append(menu_func_import_cob)
+	bpy.types.TOPBAR_MT_file_export.append(menu_func_export_cob)
+
+
+def unregister():
+	bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_cob)
+	bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_cob)
+	_unregister()
+
+
+if __name__ == "__main__":
+	register()
