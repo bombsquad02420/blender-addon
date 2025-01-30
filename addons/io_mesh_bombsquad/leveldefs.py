@@ -8,6 +8,9 @@ from mathutils import Vector
 importing and exporting other types will work
 but they may not be sensibly mapped in blender
 
+To get a complete list of all location types,
+run `cat data/maps/*.json | jq -r '.locations | keys.[]' | sort | uniq` in the ba_data folder.
+
 
 { 'size_represents': 'DIAMETER' }
 
@@ -70,8 +73,11 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 	)
 
 	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+		
 		keywords = self.as_keywords(ignore=('filter_glob',))
 		filepath = os.fsencode(keywords["filepath"])
+		
 		data = None
 		with open(filepath, "r") as file:
 			data = json.load(file)
@@ -85,19 +91,28 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		bpy.context.scene.collection.children.link(collection)
 		bpy.context.view_layer.update()
 
+		print(f"{self.__class__.__name__}: [INFO] Created collection {collection_name} to import to.")
+
 		for location_type, locations in data["locations"].items():
 			if location_type not in location_metadata:
 				self.report({'WARNING'}, f"Unrecognized key `{location_type}` in `{filepath}`. Continuing with the import but the result may not be drawn correctly. If this is supposed to be a valid key, please open an issue.")
+				print(f"{self.__class__.__name__}: [WARNING] Unrecognized location {location_type}")
+			
 			# blender will autoincrement the counter if the name already exists
 			name = location_type + '.000'
+			
 			for location in locations:
 				if "center" in location and "size" in location:
 					center = Vector(location["center"][0:3]) @ bs_to_bl_matrix
 					size = Vector(location["size"][0:3]).xzy
+					
 					if location_type in location_metadata and location_metadata[location_type]['size_represents'] == 'DIAMETER':
 						size = size / 2
 					if location_type in location_metadata and location_metadata[location_type]['draw'] == 'PLANE':
 						size.z = 0.01
+					
+					print(f"{self.__class__.__name__}: [INFO] Adding location {location_type} at center {center} and size {size}")
+					
 					self.add_cube(
 						context,
 						center=center,
@@ -105,8 +120,12 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 						collection=collection.name,
 						name=name
 					)
+				
 				elif "center" in location:
 					center = Vector(location["center"][0:3]) @ bs_to_bl_matrix
+					
+					print(f"{self.__class__.__name__}: [INFO] Adding location {location_type} at center {center}")
+					
 					self.add_point(
 						context,
 						center=center,
@@ -116,6 +135,8 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 
 		bpy.ops.object.select_all(action='DESELECT')
 		bpy.context.view_layer.update()
+
+		print(f"{self.__class__.__name__}: [INFO] Finished importing {filepath}")
 		return {'FINISHED'}
 
 	def add_point(self, context,
@@ -158,6 +179,8 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		return context.collection is not None and len(context.collection.objects) > 0
 
 	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+		
 		keywords = self.as_keywords(ignore=('filter_glob',))
 		filepath = os.fsencode(keywords["filepath"])
 
@@ -167,26 +190,39 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		if len(objects)==0:
 			return {'CANCELLED'}
 
+		print(f"{self.__class__.__name__}: [INFO] Exporting selected collection {collection.name} with {len(objects)} objects")
+
 		data_locations = {}
 		for obj in objects:
 			location_type = obj.name.split('.')[0]
+			
 			if location_type not in location_metadata:
 				self.report({'WARNING'}, f"Unrecognized location empty `{obj.name}` in collection `{collection.name}`. Continuing with the export but the result may not be drawn correctly. If this is supposed to be a valid location, please open an issue.")
+				print(f"{self.__class__.__name__}: [WARNING] Unrecognized location {location_type}")
+			
 			if obj.type == "EMPTY" and obj.empty_display_type  == "CUBE":
 				center = obj.matrix_world.to_translation()
 				size = obj.matrix_world.to_scale()
+				
+				print(f"{self.__class__.__name__}: [INFO] Adding object {obj.name} to locations as {location_type}.")
+				
 				if location_type in location_metadata and location_metadata[location_type]['size_represents'] == 'DIAMETER':
 					size = size * 2
 				if location_type in location_metadata and location_metadata[location_type]['draw'] == 'PLANE':
 					size.z = 1 # arbitrary value since it is not used by bobmsquad
+				
 				if location_type not in data_locations:
 					data_locations[location_type] = []
 				data_locations[location_type].append({
 					"center": [round(n, 2) for n in center @ bl_to_bs_matrix],
 					"size": [round(n, 2) for n in size.xzy],
 				})
+			
 			elif obj.type == "EMPTY" and obj.empty_display_type  == "PLAIN_AXES":
 				center = obj.matrix_world.to_translation()
+
+				print(f"{self.__class__.__name__}: [INFO] Adding object {obj.name} to locations {location_type}.")
+				
 				if location_type not in data_locations:
 					data_locations[location_type] = []
 				data_locations[location_type].append({
@@ -201,6 +237,7 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		# TODO: add check_existing flag
 		if os.path.exists(filepath):
 			with open(filepath, 'r') as file:
+				print(f"{self.__class__.__name__}: [INFO] File {filepath} already exists. Exported data will be merged into this file.")
 				data = json.load(file)
 
 		data["locations"] = data_locations
@@ -208,6 +245,7 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		with open(filepath, "w") as file:
 			json.dump(data, file, indent=2, sort_keys=True)
 
+		print(f"{self.__class__.__name__}: [INFO] Finished exporting {filepath}")
 		return {'FINISHED'}
 
 
