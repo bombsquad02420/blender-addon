@@ -52,6 +52,11 @@ location_metadata = {
 }
 
 
+# These matrices are different from the ones used in bob and cob formats
+bs_to_bl_matrix = bpy_extras.io_utils.axis_conversion(from_forward='Z', from_up='-Y').to_3x3()
+bl_to_bs_matrix = bpy_extras.io_utils.axis_conversion(to_forward='Z', to_up='-Y').to_3x3()
+
+
 class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 	"""Load Bombsquad Level Defs"""
 	bl_idname = "import_scene.bombsquad_leveldefs"
@@ -80,15 +85,12 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		bpy.context.scene.collection.children.link(collection)
 		bpy.context.view_layer.update()
 
-		# This matrix is different from the one used in bob and cob formats
-		matrix = bpy_extras.io_utils.axis_conversion(from_forward='Z', from_up='-Y').to_3x3()
-
 		for location_type, locations in data["locations"].items():
 			if location_type not in location_metadata:
 				self.report({'WARNING'}, f"Unrecognized key `{location_type}` in `{filepath}`. Continuing with the import but the result may not be drawn correctly. If this is supposed to be a valid key, please open an issue.")
 			for location in locations:
 				if "center" in location and "size" in location:
-					center = Vector(location["center"][0:3]) @ matrix
+					center = Vector(location["center"][0:3]) @ bs_to_bl_matrix
 					size = Vector(location["size"][0:3]).xzy
 					if location_type in location_metadata and location_metadata[location_type]['size_represents'] == 'DIAMETER':
 						size = size / 2
@@ -104,7 +106,7 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 						name=name
 					)
 				elif "center" in location:
-					center = Vector(location["center"][0:3]) @ matrix
+					center = Vector(location["center"][0:3]) @ bs_to_bl_matrix
 					self.add_point(
 						context,
 						center=center,
@@ -165,9 +167,6 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		if len(objects)==0:
 			return {'CANCELLED'}
 
-		# This matrix is different from the one used in bob and cob formats
-		matrix = bpy_extras.io_utils.axis_conversion(to_forward='Z', to_up='-Y').to_3x3()
-
 		data_locations = {}
 		for obj in objects:
 			location_type = obj.name.split('.')[0]
@@ -183,7 +182,7 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 				if location_type not in data_locations:
 					data_locations[location_type] = []
 				data_locations[location_type].append({
-					"center": [round(n, 2) for n in center @ matrix],
+					"center": [round(n, 2) for n in center @ bl_to_bs_matrix],
 					"size": [round(n, 2) for n in size.xzy],
 				})
 			elif obj.type == "EMPTY" and obj.empty_display_type  == "PLAIN_AXES":
@@ -191,7 +190,7 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 				if location_type not in data_locations:
 					data_locations[location_type] = []
 				data_locations[location_type].append({
-					"center": [round(n, 2) for n in center @ matrix],
+					"center": [round(n, 2) for n in center @ bl_to_bs_matrix],
 				})
 
 		if len(data_locations) == 0:
