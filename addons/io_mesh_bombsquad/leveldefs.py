@@ -88,6 +88,8 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		for location_type, locations in data["locations"].items():
 			if location_type not in location_metadata:
 				self.report({'WARNING'}, f"Unrecognized key `{location_type}` in `{filepath}`. Continuing with the import but the result may not be drawn correctly. If this is supposed to be a valid key, please open an issue.")
+			# blender will autoincrement the counter if the name already exists
+			name = location_type + '.000'
 			for location in locations:
 				if "center" in location and "size" in location:
 					center = Vector(location["center"][0:3]) @ bs_to_bl_matrix
@@ -96,8 +98,6 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 						size = size / 2
 					if location_type in location_metadata and location_metadata[location_type]['draw'] == 'PLANE':
 						size.z = 0.01
-					# blender will autoincrement the counter if the name already exists
-					name = location_type + '.000'
 					self.add_cube(
 						context,
 						center=center,
