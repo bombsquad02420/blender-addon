@@ -269,26 +269,32 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 
 	def execute(self, context):
 		keywords = self.as_keywords(ignore=('filter_glob',))
-		mesh = self.import_bob(context, **keywords)
+		self.import_bob(context, **keywords)
+
+
+	def import_bob(self, context, filepath):
+		filepath = os.fsencode(filepath)
+		
+		bob_data = None
+		with open(filepath, 'rb') as file:
+			bob_data = deserialize(file)
+
+		bob_name = bpy.path.display_name_from_filepath(filepath)
+		mesh = bpy.data.meshes.new(name=bob_name)
+		mesh = to_mesh(mesh=mesh, bob_data=bob_data)
+
 		if not mesh:
 			return {'CANCELLED'}
 
-		scene = bpy.context.scene
-		obj = bpy.data.objects.new(mesh.name, mesh)
-		scene.collection.objects.link(obj)
+		obj = bpy.data.objects.new(bob_name, mesh)
+		context.scene.collection.objects.link(obj)
 		bpy.ops.object.select_all(action='DESELECT')
 		obj.select_set(True)
-		bpy.context.view_layer.objects.active = obj
-		bpy.context.view_layer.update()
+		
+		context.view_layer.objects.active = obj
+		context.view_layer.update()
+		
 		return {'FINISHED'}
-	
-	def import_bob(self, context, filepath):
-		filepath = os.fsencode(filepath)
-		with open(filepath, 'rb') as file:
-			bob_data = deserialize(file)
-			bob_name = bpy.path.display_name_from_filepath(filepath)
-			mesh = bpy.data.meshes.new(name=bob_name)
-			return to_mesh(mesh=mesh, bob_data=bob_data)
 
 
 class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
