@@ -267,8 +267,36 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		options={'HIDDEN'},
 	)
 
+	files: bpy.props.CollectionProperty(
+		name="File Path",
+		type=bpy.types.OperatorFileListElement,
+	)
+
+
 	def execute(self, context):
-		keywords = self.as_keywords(ignore=('filter_glob',))
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+
+		keywords = self.as_keywords(ignore=(
+			'filter_glob',
+			'files',
+			'filepath',
+		))
+
+		if self.files:
+			# Multiple file import
+			ret = {'CANCELLED'}
+			dirname = os.path.dirname(self.filepath)
+			for file in self.files:
+				path = os.path.join(dirname, file.name)
+				if self.import_bob(context, path) == {'FINISHED'}:
+					ret = {'FINISHED'}
+				else:
+					self.report({'WARNING'}, f"The file `{path}` was not imported.")
+			return ret
+		else:
+			# Single file import
+			return self.import_bob(context, self.filepath)
+
 		self.import_bob(context, **keywords)
 
 
