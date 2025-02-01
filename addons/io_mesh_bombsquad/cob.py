@@ -151,29 +151,61 @@ class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		options={'HIDDEN'},
 	)
 
+	files: bpy.props.CollectionProperty(
+		name="File Path",
+		type=bpy.types.OperatorFileListElement,
+	)
+
 	def execute(self, context):
-		keywords = self.as_keywords(ignore=('filter_glob',))
-		mesh = self.import_cob(context, **keywords)
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+
+		keywords = self.as_keywords(ignore=(
+			'filter_glob',
+			'files',
+			'filepath',
+		))
+
+		if self.files:
+			# Multiple file import
+			ret = {'CANCELLED'}
+			dirname = os.path.dirname(self.filepath)
+			for file in self.files:
+				path = os.path.join(dirname, file.name)
+				if self.import_cob(context, path, **keywords) == {'FINISHED'}:
+					ret = {'FINISHED'}
+				else:
+					self.report({'WARNING'}, f"The file `{path}` was not imported.")
+			return ret
+		else:
+			# Single file import
+			return self.import_cob(context, self.filepath, **keywords)
+
+
+	def import_cob(self, context, filepath):
+		print(f"{self.__class__.__name__}: [INFO] Importing `{filepath}`")
+		filepath = os.fsencode(filepath)
+
+		cob_data = None
+		with open(filepath, 'rb') as file:
+			cob_data = deserialize(file)
+
+		cob_name = bpy.path.display_name_from_filepath(filepath)
+		mesh = bpy.data.meshes.new(name=cob_name)
+		mesh = to_mesh(mesh=mesh, cob_data=cob_data)
+
 		if not mesh:
 			return {'CANCELLED'}
 
-		scene = bpy.context.scene
 		obj = bpy.data.objects.new(mesh.name, mesh)
-		scene.collection.objects.link(obj)
+		context.scene.collection.objects.link(obj)
+		
 		bpy.ops.object.select_all(action='DESELECT')
 		obj.select_set(True)
-		bpy.context.view_layer.objects.active = obj
-		bpy.context.view_layer.update()
+		
+		context.view_layer.objects.active = obj
+		context.view_layer.update()
+		
 		return {'FINISHED'}
-
-	def import_cob(self, context, filepath):
-		filepath = os.fsencode(filepath)
-		with open(filepath, 'rb') as file:
-			cob_data = deserialize(file)
-			print(cob_data)
-			cob_name = bpy.path.display_name_from_filepath(filepath)
-			mesh = bpy.data.meshes.new(name=cob_name)
-			return to_mesh(mesh=mesh, cob_data=cob_data)
 
 
 class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
