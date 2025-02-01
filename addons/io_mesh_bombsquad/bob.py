@@ -52,6 +52,61 @@ BOB_FILE_ID = 45623
 bs_to_bl_matrix = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up='Y').to_4x4()
 bl_to_bs_matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
 
+character_part_metadata = {
+	'Head': {
+		'location': (0.000000, 0.000000, 0.942794),
+		'rotation': (0, 0.000000, 0.000000),
+		'mirror': False,
+	},
+	'Torso': {
+		'location': (0.000000, 0.000000, 0.496232),
+		'rotation': (0, 0.000000, 0.000000),
+		'mirror': False,
+	},
+	'Pelvis': {
+		'location': (0.000000, -0.03582, 0.361509),
+		'rotation': (-0.21104, 0.000000, 0.000000),
+		'mirror': False,
+	},
+	'UpperArm': {
+		'location': (-0.207339, 0.016968, 0.516395),
+		'rotation': (1.75531, 0.185005, 0.000000),
+		'mirror': True,
+	},
+	'ForeArm': {
+		'location': (-0.199252, -0.013197, 0.372489),
+		'rotation': (1.09994, 0.000000, 0.000000),
+		'mirror': True,
+	},
+	'Hand': {
+		'location': (-0.195932, -0.0641, 0.321099),
+		'rotation': (0.82205, 0.000000, 0.000000),
+		'mirror': True,
+	},
+	'UpperLeg': {
+		'location': (-0.09192, -0.031631, 0.266533),
+		'rotation': (1.37474, 0.000000, 0.000000),
+		'mirror': True,
+	},
+	'LowerLeg': {
+		'location': (-0.088037, -0.063052, 0.113304),
+		'rotation': (1.5708, 0.000000, 0.000000),
+		'mirror': True,
+	},
+	'Toes': {
+		'location': (-0.086935, -0.11274, 0.069577),
+		'rotation': (1.5708, 0.000000, 0.000000),
+		'mirror': True,
+	},
+}
+
+
+def _get_character_part_name(filename):
+	for part in character_part_metadata:
+		if filename.endswith(part):
+			return part
+	return None
+
 
 def to_mesh(mesh, bob_data):
 	verts = [vert["pos"] for vert in bob_data["vertices"]]
@@ -272,6 +327,11 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		type=bpy.types.OperatorFileListElement,
 	)
 
+	arrange_character_meshes: bpy.props.BoolProperty(
+		name="Arrange Character Meshes",
+		description="",
+		default=False,
+	)
 
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
@@ -288,19 +348,20 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			dirname = os.path.dirname(self.filepath)
 			for file in self.files:
 				path = os.path.join(dirname, file.name)
-				if self.import_bob(context, path) == {'FINISHED'}:
+				if self.import_bob(context, path, **keywords) == {'FINISHED'}:
 					ret = {'FINISHED'}
 				else:
 					self.report({'WARNING'}, f"The file `{path}` was not imported.")
 			return ret
 		else:
 			# Single file import
-			return self.import_bob(context, self.filepath)
+			return self.import_bob(context, self.filepath, **keywords)
 
 		self.import_bob(context, **keywords)
 
 
-	def import_bob(self, context, filepath):
+	def import_bob(self, context, filepath, **options):
+		print(f"{self.__class__.__name__}: [INFO] Importing `{filepath}` with options {options}")
 		filepath = os.fsencode(filepath)
 		
 		bob_data = None
@@ -316,6 +377,14 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 
 		obj = bpy.data.objects.new(bob_name, mesh)
 		context.scene.collection.objects.link(obj)
+
+		character_part_name = _get_character_part_name(bob_name)
+		if character_part_name is not None and options['arrange_character_meshes']:
+			print(f"{self.__class__.__name__}: [INFO] Detected {filepath} is a `{character_part_name}` and will be arranged.")
+			part_metadata = character_part_metadata[character_part_name]
+			obj.location = part_metadata['location']
+			obj.rotation_euler = part_metadata['rotation']
+
 		bpy.ops.object.select_all(action='DESELECT')
 		obj.select_set(True)
 		
