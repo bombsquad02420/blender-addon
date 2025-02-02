@@ -174,6 +174,13 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		options={'HIDDEN'},
 	)
 
+	# this is set by the collection exporter feature.
+	collection: bpy.props.StringProperty(
+		name="Source Collection",
+		description="Export only objects from this collection (and its children)",
+		default="",
+	)
+
 	@classmethod
 	def poll(cls, context):
 		return context.collection is not None and len(context.collection.objects) > 0
@@ -184,13 +191,23 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		keywords = self.as_keywords(ignore=('filter_glob',))
 		filepath = os.fsencode(keywords["filepath"])
 
-		collection = context.collection
+		collection = None
+
+		if self.collection:
+			print(f"{self.__class__.__name__}: [INFO] Using collection `{self.collection}` for export because you are using collection exporter.")
+			collection = bpy.data.collections[self.collection]
+		else:
+			print(f"{self.__class__.__name__}: [INFO] Using selected collection `{collection}` for export.")
+			collection = context.collection
+
+		# sort objects by name, because order of locations is important to bombsquad to determine correct team / flag.
 		objects = sorted(collection.objects.values(), key=lambda obj: obj.name)
 
 		if len(objects)==0:
+			print(f"{self.__class__.__name__}: [INFO] No objects in collection `{collection.name}`. Nothing to do.")
 			return {'CANCELLED'}
 
-		print(f"{self.__class__.__name__}: [INFO] Exporting selected collection {collection.name} with {len(objects)} objects")
+		print(f"{self.__class__.__name__}: [INFO] Exporting collection `{collection.name}` with {len(objects)} objects")
 
 		data_locations = {}
 		for obj in objects:
@@ -200,11 +217,11 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 				self.report({'WARNING'}, f"Unrecognized location empty `{obj.name}` in collection `{collection.name}`. Continuing with the export but the result may not be drawn correctly. If this is supposed to be a valid location, please open an issue.")
 				print(f"{self.__class__.__name__}: [WARNING] Unrecognized location {location_type}")
 			
-			if obj.type == "EMPTY" and obj.empty_display_type  == "CUBE":
+			if obj.type == "EMPTY" and obj.empty_display_type == "CUBE":
 				center = obj.matrix_world.to_translation()
 				size = obj.matrix_world.to_scale()
 				
-				print(f"{self.__class__.__name__}: [INFO] Adding object {obj.name} to locations as {location_type}.")
+				print(f"{self.__class__.__name__}: [INFO] Adding object {obj.name} to locations {location_type} as CUBE.")
 				
 				if location_type in location_metadata and location_metadata[location_type]['size_represents'] == 'DIAMETER':
 					size = size * 2
@@ -221,7 +238,7 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 			elif obj.type == "EMPTY" and obj.empty_display_type  == "PLAIN_AXES":
 				center = obj.matrix_world.to_translation()
 
-				print(f"{self.__class__.__name__}: [INFO] Adding object {obj.name} to locations {location_type}.")
+				print(f"{self.__class__.__name__}: [INFO] Adding object {obj.name} to locations {location_type} as POINT.")
 				
 				if location_type not in data_locations:
 					data_locations[location_type] = []
