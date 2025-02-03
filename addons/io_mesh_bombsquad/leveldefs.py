@@ -4,6 +4,8 @@ import bpy
 import bpy_extras
 from mathutils import Vector
 
+from . import utils
+
 """
 importing and exporting other types will work
 but they may not be sensibly mapped in blender
@@ -72,6 +74,12 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		options={'HIDDEN'},
 	)
 
+	setup_collection_exporter: bpy.props.BoolProperty(
+		name="Setup Collection Exporter",
+		description="Automatically configure a collection exporter for the imported leveldefs",
+		default=False,
+	)
+
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
 		
@@ -90,6 +98,11 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		collection = bpy.data.collections.new(collection_name)
 		bpy.context.scene.collection.children.link(collection)
 		bpy.context.view_layer.update()
+
+		# IMPORTANT: we set the newly created collection as active,
+		# so we can freely call operators that work on active collection,
+		# example: add primitives, collection exporters, etc.
+		utils.set_active_collection(collection)
 
 		print(f"{self.__class__.__name__}: [INFO] Created collection {collection_name} to import to.")
 
@@ -115,10 +128,9 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 					
 					self.add_cube(
 						context,
+						name=name,
 						center=center,
 						size=size,
-						collection=collection.name,
-						name=name
 					)
 				
 				elif "center" in location:
@@ -128,36 +140,37 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 					
 					self.add_point(
 						context,
+						name=name,
 						center=center,
-						collection=collection.name,
-						name=name
 					)
 
 		bpy.ops.object.select_all(action='DESELECT')
 		bpy.context.view_layer.update()
 
+		if self.setup_collection_exporter:
+			bpy.ops.collection.exporter_add(name='IO_FH_bombsquad_leveldefs')
+			exporter = collection.exporters[-1]
+			exporter.export_properties.filepath = self.filepath
+			print(f"{self.__class__.__name__}: [INFO] Created collection exporter for collection `{collection.name}`.")
+
 		print(f"{self.__class__.__name__}: [INFO] Finished importing {filepath}")
 		return {'FINISHED'}
 
 	def add_point(self, context,
-			center, collection, name):
+			name, center):
 		bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', radius=0.25, location=center, scale=(1, 1, 1))
 		empty = context.active_object
 		empty.show_name = True
 		empty.name = name
-		bpy.data.collections[collection].objects.link(empty)
-		context.collection.objects.unlink(empty)
 		return empty
 
 	def add_cube(self, context,
-			center, size, collection, name):
+			name, center, size):
 		bpy.ops.object.empty_add(type='CUBE', align='WORLD', radius=1, location=center, scale=(1, 1, 1))
 		empty = context.active_object
 		empty.scale = size
 		empty.show_name = True
 		empty.name = name
-		bpy.data.collections[collection].objects.link(empty)
-		context.collection.objects.unlink(empty)
 		return empty
 
 
