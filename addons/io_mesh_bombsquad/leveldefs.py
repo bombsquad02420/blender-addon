@@ -121,23 +121,28 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 					
 					if location_type in location_metadata and location_metadata[location_type]['size_represents'] == 'DIAMETER':
 						size = size / 2
+					
 					if location_type in location_metadata and location_metadata[location_type]['draw'] == 'PLANE':
-						size.z = 0.01
-					
-					print(f"{self.__class__.__name__}: [INFO] Adding location {location_type} at center {center} and size {size}")
-					
-					self.add_cube(
-						context,
-						name=name,
-						center=center,
-						size=size,
-					)
+						print(f"{self.__class__.__name__}: [INFO] Adding location {location_type} at center {center} and size {size} as PLANE.")
+						self.add_plane(
+							context,
+							name=name,
+							center=center,
+							size=size,
+						)
+					else:
+						print(f"{self.__class__.__name__}: [INFO] Adding location {location_type} at center {center} and size {size} as CUBE.")
+						self.add_cube(
+							context,
+							name=name,
+							center=center,
+							size=size,
+						)
 				
 				elif "center" in location:
 					center = Vector(location["center"][0:3]) @ bs_to_bl_matrix
 					
-					print(f"{self.__class__.__name__}: [INFO] Adding location {location_type} at center {center}")
-					
+					print(f"{self.__class__.__name__}: [INFO] Adding location {location_type} at center {center} as POINT.")
 					self.add_point(
 						context,
 						name=name,
@@ -156,21 +161,50 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		print(f"{self.__class__.__name__}: [INFO] Finished importing {filepath}")
 		return {'FINISHED'}
 
-	def add_point(self, context,
+	@classmethod
+	def add_point(cls, context,
 			name, center):
-		bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', radius=0.25, location=center, scale=(1, 1, 1))
-		empty = context.active_object
+		empty = bpy.data.objects.new(name, None)
+		empty.empty_display_type = 'PLAIN_AXES'
+		empty.empty_display_size = 0.25
+		empty.location = center
+		empty.lock_rotation[0] = True
+		empty.lock_rotation[1] = True
+		empty.lock_rotation[2] = True
+		context.collection.objects.link(empty)
 		empty.show_name = True
-		empty.name = name
 		return empty
 
-	def add_cube(self, context,
+	@classmethod
+	def add_cube(cls, context,
 			name, center, size):
-		bpy.ops.object.empty_add(type='CUBE', align='WORLD', radius=1, location=center, scale=(1, 1, 1))
-		empty = context.active_object
+		empty = bpy.data.objects.new(name, None)
+		empty.empty_display_type = 'CUBE'
+		empty.empty_display_size = 1
+		empty.location = center
 		empty.scale = size
+		empty.lock_rotation[0] = True
+		empty.lock_rotation[1] = True
+		empty.lock_rotation[2] = True
+		context.collection.objects.link(empty)
 		empty.show_name = True
-		empty.name = name
+		return empty
+
+	@classmethod
+	def add_plane(cls, context,
+			name, center, size):
+		empty = bpy.data.objects.new(name, None)
+		empty.empty_display_type = 'CUBE'
+		empty.empty_display_size = 1
+		empty.location = center
+		empty.scale = size
+		empty.scale[2] = 0.01
+		empty.lock_scale[2] = True
+		empty.lock_rotation[0] = True
+		empty.lock_rotation[1] = True
+		empty.lock_rotation[2] = True
+		context.collection.objects.link(empty)
+		empty.show_name = True
 		return empty
 
 
