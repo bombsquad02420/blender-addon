@@ -31,29 +31,116 @@ so we reduce the cube down to a plain
 to make it easier to read in the 3d view,
 
 see: get_start_position and RunaroundGame in ballistica source code
+
+# TODO: see getmaps in _appsubsystem.py for location desctiptions.
 """
 location_metadata = {
-	'area_of_interest_bounds':  { 'draw': 'CUBE',   'size_represents': 'DIAMETER',  'description': "The region of the map that the player can normally access. This is used to position the camera. Only 1 per map is allowed." },
-	'b':                        { 'draw': 'CUBE',   'size_represents': 'DIAMETER',  'description': "TODO." },
-	'edge_box':                 { 'draw': 'CUBE',   'size_represents': 'DIAMETER',  'description': "TODO." },
-	'ffa_spawn':                { 'draw': 'PLANE',  'size_represents': 'RADIUS',    'description': "The spawn region in free-for-all game mode." },
-	'flag':                     { 'draw': 'POINT',  'size_represents': 'NA',        'description': "TODO." },
-	'flag_default':             { 'draw': 'POINT',  'size_represents': 'NA',        'description': "The location of the main flag in gae modes like king-of-the-hill and choosen-one. Only 1 per map is allowed." },
-	'goal':                     { 'draw': 'CUBE',   'size_represents': 'DIAMETER',  'description': "TODO." },
-	'map_bounds':               { 'draw': 'CUBE',   'size_represents': 'DIAMETER',  'description': "The maximum region of the map. Actors outside this region will be despawned be the game immediately. Keep the ceiling sufficiently high so that bombs do not go outside the bounds while throwing. Only 1 per map is allowed." },
-	'powerup_region':           { 'draw': 'PLANE',  'size_represents': 'DIAMETER',  'description': "TODO." },
-	'powerup_spawn':            { 'draw': 'POINT',  'size_represents': 'NA',        'description': "Exact points where powerups will be spawned." },
-	'race_mine':                { 'draw': 'POINT',  'size_represents': 'NA',        'description': "Exact points where mines and bombs will be spawned in race mode." },
-	'race_point':               { 'draw': 'CUBE',   'size_represents': 'RADIUS',    'description': "Regions which measure the progression in the race." },
-	'score_region':             { 'draw': 'CUBE',   'size_represents': 'DIAMETER',  'description': "TODO." },
-	'shadow_lower_bottom':      { 'draw': 'POINT',  'size_represents': 'NA',        'description': "TODO. Only the vertical height is used by bombsquad." },
-	'shadow_lower_top':         { 'draw': 'POINT',  'size_represents': 'NA',        'description': "TODO. Only the vertical height is used by bombsquad." },
-	'shadow_upper_bottom':      { 'draw': 'POINT',  'size_represents': 'NA',        'description': "TODO. Only the vertical height is used by bombsquad." },
-	'shadow_upper_top':         { 'draw': 'POINT',  'size_represents': 'NA',        'description': "TODO. Only the vertical height is used by bombsquad." },
-	'spawn':                    { 'draw': 'PLANE',  'size_represents': 'RADIUS',    'description': "Spawn regions for the teams. Make sure they are in teh correct otder. Only 2 per map are allowed." },
-	'spawn_by_flag':            { 'draw': 'PLANE',  'size_represents': 'RADIUS',    'description': "TODO" },
-	'tnt':                      { 'draw': 'POINT',  'size_represents': 'NA',        'description': "The location of TNT." },
-	'tnt_loc':                  { 'draw': 'POINT',  'size_represents': 'NA',        'description': "The location of TNT in the runaround game mode." },
+	'area_of_interest_bounds': {
+		'draw': 'CUBE', 'size_represents': 'DIAMETER',
+		'description': "The region of the map that the player can normally access. This is used to position the camera. Only 1 per map is allowed.",
+		'default_center': (0, 0, 0), 'default_size': (10, 10, 10),
+	},
+	'b': {
+		'draw': 'CUBE', 'size_represents': 'DIAMETER',
+		'description': "TODO.",
+		'default_center': (0, 0, 0), 'default_size': (1, 1, 1),
+	},
+	'edge_box': {
+		'draw': 'CUBE', 'size_represents': 'DIAMETER',
+		'description': "TODO.",
+		'default_center': (0, 0, 0), 'default_size': (1, 1, 1),
+	},
+	'ffa_spawn': {
+		'draw': 'PLANE', 'size_represents': 'RADIUS',
+		'description': "The spawn region in free-for-all game mode.",
+		'default_center': (0, 0, 0), 'default_size': (0.5, 0.5, 0.5),
+	},
+	'flag': {
+		'draw': 'POINT', 'size_represents': None,
+		'description': "TODO.",
+		'default_center': (0, 0, 0), 'default_size': None,
+	},
+	'flag_default': {
+		'draw': 'POINT', 'size_represents': None,
+		'description': "The location of the main flag in gae modes like king-of-the-hill and choosen-one. Only 1 per map is allowed.",
+		'default_center': (0, 0, 0), 'default_size': None,
+	},
+	'goal': {
+		'draw': 'CUBE', 'size_represents': 'DIAMETER',
+		'description': "TODO.",
+		'default_center': (0, 0, 0), 'default_size': (1, 1, 1),
+	},
+	'map_bounds': {
+		'draw': 'CUBE', 'size_represents': 'DIAMETER',
+		'description': "The maximum region of the map. Actors outside this region will be despawned be the game immediately. Keep the ceiling sufficiently high so that bombs do not go outside the bounds while throwing. Only 1 per map is allowed.",
+		'default_center': (0, 0, 0), 'default_size': (10, 10, 10),
+	},
+	'powerup_region': {
+		'draw': 'PLANE', 'size_represents': 'DIAMETER',
+		'description': "TODO.",
+		'default_center': (0, 0, 0), 'default_size': (1, 1, 1),
+	},
+	'powerup_spawn': {
+		'draw': 'POINT', 'size_represents': None,
+		'description': "Exact points where powerups will be spawned.",
+		'default_center': (0, 0, 0), 'default_size': None,
+	},
+	'race_mine': {
+		'draw': 'POINT', 'size_represents': None,
+		'description': "Exact points where mines and bombs will be spawned in race mode.",
+		'default_center': (0, 0, 0), 'default_size': None,
+	},
+	'race_point': {
+		'draw': 'CUBE', 'size_represents': 'RADIUS',
+		'description': "Regions which measure the progression in the race.",
+		'default_center': (0, 0, 0), 'default_size': (1, 1, 1),
+	},
+	'score_region': {
+		'draw': 'CUBE', 'size_represents': 'DIAMETER',
+		'description': "TODO.",
+		'default_center': (0, 0, 0), 'default_size': (1, 1, 1),
+	},
+	'shadow_lower_bottom': {
+		'draw': 'POINT', 'size_represents': None,
+		'description': "TODO. Only the vertical height is used by bombsquad.",
+		'default_center': (0, 0, 0), 'default_size': None,
+	},
+	'shadow_lower_top': {
+		'draw': 'POINT', 'size_represents': None,
+		'description': "TODO. Only the vertical height is used by bombsquad.",
+		'default_center': (0, 0, 0), 'default_size': None,
+	},
+	'shadow_upper_bottom': {
+		'draw': 'POINT', 'size_represents': None,
+		'description': "TODO. Only the vertical height is used by bombsquad.",
+		'default_center': (0, 0, 0), 'default_size': None,
+	},
+	'shadow_upper_top': {
+		'draw': 'POINT', 'size_represents': None,
+		'description': "TODO. Only the vertical height is used by bombsquad.",
+		'default_center': (0, 0, 0), 'default_size': None,
+	},
+	'spawn': {
+		'draw': 'PLANE', 'size_represents': 'RADIUS',
+		'description': "Spawn regions for the teams. Make sure they are in teh correct otder. Only 2 per map are allowed.",
+		'default_center': (0, 0, 0), 'default_size': (0.5, 0.5, 0.5),
+	},
+	# FIXME: cragCastle defines spawn_by_flag as POINT
+	'spawn_by_flag': {
+		'draw': 'PLANE', 'size_represents': 'RADIUS',
+		'description': "TODO",
+		'default_center': (0, 0, 0), 'default_size': (0.5, 0.5, 0.5),
+	},
+	'tnt': {
+		'draw': 'POINT', 'size_represents': None,
+		'description': "The location of TNT.",
+		'default_center': (0, 0, 0), 'default_size': None,
+	},
+	'tnt_loc': {
+		'draw': 'POINT', 'size_represents': None,
+		'description': "The location of TNT in the runaround game mode.",
+		'default_center': (0, 0, 0), 'default_size': None,
+	},
 }
 
 
@@ -124,7 +211,7 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 					
 					if location_type in location_metadata and location_metadata[location_type]['draw'] == 'PLANE':
 						print(f"{self.__class__.__name__}: [INFO] Adding location {location_type} at center {center} and size {size} as PLANE.")
-						self.add_plane(
+						add_plane(
 							context,
 							name=name,
 							center=center,
@@ -132,7 +219,7 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 						)
 					else:
 						print(f"{self.__class__.__name__}: [INFO] Adding location {location_type} at center {center} and size {size} as CUBE.")
-						self.add_cube(
+						add_cube(
 							context,
 							name=name,
 							center=center,
@@ -143,7 +230,7 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 					center = Vector(location["center"][0:3]) @ bs_to_bl_matrix
 					
 					print(f"{self.__class__.__name__}: [INFO] Adding location {location_type} at center {center} as POINT.")
-					self.add_point(
+					add_point(
 						context,
 						name=name,
 						center=center,
@@ -161,51 +248,50 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		print(f"{self.__class__.__name__}: [INFO] Finished importing {filepath}")
 		return {'FINISHED'}
 
-	@classmethod
-	def add_point(cls, context,
-			name, center):
-		empty = bpy.data.objects.new(name, None)
-		empty.empty_display_type = 'PLAIN_AXES'
-		empty.empty_display_size = 0.25
+def add_point(context, name, center=None):
+	empty = bpy.data.objects.new(name, None)
+	empty.empty_display_type = 'PLAIN_AXES'
+	empty.empty_display_size = 0.25
+	if center:
 		empty.location = center
-		empty.lock_rotation[0] = True
-		empty.lock_rotation[1] = True
-		empty.lock_rotation[2] = True
-		context.collection.objects.link(empty)
-		empty.show_name = True
-		return empty
+	empty.lock_rotation[0] = True
+	empty.lock_rotation[1] = True
+	empty.lock_rotation[2] = True
+	context.collection.objects.link(empty)
+	empty.show_name = True
+	return empty
 
-	@classmethod
-	def add_cube(cls, context,
-			name, center, size):
-		empty = bpy.data.objects.new(name, None)
-		empty.empty_display_type = 'CUBE'
-		empty.empty_display_size = 1
+def add_cube(context, 	name, center=None, size=None):
+	empty = bpy.data.objects.new(name, None)
+	empty.empty_display_type = 'CUBE'
+	empty.empty_display_size = 1
+	if center:
 		empty.location = center
+	if size:
 		empty.scale = size
-		empty.lock_rotation[0] = True
-		empty.lock_rotation[1] = True
-		empty.lock_rotation[2] = True
-		context.collection.objects.link(empty)
-		empty.show_name = True
-		return empty
+	empty.lock_rotation[0] = True
+	empty.lock_rotation[1] = True
+	empty.lock_rotation[2] = True
+	context.collection.objects.link(empty)
+	empty.show_name = True
+	return empty
 
-	@classmethod
-	def add_plane(cls, context,
-			name, center, size):
-		empty = bpy.data.objects.new(name, None)
-		empty.empty_display_type = 'CUBE'
-		empty.empty_display_size = 1
+def add_plane(context, name, center=None, size=None):
+	empty = bpy.data.objects.new(name, None)
+	empty.empty_display_type = 'CUBE'
+	empty.empty_display_size = 1
+	if center:
 		empty.location = center
+	if size:
 		empty.scale = size
-		empty.scale[2] = 0.01
-		empty.lock_scale[2] = True
-		empty.lock_rotation[0] = True
-		empty.lock_rotation[1] = True
-		empty.lock_rotation[2] = True
-		context.collection.objects.link(empty)
-		empty.show_name = True
-		return empty
+	empty.scale[2] = 0.01
+	empty.lock_scale[2] = True
+	empty.lock_rotation[0] = True
+	empty.lock_rotation[1] = True
+	empty.lock_rotation[2] = True
+	context.collection.objects.link(empty)
+	empty.show_name = True
+	return empty
 
 
 class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
@@ -253,8 +339,8 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 		if len(objects)==0:
 			print(f"{self.__class__.__name__}: [INFO] No objects in collection `{collection.name}`. Nothing to do.")
 			return {'CANCELLED'}
-
-		print(f"{self.__class__.__name__}: [INFO] Exporting collection `{collection.name}` with {len(objects)} objects")
+		else:
+			print(f"{self.__class__.__name__}: [INFO] Exporting collection `{collection.name}` with {len(objects)} objects")
 
 		data_locations = {}
 		for obj in objects:
@@ -272,8 +358,6 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 				
 				if location_type in location_metadata and location_metadata[location_type]['size_represents'] == 'DIAMETER':
 					size = size * 2
-				if location_type in location_metadata and location_metadata[location_type]['draw'] == 'PLANE':
-					size.z = 1 # arbitrary value since it is not used by bobmsquad
 				
 				if location_type not in data_locations:
 					data_locations[location_type] = []
@@ -336,10 +420,137 @@ def menu_func_export_leveldefs(self, context):
 	self.layout.operator(EXPORT_SCENE_OT_bombsquad_leveldefs.bl_idname, text="Bombsquad Level Definitions (.json)")
 
 
+class OBJECT_OT_add_bombsquad_map_location(bpy.types.Operator):
+	"""Add a well known BombSquad map location to the scene"""
+	bl_idname = "object.add_bombsquad_map_location"
+	bl_label = "Add BombSquad map location"
+	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+	location_type: bpy.props.EnumProperty(
+		items=tuple([
+			(key, bpy.path.display_name(key), metadata['description']) for key, metadata in location_metadata.items()
+		]),
+		name="Location Type",
+	)
+
+	@classmethod
+	def poll(cls, context):
+		return context.mode == 'OBJECT'
+
+	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+		
+		location = location_metadata[self.location_type]
+		empty = None
+
+		if location['draw'] == 'POINT':
+			empty = add_point(
+				context,
+				name=self.location_type + '.000',
+				center=location['default_center'],
+			)
+		elif location['draw'] == 'PLANE':
+			empty = add_plane(
+				context,
+				name=self.location_type + '.000',
+				center=location['default_center'],
+				size=location['default_size'],
+			)
+		elif location['draw'] == 'CUBE':
+			empty = add_cube(
+				context,
+				name=self.location_type + '.000',
+				center=location['default_center'],
+				size=location['default_size'],
+			)
+		
+		bpy.ops.object.select_all(action='DESELECT')
+		empty.select_set(True)
+
+		return {'FINISHED'}
+
+
+class OBJECT_OT_add_bombsquad_map_location_custom(bpy.types.Operator):
+	"""Add a custom BombSquad map location to the scene"""
+	bl_idname = "object.add_bombsquad_map_location_custom"
+	bl_label = "Add custom BombSquad map location"
+	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+	location_type: bpy.props.EnumProperty(
+		items=(
+			('CUBE', 'CUBE', ''),
+			('PLANE', 'PLANE', ''),
+			('POINT', 'POINT', ''),
+		),
+		name="Location Type",
+	)
+	location_name: bpy.props.StringProperty(
+		name="Location Name",
+		default="custom"
+	)
+
+	@classmethod
+	def poll(cls, context):
+		return context.mode == 'OBJECT'
+
+	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+		
+		empty = None
+
+		if self.location_type == 'POINT':
+			empty = add_point(
+				context,
+				name=self.location_name + '.000',
+			)
+		elif self.location_type == 'PLANE':
+			empty = add_plane(
+				context,
+				name=self.location_name + '.000',
+			)
+		elif self.location_type == 'CUBE':
+			empty = add_cube(
+				context,
+				name=self.location_name + '.000',
+			)
+		
+		bpy.ops.object.select_all(action='DESELECT')
+		empty.select_set(True)
+
+		return {'FINISHED'}
+
+
+class BS_PT_bombsquad_map(bpy.types.Panel):
+	bl_idname = "BS_PT_bombsquad_map"
+	bl_label = "BombSquad Map"
+	bl_space_type = 'VIEW_3D'
+	bl_region_type = 'UI'
+	bl_category = "BombSquad"
+	bl_context = "objectmode"
+
+	def draw(self, context):
+		layout = self.layout
+		
+		col = layout.column(align=True)
+		col.label(text="Add well well known map location")
+
+		row = col.row(align=True)
+		row.operator_enum("object.add_bombsquad_map_location", "location_type")
+		
+		col = layout.column(align=True)
+		col.label(text="Add custom map location")
+
+		row = col.row(align=True)
+		row.operator_enum("object.add_bombsquad_map_location_custom", "location_type")
+
+
 classes = (
 	IMPORT_SCENE_OT_bombsquad_leveldefs,
 	EXPORT_SCENE_OT_bombsquad_leveldefs,
 	IO_FH_bombsquad_leveldefs,
+	OBJECT_OT_add_bombsquad_map_location,
+	OBJECT_OT_add_bombsquad_map_location_custom,
+	BS_PT_bombsquad_map,
 )
 
 
