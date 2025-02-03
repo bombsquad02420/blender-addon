@@ -410,7 +410,7 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
 	apply_object_transformations: bpy.props.BoolProperty(
 		name="Apply Object Transformations",
 		description="",
-		default=False,
+		default=True,
 	)
 
 	@classmethod
