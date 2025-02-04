@@ -156,6 +156,18 @@ class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		type=bpy.types.OperatorFileListElement,
 	)
 
+	group_into_collection: bpy.props.BoolProperty(
+		name="Group into collection",
+		description="If you are importing multiple files, create a new collection and add the imported meshes to it",
+		default=False,
+	)
+
+	setup_collection_exporter: bpy.props.BoolProperty(
+		name="Setup Collection Exporter",
+		description="Automatically configure a collection exporter for the imported meshes if group_into_collection is checked",
+		default=False,
+	)
+
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
 
@@ -165,23 +177,47 @@ class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			'filepath',
 		))
 
+		should_create_collection = self.files and self.group_into_collection
+
+		collection = None
+		if should_create_collection:
+			filename = bpy.path.display_name_from_filepath(self.files[0].name)
+			collection = bpy.data.collections.new(filename)
+			
+			print(f"{self.__class__.__name__}: [INFO] Created collection `{collection.name}`.")
+
+			scene = bpy.context.scene
+			bpy.context.scene.collection.children.link(collection)
+			bpy.context.view_layer.update()
+
+		ret = None
 		if self.files:
 			# Multiple file import
 			ret = {'CANCELLED'}
 			dirname = os.path.dirname(self.filepath)
 			for file in self.files:
 				path = os.path.join(dirname, file.name)
-				if self.import_cob(context, path, **keywords) == {'FINISHED'}:
+				if self.import_cob(context, path, collection=collection, **keywords) == {'FINISHED'}:
 					ret = {'FINISHED'}
 				else:
 					self.report({'WARNING'}, f"The file `{path}` was not imported.")
-			return ret
 		else:
 			# Single file import
-			return self.import_cob(context, self.filepath, **keywords)
+			ret = self.import_cob(context, self.filepath, collection=collection, **keywords)
 
+		if ret != {'FINISHED'}:
+			return {'CANCELLED'}
 
-	def import_cob(self, context, filepath):
+		if should_create_collection and collection is not None and self.setup_collection_exporter:
+			utils.set_active_collection(collection)
+			bpy.ops.collection.exporter_add(name='IO_FH_bombsquad_cob')
+			exporter = collection.exporters[-1]
+			exporter.export_properties.filepath = self.filepath
+			print(f"{self.__class__.__name__}: [INFO] Created collection exporter for collection `{collection.name}`.")
+
+		return {'FINISHED'}
+
+	def import_cob(self, context, filepath, collection=None):
 		print(f"{self.__class__.__name__}: [INFO] Importing `{filepath}`")
 		filepath = os.fsencode(filepath)
 
@@ -197,7 +233,10 @@ class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			return {'CANCELLED'}
 
 		obj = bpy.data.objects.new(mesh.name, mesh)
-		context.scene.collection.objects.link(obj)
+		if collection:
+			collection.objects.link(obj)
+		else:
+			context.scene.collection.objects.link(obj)
 		
 		bpy.ops.object.select_all(action='DESELECT')
 		obj.select_set(True)
