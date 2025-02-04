@@ -4,10 +4,16 @@ Import-Export BombSquad's bob and cob files
 
 ## Installation
 
-| Blender version | Download URL                                                                            |
-|:----------------|:----------------------------------------------------------------------------------------|
-| 2.79b           | https://github.com/Mrmaxmeier/BombSquad-Community-Mod-Manager/tree/master/utils/blender |
-| 2.8 - 4.2       | https://github.com/bombsquad02420/blender-addon/releases/tag/blender4.2                 |
+| Blender version |Bombsquad Version | Status        | Download URL                                                                            |
+|:----------------|:-----------------|:--------------|:----------------------------------------------------------------------------------------|
+| 2.77 - 2.79b    | ~ 1.4            | Unmaintained  | https://github.com/Mrmaxmeier/BombSquad-Community-Mod-Manager/tree/master/utils/blender |
+| >=2.80          | ~ 1.4            | Supported     | https://github.com/bombsquad02420/blender-addon/releases/tag/blender4.2                 |
+| >=4.2           | >=1.7            | Experimental  | https://extensions.blender.org/add-ons/io-mesh-bombsquad/                               |
+
+> [!NOTE]
+> Other versions of blender and bombsquad that are not listed may be work.
+> I am not tracking the API changes in blender and bombsquad closely.
+> If you have had success or issues, please update the version ranges here.
 
 ## Usage
 
@@ -28,4 +34,18 @@ and
 
 ## License
 
-[GPL-2.0](LICENSE)
+[GNU General Public License v3.0](LICENSE)
+
+----
+
+<picture>
+<source
+	media="(prefers-color-scheme: dark)"
+	srcset="https://brainmade.org/white-logo.svg"
+/>
+<img
+	src="https://brainmade.org/black-logo.svg"
+	alt="The Brainmade Mark"
+	width="80"
+/>
+</picture>
