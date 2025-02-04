@@ -269,7 +269,13 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 
 	apply_object_transformations: bpy.props.BoolProperty(
 		name="Apply Object Transformations",
-		description="",
+		description="Export mesh geometry with translation, rotation and scaling applied",
+		default=True,
+	)
+
+	apply_modifiers: bpy.props.BoolProperty(
+		name="Apply Modifiers",
+		description="Exoprt mesh geometry with modifiers applied (as visible in render)",
 		default=True,
 	)
 
@@ -303,7 +309,7 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 				dirname = os.path.dirname(self.filepath)
 				filename = bpy.path.display_name_to_filepath(obj.name) + '.bob'
 				filepath = os.path.join(dirname, filename)
-				if self.export_cob(obj, filepath, **keywords) == {'FINISHED'}:
+				if self.export_cob(context, obj, filepath, **keywords) == {'FINISHED'}:
 					ret = {'FINISHED'}
 				else:
 					self.report({'WARNING'}, f"The file `{path}` was not exported.")
@@ -320,15 +326,20 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 
 			print(f"{self.__class__.__name__}: [INFO] Exporting active object `{obj.name}`.")
 
-			return self.export_cob(obj, self.filepath, **keywords)
+			return self.export_cob(context, obj, self.filepath, **keywords)
 
-	def export_cob(self, obj, filepath,
-			apply_object_transformations):
+	def export_cob(self, context, obj, filepath, **options):
 		print(f"{self.__class__.__name__}: [INFO] Exporting object `{obj.name}` to `{filepath}`")
 
-		mesh = obj.to_mesh()
+		mesh = None
+		if options['apply_modifiers']:
+			depsgraph = context.evaluated_depsgraph_get()
+			modified_obj = obj.evaluated_get(depsgraph)
+			mesh = bpy.data.meshes.new_from_object(modified_obj, preserve_all_data_layers=True, depsgraph=depsgraph)
+		else:
+			mesh = obj.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
 
-		if apply_object_transformations:
+		if options['apply_object_transformations']:
 			mesh.transform(obj.matrix_world)
 
 		filepath = os.fsencode(filepath)
@@ -365,6 +376,7 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 
 	def draw_props(self, layout):
 		layout.prop(self, 'apply_object_transformations')
+		layout.prop(self, 'apply_modifiers')
 
 
 # Enables importing files by draggin and dropping into the blender UI
