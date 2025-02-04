@@ -221,6 +221,13 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 	check_extension = True
 	filename_ext = ".cob"
 
+	# this is set by the collection exporter feature.
+	collection: bpy.props.StringProperty(
+		name="Source Collection",
+		description="Export only objects from this collection",
+		default="",
+	)
+
 	apply_object_transformations: bpy.props.BoolProperty(
 		name="Apply Object Transformations",
 		description="",
@@ -232,28 +239,93 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 		return context.active_object is not None
 
 	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+
 		keywords = self.as_keywords(ignore=(
 			'check_existing',
 			'filter_glob',
+			'filepath',
+			'directory',
+			'collection',
 		))
-		return self.export_cob(context, **keywords)
 
-	def export_cob(self, context, filepath,
+		if self.collection:
+			collection = bpy.data.collections[self.collection]
+			objects = collection.objects
+
+			if len(objects)==0:
+				print(f"{self.__class__.__name__}: [INFO] No objects in collection `{collection.name}`. Nothing to do.")
+				return {'CANCELLED'}
+			else:
+				print(f"{self.__class__.__name__}: [INFO] Exporting collection `{collection.name}` with {len(objects)} objects")
+
+			ret = {'CANCELLED'}
+			for obj in objects:
+				dirname = os.path.dirname(self.filepath)
+				filename = bpy.path.display_name_to_filepath(obj.name) + '.bob'
+				filepath = os.path.join(dirname, filename)
+				if self.export_cob(obj, filepath, **keywords) == {'FINISHED'}:
+					ret = {'FINISHED'}
+				else:
+					self.report({'WARNING'}, f"The file `{path}` was not exported.")
+			return ret
+
+		else:
+			# we are manually exporting a single object fro the menu
+			obj = context.active_object
+			selected_objects = context.selected_objects
+			
+			if len(selected_objects) > 1:
+				print(f"{self.__class__.__name__}: [WARN] Multiple objects selected. Only the active object will be exported.")
+				self.report({'WARNING'}, f"Multiple objects selected. Only the active object will be exported.")
+
+			print(f"{self.__class__.__name__}: [INFO] Exporting active object `{obj.name}`.")
+
+			return self.export_cob(obj, self.filepath, **keywords)
+
+	def export_cob(self, obj, filepath,
 			apply_object_transformations):
-		scene = context.scene
-		obj = bpy.context.active_object
+		print(f"{self.__class__.__name__}: [INFO] Exporting object `{obj.name}` to `{filepath}`")
+
 		mesh = obj.to_mesh()
 
 		if apply_object_transformations:
 			mesh.transform(obj.matrix_world)
 
 		filepath = os.fsencode(filepath)
-
 		with open(filepath, 'wb') as file:
 			cob_data = from_mesh(mesh)
 			serialize(cob_data, file)
 
+		print(f"{self.__class__.__name__}: [INFO] Exported object `{obj.name}` to `{filepath}`")
+
 		return {'FINISHED'}
+
+	def draw(self, context):
+		is_file_browser = context.space_data.type == 'FILE_BROWSER'
+		is_collection_exporter = context.space_data.type == 'PROPERTIES'
+
+		layout = self.layout
+
+		if is_file_browser:
+			col = layout.column(align=True)
+			self.draw_file_browser_props(col)
+
+		if is_collection_exporter:
+			col = layout.column(align=True)
+			self.draw_collection_exporter_props(col)
+
+		col = layout.column(align=True)
+		self.draw_props(layout)
+
+	def draw_file_browser_props(self, layout):
+		pass
+
+	def draw_collection_exporter_props(self, layout):
+		layout.label(text="The name of the object will be used as the final file name for export.", icon="INFO")
+
+	def draw_props(self, layout):
+		layout.prop(self, 'apply_object_transformations')
 
 
 # Enables importing files by draggin and dropping into the blender UI
@@ -262,6 +334,7 @@ class IO_FH_bombsquad_cob(bpy.types.FileHandler):
 	bl_idname = "IO_FH_bombsquad_cob"
 	bl_label = "BombSquad Collision Mesh"
 	bl_import_operator = "import_mesh.bombsquad_cob"
+	bl_export_operator = "export_mesh.bombsquad_cob"
 	bl_file_extensions = ".cob"
 
 	@classmethod
