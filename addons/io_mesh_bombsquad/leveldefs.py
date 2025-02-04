@@ -143,6 +143,16 @@ location_metadata = {
 	},
 }
 
+known_location_type_items = tuple([
+	(key, bpy.path.display_name(key), metadata['description']) for key, metadata in location_metadata.items()
+])
+
+custom_location_type_items = (
+	('CUBE', 'Cube', ''),
+	# ('PLANE','Plane', ''),
+	('POINT','Point', ''),
+)
+
 
 # These matrices are different from the ones used in bob and cob formats
 bs_to_bl_matrix = bpy_extras.io_utils.axis_conversion(from_forward='Z', from_up='-Y').to_3x3()
@@ -427,9 +437,7 @@ class OBJECT_OT_add_bombsquad_map_location(bpy.types.Operator):
 	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
 	location_type: bpy.props.EnumProperty(
-		items=tuple([
-			(key, bpy.path.display_name(key), metadata['description']) for key, metadata in location_metadata.items()
-		]),
+		items=known_location_type_items,
 		name="Location Type",
 	)
 
@@ -477,11 +485,7 @@ class OBJECT_OT_add_bombsquad_map_location_custom(bpy.types.Operator):
 	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
 	location_type: bpy.props.EnumProperty(
-		items=(
-			('CUBE', 'CUBE', ''),
-			('PLANE', 'PLANE', ''),
-			('POINT', 'POINT', ''),
-		),
+		items=custom_location_type_items,
 		name="Location Type",
 	)
 	location_name: bpy.props.StringProperty(
@@ -530,18 +534,26 @@ class BS_PT_bombsquad_map(bpy.types.Panel):
 
 	def draw(self, context):
 		layout = self.layout
+		scene = context.scene
 		
 		col = layout.column(align=True)
-		col.label(text="Add well well known map location")
-
-		row = col.row(align=True)
-		row.operator_enum("object.add_bombsquad_map_location", "location_type")
+		col.label(text="Add known location")
+		sp = col.split(factor=0.8)
+		sp.prop(scene, "bs_map_known_location_type", text="")
+		sp = sp.split(factor=1.0)
+		props = sp.operator("object.add_bombsquad_map_location", text="Add")
+		props.location_type = scene.bs_map_known_location_type
 		
 		col = layout.column(align=True)
-		col.label(text="Add custom map location")
-
-		row = col.row(align=True)
-		row.operator_enum("object.add_bombsquad_map_location_custom", "location_type")
+		col.label(text="Add custom location")
+		sp = col.split(factor=0.8)
+		row = sp.row()
+		row.prop(scene, "bs_map_custom_location_type", text="")
+		row.prop(scene, "bs_map_custom_location_name", text="")
+		sp = sp.split(factor=1.0)
+		props = sp.operator("object.add_bombsquad_map_location_custom", text="Add")
+		props.location_type = scene.bs_map_custom_location_type
+		props.location_name = scene.bs_map_custom_location_name
 
 
 classes = (
@@ -557,13 +569,39 @@ classes = (
 _register, _unregister = bpy.utils.register_classes_factory(classes)
 
 
+def register_global_properties():
+	bpy.types.Scene.bs_map_known_location_type = bpy.props.EnumProperty(
+		items=known_location_type_items,
+		name="Location Type",
+		options=set(),  # Remove ANIMATABLE default option.
+	)
+	bpy.types.Scene.bs_map_custom_location_type = bpy.props.EnumProperty(
+		items=custom_location_type_items,
+		name="Location Type",
+		options=set(),  # Remove ANIMATABLE default option.
+	)
+	bpy.types.Scene.bs_map_custom_location_name = bpy.props.StringProperty(
+		name="Location Name",
+		default="custom",
+		options=set(),  # Remove ANIMATABLE default option.
+	)
+
+
+def unregister_global_properties():
+	del bpy.types.Scene.bs_map_custom_location_name
+	del bpy.types.Scene.bs_map_custom_location_type
+	del bpy.types.Scene.bs_map_known_location_type
+
+
 def register():
 	_register()
 	bpy.types.TOPBAR_MT_file_import.append(menu_func_import_leveldefs)
 	bpy.types.TOPBAR_MT_file_export.append(menu_func_export_leveldefs)
+	register_global_properties()
 
 
 def unregister():
+	unregister_global_properties()
 	bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_leveldefs)
 	bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_leveldefs)
 	_unregister()
