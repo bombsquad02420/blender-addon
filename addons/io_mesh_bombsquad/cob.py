@@ -222,7 +222,7 @@ class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Impor
 
 		return {'FINISHED'}
 
-	def import_cob(self, context, filepath, collection=None):
+	def import_cob(self, context, filepath, collection=None, **options):
 		print(f"{self.__class__.__name__}: [INFO] Importing `{filepath}`")
 		filepath = os.fsencode(filepath)
 
@@ -311,6 +311,9 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 
 			ret = {'CANCELLED'}
 			for obj in objects:
+				if not obj.data:
+					# skip empty
+					continue
 				dirname = os.path.dirname(self.filepath)
 				filename = bpy.path.display_name_to_filepath(obj.name) + '.bob'
 				filepath = os.path.join(dirname, filename)
@@ -342,7 +345,7 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 			modified_obj = obj.evaluated_get(depsgraph)
 			mesh = bpy.data.meshes.new_from_object(modified_obj, preserve_all_data_layers=True, depsgraph=depsgraph)
 		else:
-			mesh = obj.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
+			mesh = obj.to_mesh(preserve_all_data_layers=True)
 
 		if options['apply_object_transformations']:
 			mesh.transform(obj.matrix_world)
