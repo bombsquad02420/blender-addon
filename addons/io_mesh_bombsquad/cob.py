@@ -57,6 +57,11 @@ def from_mesh(mesh):
 
 	bmesh.ops.triangulate(bm, faces=bm.faces)
 
+	for i, vert in enumerate(bm.verts):
+		vertices.append({
+			"pos": vert.co
+		})
+
 	for i, face in enumerate(bm.faces):
 		faceverts = []
 		for vi, vert in enumerate(face.verts):
