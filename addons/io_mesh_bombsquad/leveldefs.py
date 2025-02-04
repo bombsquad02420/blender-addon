@@ -320,7 +320,7 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 	# this is set by the collection exporter feature.
 	collection: bpy.props.StringProperty(
 		name="Source Collection",
-		description="Export only objects from this collection (and its children)",
+		description="Export only objects from this collection",
 		default="",
 	)
 
@@ -405,6 +405,32 @@ class EXPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 
 		print(f"{self.__class__.__name__}: [INFO] Finished exporting {filepath}")
 		return {'FINISHED'}
+
+	def draw(self, context):
+		is_file_browser = context.space_data.type == 'FILE_BROWSER'
+		is_collection_exporter = context.space_data.type == 'PROPERTIES'
+
+		layout = self.layout
+
+		if is_file_browser:
+			col = layout.column(align=True)
+			self.draw_file_browser_props(col)
+
+		if is_collection_exporter:
+			col = layout.column(align=True)
+			self.draw_collection_exporter_props(col)
+
+		col = layout.column(align=True)
+		self.draw_props(layout)
+
+	def draw_file_browser_props(self, layout):
+		pass
+
+	def draw_collection_exporter_props(self, layout):
+		pass
+
+	def draw_props(self, layout):
+		pass
 
 
 # Enables importing files by draggin and dropping into the blender UI
