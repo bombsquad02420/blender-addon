@@ -1,4 +1,6 @@
 import bpy
-op = bpy.context.active_operator
 
-op.apply_object_transformations = False
+def set_operator_properties(op):
+	op.apply_object_transformations = False
+
+set_operator_properties(bpy.context.active_operator)
