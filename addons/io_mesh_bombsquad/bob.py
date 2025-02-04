@@ -327,6 +327,18 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		type=bpy.types.OperatorFileListElement,
 	)
 
+	group_into_collection: bpy.props.BoolProperty(
+		name="Group into collection",
+		description="If you are importing multiple files, create a new collection and add the imported meshes to it",
+		default=False,
+	)
+
+	setup_collection_exporter: bpy.props.BoolProperty(
+		name="Setup Collection Exporter",
+		description="Automatically configure a collection exporter for the imported meshes if group_into_collection is checked",
+		default=False,
+	)
+
 	arrange_character_meshes: bpy.props.BoolProperty(
 		name="Arrange Character Meshes",
 		description="",
@@ -341,26 +353,59 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			'files',
 			'filepath',
 		))
+		
+		should_create_collection = self.files and self.group_into_collection
+		is_character = False
+ 
+		collection = None
+		if should_create_collection:
+			filename = bpy.path.display_name_from_filepath(self.files[0].name)
+			character_part = _get_character_part_name(filename)
 
+			if character_part is not None:
+				is_character = True
+				collection_name = filename.rstrip(character_part)
+				collection = bpy.data.collections.new(collection_name)
+				print(f"{self.__class__.__name__}: [INFO] Created collection `{collection_name}` because you are importing a character.")
+			
+			else:
+				collection = bpy.data.collections.new(filename)
+				print(f"{self.__class__.__name__}: [INFO] Created collection `{collection.name}`.")
+
+			scene = bpy.context.scene
+			bpy.context.scene.collection.children.link(collection)
+			bpy.context.view_layer.update()
+
+		ret = None
 		if self.files:
 			# Multiple file import
 			ret = {'CANCELLED'}
 			dirname = os.path.dirname(self.filepath)
 			for file in self.files:
 				path = os.path.join(dirname, file.name)
-				if self.import_bob(context, path, **keywords) == {'FINISHED'}:
+				if self.import_bob(context, path, collection=collection, **keywords) == {'FINISHED'}:
 					ret = {'FINISHED'}
 				else:
 					self.report({'WARNING'}, f"The file `{path}` was not imported.")
-			return ret
 		else:
 			# Single file import
-			return self.import_bob(context, self.filepath, **keywords)
+			ret = self.import_bob(context, self.filepath, collection=collection, **keywords)
+	
+		if ret != {'FINISHED'}:
+			return {'CANCELLED'}
 
-		self.import_bob(context, **keywords)
+		if should_create_collection and collection is not None and self.setup_collection_exporter:
+			utils.set_active_collection(collection)
+			bpy.ops.collection.exporter_add(name='IO_FH_bombsquad_bob')
+			exporter = collection.exporters[-1]
+			exporter.export_properties.filepath = self.filepath
+			if is_character:
+				exporter.export_properties.apply_object_transformations = False
+			print(f"{self.__class__.__name__}: [INFO] Created collection exporter for collection `{collection.name}`.")
 
+		return {'FINISHED'}
 
-	def import_bob(self, context, filepath, **options):
+	def import_bob(self, context, filepath, collection=None, **options):
 		print(f"{self.__class__.__name__}: [INFO] Importing `{filepath}` with options {options}")
 		filepath = os.fsencode(filepath)
 		
@@ -376,7 +421,10 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			return {'CANCELLED'}
 
 		obj = bpy.data.objects.new(bob_name, mesh)
-		context.scene.collection.objects.link(obj)
+		if collection:
+			collection.objects.link(obj)
+		else:
+			context.scene.collection.objects.link(obj)
 
 		character_part_name = _get_character_part_name(bob_name)
 		if character_part_name is not None and options['arrange_character_meshes']:
