@@ -35,3 +35,17 @@ and
 ## License
 
 [GNU General Public License v3.0](LICENSE)
+
+----
+
+<picture>
+<source
+	media="(prefers-color-scheme: dark)"
+	srcset="https://brainmade.org/white-logo.svg"
+/>
+<img
+	src="https://brainmade.org/black-logo.svg"
+	alt="The Brainmade Mark"
+	width="80"
+/>
+</picture>
