@@ -1,13 +1,13 @@
 schema_version = "1.0.0"
 
-id = "io_mesh_bombsquad"
+id = "bombsquad_tools"
 version = "3.0.0"
-name = "Import/Export BombSquad models"
-tagline = "Import and export BombSquad models in the .bob and .cob formats"
+name = "BombSquad Tools"
+tagline = "Tools for creating BombSquad game assets"
 maintainer = "aryan02420 <aryan02420@gmail.com>"
 type = "add-on"
 website = "https://github.com/bombsquad02420/blender-addon"
-tags = ["Import-Export", "Mesh"]
+tags = ["Import-Export", "Mesh", "Scene"]
 blender_version_min = "4.2.0"
 
 license = ["SPDX:GPL-3.0-or-later"]
@@ -17,4 +17,4 @@ copyright = [
 ]
 
 [permissions]
-files = "Import/export .bob and .cob files from/to disk"
+files = "Import/export .bob, .cob, and .json files"
