@@ -8,7 +8,7 @@ Import-Export BombSquad's bob and cob files
 |:----------------|:-----------------|:--------------|:----------------------------------------------------------------------------------------|
 | 2.77 - 2.79b    | ~ 1.4            | Unmaintained  | https://github.com/Mrmaxmeier/BombSquad-Community-Mod-Manager/tree/master/utils/blender |
 | >=2.80          | ~ 1.4            | Supported     | https://github.com/bombsquad02420/blender-addon/releases/tag/blender4.2                 |
-| >=4.2           | >=1.7            | Experimental  | https://extensions.blender.org/add-ons/io-mesh-bombsquad/                               |
+| >=4.2           | >=1.7            | Experimental  | https://extensions.blender.org/add-ons/bombsquad-tools/                                 |
 
 > [!NOTE]
 > Other versions of blender and bombsquad that are not listed may be work.
@@ -20,8 +20,6 @@ Import-Export BombSquad's bob and cob files
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-Instructions for setting up dev environment can be found in [SETUP.md](./SETUP.md)
 
 ## Acknowledgment
 
