@@ -568,8 +568,8 @@ class OBJECT_OT_add_bombsquad_map_location_custom(bpy.types.Operator):
 		return {'FINISHED'}
 
 
-class BS_PT_bombsquad_map(bpy.types.Panel):
-	bl_idname = "BS_PT_bombsquad_map"
+class VIEW3D_PT_bombsquad_map(bpy.types.Panel):
+	bl_idname = "VIEW3D_PT_bombsquad_map"
 	bl_label = "BombSquad Map"
 	bl_space_type = 'VIEW_3D'
 	bl_region_type = 'UI'
@@ -607,7 +607,7 @@ classes = (
 	SCENE_PG_bombsquad_map,
 	OBJECT_OT_add_bombsquad_map_location,
 	OBJECT_OT_add_bombsquad_map_location_custom,
-	BS_PT_bombsquad_map,
+	VIEW3D_PT_bombsquad_map,
 )
 
 
