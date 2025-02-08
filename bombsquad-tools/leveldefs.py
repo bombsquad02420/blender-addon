@@ -456,6 +456,24 @@ def menu_func_export_leveldefs(self, context):
 	self.layout.operator(EXPORT_SCENE_OT_bombsquad_leveldefs.bl_idname, text="Bombsquad Level Definitions (.json)")
 
 
+class SCENE_PG_bombsquad_map(bpy.types.PropertyGroup):
+	known_location_type: bpy.props.EnumProperty(
+		items=known_location_type_items,
+		name="Location Type",
+		options=set(),  # Remove ANIMATABLE default option.
+	)
+	custom_location_type: bpy.props.EnumProperty(
+		items=custom_location_type_items,
+		name="Location Type",
+		options=set(),  # Remove ANIMATABLE default option.
+	)
+	custom_location_name: bpy.props.StringProperty(
+		name="Location Name",
+		default="custom",
+		options=set(),  # Remove ANIMATABLE default option.
+	)
+
+
 class OBJECT_OT_add_bombsquad_map_location(bpy.types.Operator):
 	"""Add a well known BombSquad map location to the scene"""
 	bl_idname = "object.add_bombsquad_map_location"
@@ -565,27 +583,28 @@ class BS_PT_bombsquad_map(bpy.types.Panel):
 		col = layout.column(align=True)
 		col.label(text="Add known location")
 		sp = col.split(factor=0.8)
-		sp.prop(scene, "bs_map_known_location_type", text="")
+		sp.prop(scene.bombsquad_map, "known_location_type", text="")
 		sp = sp.split(factor=1.0)
 		props = sp.operator("object.add_bombsquad_map_location", text="Add")
-		props.location_type = scene.bs_map_known_location_type
+		props.location_type = scene.bombsquad_map.known_location_type
 		
 		col = layout.column(align=True)
 		col.label(text="Add custom location")
 		sp = col.split(factor=0.8)
 		row = sp.row()
-		row.prop(scene, "bs_map_custom_location_type", text="")
-		row.prop(scene, "bs_map_custom_location_name", text="")
+		row.prop(scene.bombsquad_map, "custom_location_type", text="")
+		row.prop(scene.bombsquad_map, "custom_location_name", text="")
 		sp = sp.split(factor=1.0)
 		props = sp.operator("object.add_bombsquad_map_location_custom", text="Add")
-		props.location_type = scene.bs_map_custom_location_type
-		props.location_name = scene.bs_map_custom_location_name
+		props.location_type = scene.bombsquad_map.custom_location_type
+		props.location_name = scene.bombsquad_map.custom_location_name
 
 
 classes = (
 	IMPORT_SCENE_OT_bombsquad_leveldefs,
 	EXPORT_SCENE_OT_bombsquad_leveldefs,
 	IO_FH_bombsquad_leveldefs,
+	SCENE_PG_bombsquad_map,
 	OBJECT_OT_add_bombsquad_map_location,
 	OBJECT_OT_add_bombsquad_map_location_custom,
 	BS_PT_bombsquad_map,
@@ -595,41 +614,23 @@ classes = (
 _register, _unregister = bpy.utils.register_classes_factory(classes)
 
 
-def register_global_properties():
-	bpy.types.Scene.bs_map_known_location_type = bpy.props.EnumProperty(
-		items=known_location_type_items,
-		name="Location Type",
-		options=set(),  # Remove ANIMATABLE default option.
-	)
-	bpy.types.Scene.bs_map_custom_location_type = bpy.props.EnumProperty(
-		items=custom_location_type_items,
-		name="Location Type",
-		options=set(),  # Remove ANIMATABLE default option.
-	)
-	bpy.types.Scene.bs_map_custom_location_name = bpy.props.StringProperty(
-		name="Location Name",
-		default="custom",
-		options=set(),  # Remove ANIMATABLE default option.
-	)
-
-
-def unregister_global_properties():
-	del bpy.types.Scene.bs_map_custom_location_name
-	del bpy.types.Scene.bs_map_custom_location_type
-	del bpy.types.Scene.bs_map_known_location_type
-
-
 def register():
 	_register()
+	
 	bpy.types.TOPBAR_MT_file_import.append(menu_func_import_leveldefs)
 	bpy.types.TOPBAR_MT_file_export.append(menu_func_export_leveldefs)
-	register_global_properties()
+
+	# PROPERTY
+	bpy.types.Scene.bombsquad_map = bpy.props.PointerProperty(type=SCENE_PG_bombsquad_map, name="BombSquad Map")
 
 
 def unregister():
-	unregister_global_properties()
+	# PROPERTY
+	del bpy.types.Scene.bombsquad_map
+	
 	bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_leveldefs)
 	bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_leveldefs)
+	
 	_unregister()
 
 
