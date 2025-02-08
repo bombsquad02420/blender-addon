@@ -191,10 +191,9 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 			return {'CANCELLED'}
 
 		collection_name = bpy.path.display_name_from_filepath(filepath)
-		scene = bpy.context.scene
 		collection = bpy.data.collections.new(collection_name)
-		bpy.context.scene.collection.children.link(collection)
-		bpy.context.view_layer.update()
+		context.scene.collection.children.link(collection)
+		context.view_layer.update()
 
 		# IMPORTANT: we set the newly created collection as active,
 		# so we can freely call operators that work on active collection,
@@ -247,7 +246,7 @@ class IMPORT_SCENE_OT_bombsquad_leveldefs(bpy.types.Operator, bpy_extras.io_util
 					)
 
 		bpy.ops.object.select_all(action='DESELECT')
-		bpy.context.view_layer.update()
+		context.view_layer.update()
 
 		if self.setup_collection_exporter:
 			bpy.ops.collection.exporter_add(name='IO_FH_bombsquad_leveldefs')

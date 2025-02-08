@@ -381,9 +381,8 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 				collection = bpy.data.collections.new(display_name)
 				print(f"{self.__class__.__name__}: [INFO] Created collection `{collection.name}`.")
 
-			scene = bpy.context.scene
-			bpy.context.scene.collection.children.link(collection)
-			bpy.context.view_layer.update()
+			context.scene.collection.children.link(collection)
+			context.view_layer.update()
 
 		ret = None
 		if self.files:
