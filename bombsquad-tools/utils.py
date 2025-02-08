@@ -46,3 +46,68 @@ def search_layer_collection_in_hierarchy_and_set_active(colref, hir):
         else:
             for child in hir.children:
                 search_layer_collection_in_hierarchy_and_set_active(colref, child)
+
+
+# Run this in blender's interactive console to get location/rotation data
+# {
+# 	ob.name: {
+# 		'location': tuple(round(x, 5) for x in list(ob.matrix_world.to_translation())),
+# 		'rotation': tuple(round(x, 5) for x in list(ob.matrix_world.to_euler())),
+# 	}
+# 	for ob in C.selected_objects
+# }
+
+character_part_metadata = {
+	'Head': {
+		'location': (0.000000, 0.000000, 0.942794),
+		'rotation': (0, 0.000000, 0.000000),
+		'mirror': False,
+	},
+	'Torso': {
+		'location': (0.000000, 0.000000, 0.496232),
+		'rotation': (0, 0.000000, 0.000000),
+		'mirror': False,
+	},
+	'Pelvis': {
+		'location': (0.000000, -0.03582, 0.361509),
+		'rotation': (-0.21104, 0.000000, 0.000000),
+		'mirror': False,
+	},
+	'UpperArm': {
+		'location': (-0.207339, 0.016968, 0.516395),
+		'rotation': (1.75531, 0.185005, 0.000000),
+		'mirror': True,
+	},
+	'ForeArm': {
+		'location': (-0.199252, -0.013197, 0.372489),
+		'rotation': (1.09994, 0.000000, 0.000000),
+		'mirror': True,
+	},
+	'Hand': {
+		'location': (-0.195932, -0.0641, 0.321099),
+		'rotation': (0.82205, 0.000000, 0.000000),
+		'mirror': True,
+	},
+	'UpperLeg': {
+		'location': (-0.09192, -0.031631, 0.266533),
+		'rotation': (1.37474, 0.000000, 0.000000),
+		'mirror': True,
+	},
+	'LowerLeg': {
+		'location': (-0.088037, -0.063052, 0.113304),
+		'rotation': (1.5708, 0.000000, 0.000000),
+		'mirror': True,
+	},
+	'Toes': {
+		'location': (-0.086935, -0.11274, 0.069577),
+		'rotation': (1.5708, 0.000000, 0.000000),
+		'mirror': True,
+	},
+}
+
+
+def get_character_part_name(fullname):
+	for part in character_part_metadata:
+		if fullname.endswith(part):
+			return part
+	return None
