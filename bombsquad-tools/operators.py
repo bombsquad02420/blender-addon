@@ -2,6 +2,7 @@ import bpy
 
 from . import utils
 
+
 class SCENE_OT_bombsquad_arrange_character(bpy.types.Operator):
 	"""Arrange selected character parts"""
 	bl_idname = "scene.bombsquad_arrange_character"
@@ -67,9 +68,105 @@ class COLLECTION_OT_bombsquad_create_character_exporter(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+class OBJECT_OT_add_bombsquad_map_location(bpy.types.Operator):
+	"""Add a well known BombSquad map location to the scene"""
+	bl_idname = "object.add_bombsquad_map_location"
+	bl_label = "Add BombSquad map location"
+	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+	location_type: bpy.props.EnumProperty(
+		items=utils.known_location_type_items,
+		name="Location Type",
+	)
+
+	@classmethod
+	def poll(cls, context):
+		return context.mode == 'OBJECT'
+
+	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+		
+		location = utils.location_metadata[self.location_type]
+		empty = None
+
+		if location['draw'] == 'POINT':
+			empty = utils.add_point(
+				context,
+				name=self.location_type + '.000',
+				center=location['default_center'],
+			)
+		elif location['draw'] == 'PLANE':
+			empty = utils.add_plane(
+				context,
+				name=self.location_type + '.000',
+				center=location['default_center'],
+				size=location['default_size'],
+			)
+		elif location['draw'] == 'CUBE':
+			empty = utils.add_cube(
+				context,
+				name=self.location_type + '.000',
+				center=location['default_center'],
+				size=location['default_size'],
+			)
+		
+		bpy.ops.object.select_all(action='DESELECT')
+		empty.select_set(True)
+
+		return {'FINISHED'}
+
+
+class OBJECT_OT_add_bombsquad_map_location_custom(bpy.types.Operator):
+	"""Add a custom BombSquad map location to the scene"""
+	bl_idname = "object.add_bombsquad_map_location_custom"
+	bl_label = "Add custom BombSquad map location"
+	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+	location_type: bpy.props.EnumProperty(
+		items=utils.custom_location_type_items,
+		name="Location Type",
+	)
+	location_name: bpy.props.StringProperty(
+		name="Location Name",
+		default="custom"
+	)
+
+	@classmethod
+	def poll(cls, context):
+		return context.mode == 'OBJECT'
+
+	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+		
+		empty = None
+
+		if self.location_type == 'POINT':
+			empty = utils.add_point(
+				context,
+				name=self.location_name + '.000',
+			)
+		elif self.location_type == 'PLANE':
+			empty = utils.add_plane(
+				context,
+				name=self.location_name + '.000',
+			)
+		elif self.location_type == 'CUBE':
+			empty = utils.add_cube(
+				context,
+				name=self.location_name + '.000',
+			)
+		
+		bpy.ops.object.select_all(action='DESELECT')
+		empty.select_set(True)
+
+		return {'FINISHED'}
+
+
 classes = (
 	SCENE_OT_bombsquad_arrange_character,
 	COLLECTION_OT_bombsquad_create_character_exporter,
+	OBJECT_OT_add_bombsquad_map_location,
+	OBJECT_OT_add_bombsquad_map_location_custom,
 )
 
 
