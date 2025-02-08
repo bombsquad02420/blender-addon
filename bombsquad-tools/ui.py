@@ -72,6 +72,11 @@ class VIEW3D_PT_bombsquad_map(bpy.types.Panel):
 		props = sp.operator("object.add_bombsquad_map_location_custom", text="Add")
 		props.location_type = scene.bombsquad_map.custom_location_type
 		props.location_name = scene.bombsquad_map.custom_location_name
+		
+		col = layout.column(align=True)
+		col.label(text="Create map exporter")
+		col.operator('COLLECTION_OT_bombsquad_create_bob_exporter')
+		col.operator('COLLECTION_OT_bombsquad_create_cob_exporter')
 
 
 classes = (
