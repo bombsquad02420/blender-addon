@@ -12,7 +12,9 @@ class SCENE_OT_bombsquad_arrange_character(bpy.types.Operator):
 	style: bpy.props.EnumProperty(
 		items=(
 			('NONE', 'None', "Clear all transformations."),
-			('DEFAULT', 'Default', "Arrange the character parts to resemble `neoSpaz` style"),
+			('DEFAULT', 'Default', "Arrange the character parts to resemble neoSpaz style"),
+			('WIDE', 'Wide', "Arrange the character parts to resemble frosty, mel, and other wider styles"),
+			('EXPLODED', 'Exploded', "Space out the character parts so that they are easier to texture paint and uv map"),
 		),
 		default='DEFAULT',
 		name="Style",
@@ -38,6 +40,12 @@ class SCENE_OT_bombsquad_arrange_character(bpy.types.Operator):
 			elif self.style == 'DEFAULT':
 				obj.location = part_metadata['location']
 				obj.rotation_euler = part_metadata['rotation']
+			elif self.style == 'WIDE':
+				obj.location = part_metadata['location_wide'] if 'location_wide' in part_metadata else part_metadata['location']
+				obj.rotation_euler = part_metadata['rotation_wide'] if 'rotation_wide' in part_metadata else part_metadata['rotation']
+			elif self.style == 'EXPLODED':
+				obj.location = part_metadata['location_exploded']
+				obj.rotation_euler = (0, 0, 0)
 
 		return {'FINISHED'}
 
