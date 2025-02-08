@@ -7,7 +7,7 @@ tagline = "Tools for creating BombSquad game assets"
 maintainer = "aryan02420 <aryan02420@gmail.com>"
 type = "add-on"
 website = "https://github.com/bombsquad02420/blender-addon"
-tags = ["Import-Export", "Mesh", "Scene"]
+tags = ["Import-Export", "Scene"]
 blender_version_min = "4.2.0"
 
 license = ["SPDX:GPL-3.0-or-later"]
