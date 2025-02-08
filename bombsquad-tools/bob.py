@@ -363,11 +363,10 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			'filepath',
 		))
 		
-		should_create_collection = self.files and self.group_into_collection
 		is_character = False
  
 		collection = None
-		if should_create_collection:
+		if self.group_into_collection:
 			display_name = bpy.path.display_name_from_filepath(self.files[0].name)
 			character_part = _get_character_part_name(display_name)
 
@@ -402,14 +401,14 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		if ret != {'FINISHED'}:
 			return {'CANCELLED'}
 
-		if should_create_collection and collection is not None and self.setup_collection_exporter:
+		if self.group_into_collection and self.setup_collection_exporter:
 			utils.set_active_collection(collection)
-			bpy.ops.collection.exporter_add(name='IO_FH_bombsquad_bob')
-			exporter = collection.exporters[-1]
-			exporter.export_properties.filepath = self.filepath
 			if is_character:
-				exporter.export_properties.apply_object_transformations = False
-				exporter.export_properties.apply_modifiers = True
+				bpy.ops.collection.bombsquad_create_character_exporter()
+			else:
+				bpy.ops.collection.exporter_add(name='IO_FH_bombsquad_bob')
+				exporter = collection.exporters[-1]
+				exporter.export_properties.filepath = self.filepath
 			print(f"{self.__class__.__name__}: [INFO] Created collection exporter for collection `{collection.name}`.")
 
 		return {'FINISHED'}
@@ -435,15 +434,11 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		else:
 			context.scene.collection.objects.link(obj)
 
-		character_part_name = _get_character_part_name(bob_name)
-		if character_part_name is not None and options['arrange_character_meshes']:
-			print(f"{self.__class__.__name__}: [INFO] Detected {filepath} is a `{character_part_name}` and will be arranged.")
-			part_metadata = character_part_metadata[character_part_name]
-			obj.location = part_metadata['location']
-			obj.rotation_euler = part_metadata['rotation']
-
 		bpy.ops.object.select_all(action='DESELECT')
 		obj.select_set(True)
+
+		if options['arrange_character_meshes']:
+			bpy.ops.scene.bombsquad_arrange_character()
 		
 		context.view_layer.objects.active = obj
 		context.view_layer.update()
