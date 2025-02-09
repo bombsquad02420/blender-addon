@@ -52,70 +52,6 @@ BOB_FILE_ID = 45623
 bs_to_bl_matrix = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up='Y').to_4x4()
 bl_to_bs_matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
 
-# Run this in blender's interactive console to get location/rotation data
-# {
-# 	ob.name: {
-# 		'location': tuple(round(x, 5) for x in list(ob.matrix_world.to_translation())),
-# 		'rotation': tuple(round(x, 5) for x in list(ob.matrix_world.to_euler())),
-# 	}
-# 	for ob in C.selected_objects
-# }
-
-character_part_metadata = {
-	'Head': {
-		'location': (0.000000, 0.000000, 0.942794),
-		'rotation': (0, 0.000000, 0.000000),
-		'mirror': False,
-	},
-	'Torso': {
-		'location': (0.000000, 0.000000, 0.496232),
-		'rotation': (0, 0.000000, 0.000000),
-		'mirror': False,
-	},
-	'Pelvis': {
-		'location': (0.000000, -0.03582, 0.361509),
-		'rotation': (-0.21104, 0.000000, 0.000000),
-		'mirror': False,
-	},
-	'UpperArm': {
-		'location': (-0.207339, 0.016968, 0.516395),
-		'rotation': (1.75531, 0.185005, 0.000000),
-		'mirror': True,
-	},
-	'ForeArm': {
-		'location': (-0.199252, -0.013197, 0.372489),
-		'rotation': (1.09994, 0.000000, 0.000000),
-		'mirror': True,
-	},
-	'Hand': {
-		'location': (-0.195932, -0.0641, 0.321099),
-		'rotation': (0.82205, 0.000000, 0.000000),
-		'mirror': True,
-	},
-	'UpperLeg': {
-		'location': (-0.09192, -0.031631, 0.266533),
-		'rotation': (1.37474, 0.000000, 0.000000),
-		'mirror': True,
-	},
-	'LowerLeg': {
-		'location': (-0.088037, -0.063052, 0.113304),
-		'rotation': (1.5708, 0.000000, 0.000000),
-		'mirror': True,
-	},
-	'Toes': {
-		'location': (-0.086935, -0.11274, 0.069577),
-		'rotation': (1.5708, 0.000000, 0.000000),
-		'mirror': True,
-	},
-}
-
-
-def _get_character_part_name(fullname):
-	for part in character_part_metadata:
-		if fullname.endswith(part):
-			return part
-	return None
-
 
 def to_mesh(mesh, bob_data):
 	verts = [vert["pos"] for vert in bob_data["vertices"]]
@@ -368,7 +304,7 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		collection = None
 		if self.group_into_collection:
 			display_name = bpy.path.display_name_from_filepath(self.files[0].name)
-			character_part = _get_character_part_name(display_name)
+			character_part = utils.get_character_part_name(display_name)
 
 			if character_part is not None:
 				is_character = True
@@ -604,99 +540,10 @@ def menu_func_export_bob(self, context):
 	self.layout.operator(EXPORT_MESH_OT_bombsquad_bob.bl_idname, text="Bombsquad Mesh (.bob)")
 
 
-class SCENE_OT_bombsquad_arrange_character(bpy.types.Operator):
-	"""Arrange selected character parts"""
-	bl_idname = "scene.bombsquad_arrange_character"
-	bl_label = "Arrange Bombsquad Character"
-	bl_options = {'REGISTER', 'UNDO'}
-
-	style: bpy.props.EnumProperty(
-		items=(
-			('NONE', 'None', "Clear all transformations."),
-			('DEFAULT', 'Default', "Arrange the character parts to resemble `neoSpaz` style"),
-		),
-		default='DEFAULT',
-		name="Style",
-	)
-
-	@classmethod
-	def poll(cls, context):
-		return len(context.selected_objects) > 0
-
-	def execute(self, context):
-		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
-
-		selected_objects = context.selected_objects
-
-		for obj in selected_objects:
-			character_part = _get_character_part_name(obj.name.split('.')[0])
-			if character_part is None:
-				continue
-			part_metadata = character_part_metadata[character_part]
-			if self.style == 'NONE':
-				obj.location = (0, 0, 0)
-				obj.rotation_euler = (0, 0, 0)
-			elif self.style == 'DEFAULT':
-				obj.location = part_metadata['location']
-				obj.rotation_euler = part_metadata['rotation']
-
-		return {'FINISHED'}
-
-
-class COLLECTION_OT_bombsquad_create_character_exporter(bpy.types.Operator):
-	"""Create a collection exporter for the active collection"""
-	bl_idname = "collection.bombsquad_create_character_exporter"
-	bl_label = "Create Character Exporter"
-	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
-
-	@classmethod
-	def poll(cls, context):
-		return context.view_layer.active_layer_collection.collection != context.scene.collection
-
-	def execute(self, context):
-		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
-
-		collection = context.view_layer.active_layer_collection.collection
-		
-		bpy.ops.collection.exporter_add(name='IO_FH_bombsquad_bob')
-		exporter = collection.exporters[-1]
-
-		exporter.export_properties.apply_object_transformations = False
-		exporter.export_properties.apply_modifiers = True
-
-		print(f"{self.__class__.__name__}: [INFO] Created collection exporter for collection `{collection.name}`.")
-
-		return {'FINISHED'}
-
-
-class VIEW3D_PT_bombsquad_character(bpy.types.Panel):
-	bl_idname = "VIEW3D_PT_bombsquad_character"
-	bl_label = "BombSquad Character"
-	bl_space_type = 'VIEW_3D'
-	bl_region_type = 'UI'
-	bl_category = "BombSquad"
-	bl_context = "objectmode"
-
-	def draw(self, context):
-		layout = self.layout
-		scene = context.scene
-		
-		col = layout.column(align=True)
-		col.label(text="Arrange selected character parts")
-		col.operator_enum('SCENE_OT_bombsquad_arrange_character', "style")
-
-		col = layout.column(align=True)
-		col.label(text="Create character exporter")
-		col.operator('COLLECTION_OT_bombsquad_create_character_exporter')
-
-
 classes = (
 	IMPORT_MESH_OT_bombsquad_bob,
 	EXPORT_MESH_OT_bombsquad_bob,
 	IO_FH_bombsquad_bob,
-	SCENE_OT_bombsquad_arrange_character,
-	COLLECTION_OT_bombsquad_create_character_exporter,
-	VIEW3D_PT_bombsquad_character,
 )
 
 
