@@ -1,54 +1,54 @@
 import bpy
 
 def map_range(value, from_start=0, from_end=1, to_start=0, to_end=127, clamp=False, precision=6):
-    mapped_value = to_start + (to_end - to_start) * (value - from_start) / (from_end - from_start)
-    mapped_value = round(mapped_value, precision)
-    if precision == 0:
-        mapped_value = int(mapped_value)
-    if clamp:
-        if to_start < to_end:
-            mapped_value = max(min(mapped_value, to_end), to_start)
-        else:
-            mapped_value = max(min(mapped_value, to_start), to_end)
-    return mapped_value
+	mapped_value = to_start + (to_end - to_start) * (value - from_start) / (from_end - from_start)
+	mapped_value = round(mapped_value, precision)
+	if precision == 0:
+		mapped_value = int(mapped_value)
+	if clamp:
+		if to_start < to_end:
+			mapped_value = max(min(mapped_value, to_end), to_start)
+		else:
+			mapped_value = max(min(mapped_value, to_start), to_end)
+	return mapped_value
 
 
 # Thanks EasyBPY!
 def get_collection(ref = None):
-    if ref is None:
-        return bpy.context.view_layer.active_layer_collection.collection
-    else:
-        if isinstance(ref, str):
-            if ref in bpy.data.collections:
-                return bpy.data.collections[ref]
-            else:
-                return False
-        else:
-            return ref
+	if ref is None:
+		return bpy.context.view_layer.active_layer_collection.collection
+	else:
+		if isinstance(ref, str):
+			if ref in bpy.data.collections:
+				return bpy.data.collections[ref]
+			else:
+				return False
+		else:
+			return ref
 
 
 # Thanks EasyBPY!
 def set_active_collection(ref):
-    colref = None
-    if isinstance(ref, str):
-        colref = get_collection(ref)
-    else:
-        colref = ref
-    hir = bpy.context.view_layer.layer_collection
-    search_layer_collection_in_hierarchy_and_set_active(colref, hir)
+	colref = None
+	if isinstance(ref, str):
+		colref = get_collection(ref)
+	else:
+		colref = ref
+	hir = bpy.context.view_layer.layer_collection
+	search_layer_collection_in_hierarchy_and_set_active(colref, hir)
 
 
 # Thanks EasyBPY!
 def search_layer_collection_in_hierarchy_and_set_active(colref, hir):
-    if isinstance(hir, bpy.types.LayerCollection):
-        if hir.collection == colref:
-            bpy.context.view_layer.active_layer_collection = hir
-        else:
-            for child in hir.children:
-                search_layer_collection_in_hierarchy_and_set_active(colref, child)
+	if isinstance(hir, bpy.types.LayerCollection):
+		if hir.collection == colref:
+			bpy.context.view_layer.active_layer_collection = hir
+		else:
+			for child in hir.children:
+				search_layer_collection_in_hierarchy_and_set_active(colref, child)
 
 
-# Run this in blender's interactive console to get location/rotation data
+# # Run this in blender's interactive console to get location/rotation data
 # {
 # 	ob.name: {
 # 		'location': tuple(round(x, 5) for x in list(ob.matrix_world.to_translation())),
@@ -61,46 +61,61 @@ character_part_metadata = {
 	'Head': {
 		'location': (0.000000, 0.000000, 0.942794),
 		'rotation': (0, 0.000000, 0.000000),
+		"location_exploded": (0.0, 0.0, 0.75866),
 		'mirror': False,
 	},
 	'Torso': {
 		'location': (0.000000, 0.000000, 0.496232),
 		'rotation': (0, 0.000000, 0.000000),
+		"location_exploded": (0.0, 0.0, 0.13636),
 		'mirror': False,
 	},
 	'Pelvis': {
 		'location': (0.000000, -0.03582, 0.361509),
 		'rotation': (-0.21104, 0.000000, 0.000000),
+		"location_exploded": (0.0, -0.05269, -0.213),
 		'mirror': False,
 	},
 	'UpperArm': {
 		'location': (-0.207339, 0.016968, 0.516395),
+		'location_wide': (-0.30483, 0.01697, 0.54717),
 		'rotation': (1.75531, 0.185005, 0.000000),
+		'rotation_wide': (1.75531, 0.45408, 0.0),
+		"location_exploded": (-0.86186, -0.02644, 0.34271),
 		'mirror': True,
 	},
 	'ForeArm': {
 		'location': (-0.199252, -0.013197, 0.372489),
+		'location_wide': (-0.34297, -0.00887, 0.3871),
 		'rotation': (1.09994, 0.000000, 0.000000),
+		'rotation_wide': (1.09994, 0.12795, 0.0),
+		"location_exploded": (-0.86246, -0.36209, 0.33985),
 		'mirror': True,
 	},
 	'Hand': {
 		'location': (-0.195932, -0.0641, 0.321099),
+		'location_wide': (-0.34624, -0.05977, 0.33571),
 		'rotation': (0.82205, 0.000000, 0.000000),
+		'rotation_wide': (0.82205, 0.12795, 0.0),
+		"location_exploded": (-0.8561, -0.61972, 0.36189),
 		'mirror': True,
 	},
 	'UpperLeg': {
 		'location': (-0.09192, -0.031631, 0.266533),
 		'rotation': (1.37474, 0.000000, 0.000000),
+		"location_exploded": (-0.50767, -0.01225, -0.34591),
 		'mirror': True,
 	},
 	'LowerLeg': {
 		'location': (-0.088037, -0.063052, 0.113304),
 		'rotation': (1.5708, 0.000000, 0.000000),
+		"location_exploded": (-0.50767, -0.37831, -0.31683),
 		'mirror': True,
 	},
 	'Toes': {
 		'location': (-0.086935, -0.11274, 0.069577),
 		'rotation': (1.5708, 0.000000, 0.000000),
+		"location_exploded": (-0.50034, -0.65128, -0.19831),
 		'mirror': True,
 	},
 }

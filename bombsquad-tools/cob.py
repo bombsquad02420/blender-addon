@@ -214,10 +214,7 @@ class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Impor
 
 		if should_create_collection and collection is not None and self.setup_collection_exporter:
 			utils.set_active_collection(collection)
-			bpy.ops.collection.exporter_add(name='IO_FH_bombsquad_cob')
-			exporter = collection.exporters[-1]
-			exporter.export_properties.filepath = self.filepath
-			print(f"{self.__class__.__name__}: [INFO] Created collection exporter for collection `{collection.name}`.")
+			bpy.ops.collection.bombsquad_create_cob_exporter()
 
 		return {'FINISHED'}
 

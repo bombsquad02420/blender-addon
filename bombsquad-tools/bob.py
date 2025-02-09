@@ -342,10 +342,7 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			if is_character:
 				bpy.ops.collection.bombsquad_create_character_exporter()
 			else:
-				bpy.ops.collection.exporter_add(name='IO_FH_bombsquad_bob')
-				exporter = collection.exporters[-1]
-				exporter.export_properties.filepath = self.filepath
-			print(f"{self.__class__.__name__}: [INFO] Created collection exporter for collection `{collection.name}`.")
+				bpy.ops.collection.bombsquad_create_bob_exporter()
 
 		return {'FINISHED'}
 
