@@ -182,11 +182,14 @@ class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			'filepath',
 		))
 
-		should_create_collection = self.files and self.group_into_collection
+		dirname = os.path.dirname(self.filepath)
+		selected_files = [os.path.join(dirname, file.name) for file in self.files]
+
+		print(f"{self.__class__.__name__}: [INFO] Files selected for import: {selected_files}")
 
 		collection = None
-		if should_create_collection:
-			filename = bpy.path.display_name_from_filepath(self.files[0].name)
+		if self.group_into_collection:
+			filename = bpy.path.display_name_from_filepath(selected_files[0])
 			collection = bpy.data.collections.new(filename)
 			
 			print(f"{self.__class__.__name__}: [INFO] Created collection `{collection.name}`.")
@@ -194,25 +197,17 @@ class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			context.scene.collection.children.link(collection)
 			context.view_layer.update()
 
-		ret = None
-		if self.files:
-			# Multiple file import
-			ret = {'CANCELLED'}
-			dirname = os.path.dirname(self.filepath)
-			for file in self.files:
-				path = os.path.join(dirname, file.name)
-				if self.import_cob(context, path, collection=collection, **keywords) == {'FINISHED'}:
-					ret = {'FINISHED'}
-				else:
-					self.report({'WARNING'}, f"The file `{path}` was not imported.")
-		else:
-			# Single file import
-			ret = self.import_cob(context, self.filepath, collection=collection, **keywords)
+		ret = {'CANCELLED'}
+		for file_path in selected_files:
+			if self.import_cob(context, file_path, collection=collection, **keywords) == {'FINISHED'}:
+				ret = {'FINISHED'}
+			else:
+				self.report({'WARNING'}, f"The file `{file_path}` was not imported.")
 
 		if ret != {'FINISHED'}:
 			return {'CANCELLED'}
 
-		if should_create_collection and collection is not None and self.setup_collection_exporter:
+		if self.group_into_collection and self.setup_collection_exporter:
 			utils.set_active_collection(collection)
 			bpy.ops.collection.bombsquad_create_cob_exporter()
 

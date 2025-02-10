@@ -298,12 +298,17 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			'files',
 			'filepath',
 		))
+
+		dirname = os.path.dirname(self.filepath)
+		selected_files = [os.path.join(dirname, file.name) for file in self.files]
+
+		print(f"{self.__class__.__name__}: [INFO] Files selected for import: {selected_files}")
 		
 		is_character = False
  
 		collection = None
 		if self.group_into_collection:
-			display_name = bpy.path.display_name_from_filepath(self.files[0].name)
+			display_name = bpy.path.display_name_from_filepath(selected_files[0])
 			character_part = utils.get_character_part_name(display_name)
 
 			if character_part is not None:
@@ -319,20 +324,12 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			context.scene.collection.children.link(collection)
 			context.view_layer.update()
 
-		ret = None
-		if self.files:
-			# Multiple file import
-			ret = {'CANCELLED'}
-			dirname = os.path.dirname(self.filepath)
-			for file in self.files:
-				path = os.path.join(dirname, file.name)
-				if self.import_bob(context, path, collection=collection, **keywords) == {'FINISHED'}:
-					ret = {'FINISHED'}
-				else:
-					self.report({'WARNING'}, f"The file `{path}` was not imported.")
-		else:
-			# Single file import
-			ret = self.import_bob(context, self.filepath, collection=collection, **keywords)
+		ret = {'CANCELLED'}
+		for file_path in selected_files:
+			if self.import_bob(context, file_path, collection=collection, **keywords) == {'FINISHED'}:
+				ret = {'FINISHED'}
+			else:
+				self.report({'WARNING'}, f"The file `{file_path}` was not imported.")
 	
 		if ret != {'FINISHED'}:
 			return {'CANCELLED'}
