@@ -290,6 +290,12 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		default=False,
 	)
 
+	import_matching_textures: bpy.props.BoolProperty(
+		name="Import Matching Textures",
+		description="",
+		default=False,
+	)
+
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
 
@@ -301,6 +307,7 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 
 		dirname = os.path.dirname(self.filepath)
 		selected_files = [os.path.join(dirname, file.name) for file in self.files]
+		ba_data_dir = utils.get_ba_data_path_from_filepath(self.filepath)
 
 		print(f"{self.__class__.__name__}: [INFO] Files selected for import: {selected_files}")
 		
@@ -324,9 +331,13 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			context.scene.collection.children.link(collection)
 			context.view_layer.update()
 
+		execution_context = {
+			'ba_data_dir': ba_data_dir,
+		}
+
 		ret = {'CANCELLED'}
 		for file_path in selected_files:
-			if self.import_bob(context, file_path, collection=collection, **keywords) == {'FINISHED'}:
+			if self.import_bob(context, file_path, collection=collection, execution_context=execution_context, **keywords) == {'FINISHED'}:
 				ret = {'FINISHED'}
 			else:
 				self.report({'WARNING'}, f"The file `{file_path}` was not imported.")
@@ -343,8 +354,8 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 
 		return {'FINISHED'}
 
-	def import_bob(self, context, filepath, collection=None, **options):
-		print(f"{self.__class__.__name__}: [INFO] Importing `{filepath}` with options {options}")
+	def import_bob(self, context, filepath, collection=None, execution_context=None, **options):
+		print(f"{self.__class__.__name__}: [INFO] Importing `{filepath}` with options {options} and execution context {execution_context}")
 		filepath = os.fsencode(filepath)
 		
 		bob_data = None
@@ -369,6 +380,24 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 
 		if options['arrange_character_meshes']:
 			bpy.ops.scene.bombsquad_arrange_character()
+
+		if options['import_matching_textures']:
+			assert execution_context is not None
+			assert 'ba_data_dir' in execution_context
+			ba_data_dir = execution_context['ba_data_dir']
+			if ba_data_dir is not None:
+				texture_name = bob_name + '.dds'
+				texture_path = os.path.join(ba_data_dir, 'textures', texture_name)
+				print(f"{self.__class__.__name__}: [INFO] Trying to find texture `{texture_path}` for `{bob_name}`")
+				image = bpy_extras.image_utils.load_image(texture_path)
+				if image is not None:
+					print(f"{self.__class__.__name__}: [INFO] Texture `{texture_path}` imported for `{bob_name}`")
+				else:
+					print(f"{self.__class__.__name__}: [INFO] Texture `{texture_path}` not found for `{bob_name}`")
+			else:
+				print(f"{self.__class__.__name__}: [WARN] ba_data directory not found.")
+				self.report({'WARNING'}, f"ba_data directory not found. Skipping importing textures.")
+
 		
 		context.view_layer.objects.active = obj
 		context.view_layer.update()

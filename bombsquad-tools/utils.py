@@ -1,3 +1,4 @@
+import os
 import bpy
 
 def map_range(value, from_start=0, from_end=1, to_start=0, to_end=127, clamp=False, precision=6):
@@ -46,6 +47,15 @@ def search_layer_collection_in_hierarchy_and_set_active(colref, hir):
 		else:
 			for child in hir.children:
 				search_layer_collection_in_hierarchy_and_set_active(colref, child)
+
+
+def get_ba_data_path_from_filepath(filepath):
+	path_parts = filepath.split(os.sep)
+	try:
+		ba_data_dir_index = path_parts.index('ba_data')
+		return os.sep.join(path_parts[:ba_data_dir_index + 1])
+	except ValueError:
+		return None
 
 
 # # Run this in blender's interactive console to get location/rotation data
