@@ -1,6 +1,6 @@
 import bpy
 
-from . import utils
+from . import utils, node_groups
 
 
 class SCENE_OT_bombsquad_arrange_character(bpy.types.Operator):
@@ -216,6 +216,56 @@ class OBJECT_OT_add_bombsquad_map_location_custom(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+class MATERIAL_OT_add_bombsquad_shader(bpy.types.Operator):
+	"""Add a simple BombSquad shader material that supports transparency"""
+	bl_idname = "material.add_bombsquad_shader"
+	bl_label = "Add BombSquad Shader"
+	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+
+	@classmethod
+	def poll(cls, context):
+		return context.active_object is not None
+
+	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+		
+		material = node_groups.create_bombsquad_character_material(
+			name="BombSquad Shader",
+			color_image_src = None,
+			color_mask_image_src = None,
+			uv_map_name = "Float2",
+		)
+		context.active_object.data.materials.append(material)
+
+		return {'FINISHED'}
+
+
+class MATERIAL_OT_add_bombsquad_colorize_shader(bpy.types.Operator):
+	"""Add a BombSquad shader material that supports color mask"""
+	bl_idname = "material.add_bombsquad_colorize_shader"
+	bl_label = "Add BombSquad Colorize Shader"
+	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+
+	@classmethod
+	def poll(cls, context):
+		return context.active_object is not None
+
+	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+		
+		material = node_groups.create_bombsquad_character_material(
+			name="BombSquad Colorize Shader",
+			color_image_src = None,
+			color_mask_image_src = None,
+			uv_map_name = "Float2",
+		)
+		context.active_object.data.materials.append(material)
+
+		return {'FINISHED'}
+
+
 classes = (
 	SCENE_OT_bombsquad_arrange_character,
 	COLLECTION_OT_bombsquad_create_character_exporter,
@@ -223,6 +273,8 @@ classes = (
 	COLLECTION_OT_bombsquad_create_cob_exporter,
 	OBJECT_OT_add_bombsquad_map_location,
 	OBJECT_OT_add_bombsquad_map_location_custom,
+	MATERIAL_OT_add_bombsquad_shader,
+	MATERIAL_OT_add_bombsquad_colorize_shader,
 )
 
 
