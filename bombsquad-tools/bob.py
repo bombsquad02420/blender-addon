@@ -340,6 +340,7 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			context.view_layer.update()
 
 		execution_context = {
+			'dirname': dirname,
 			'ba_data_dir': ba_data_dir,
 		}
 
@@ -394,28 +395,29 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		imported_texture_image = None
 		if options['import_matching_textures']:
 			assert execution_context is not None
+			assert 'dirname' in execution_context
 			assert 'ba_data_dir' in execution_context
+
+			dirname = execution_context['dirname']
 			ba_data_dir = execution_context['ba_data_dir']
 
+			texture_dir = dirname
 			if ba_data_dir is not None:
-				texture_names = utils.get_possible_texture_file_names(bob_name)
+				texture_dir = os.path.join(ba_data_dir, 'textures')
 
-				valid_texture_path = None
-				for texture_name in texture_names:
-					texture_path = os.path.join(ba_data_dir, 'textures', texture_name)
-					if os.path.isfile(texture_path):
-						valid_texture_path = texture_path
-						print(f"{self.__class__.__name__}: [INFO] Found texture `{texture_path}` for `{bob_name}`")
-						break
+			possible_texture_names = utils.get_possible_texture_file_names(bob_name)
 
-				imported_texture_image = image_utils.load_image(valid_texture_path)
-				if imported_texture_image is None:
-					print(f"{self.__class__.__name__}: [INFO] No texture found for `{bob_name}`")
+			valid_texture_path = None
+			for texture_name in possible_texture_names:
+				texture_path = os.path.join(texture_dir, texture_name)
+				if os.path.isfile(texture_path):
+					valid_texture_path = texture_path
+					print(f"{self.__class__.__name__}: [INFO] Found texture `{texture_path}` for `{bob_name}`")
+					break
 
-			else:
-				# TODO: try searching in current directory
-				print(f"{self.__class__.__name__}: [WARN] ba_data directory not found.")
-				self.report({'WARNING'}, f"ba_data directory not found. Skipping importing textures.")
+			imported_texture_image = image_utils.load_image(valid_texture_path)
+			if imported_texture_image is None:
+				print(f"{self.__class__.__name__}: [INFO] No texture found for `{bob_name}`")
 
 		if options['setup_materials']:
 			if imported_texture_image is not None:
