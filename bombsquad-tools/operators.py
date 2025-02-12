@@ -222,7 +222,6 @@ class MATERIAL_OT_add_bombsquad_shader(bpy.types.Operator):
 	bl_label = "Add BombSquad Shader"
 	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
-
 	@classmethod
 	def poll(cls, context):
 		return context.active_object is not None
@@ -230,10 +229,9 @@ class MATERIAL_OT_add_bombsquad_shader(bpy.types.Operator):
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
 		
-		material = node_groups.create_bombsquad_character_material(
-			name="BombSquad Shader",
-			color_image_src = None,
-			color_mask_image_src = None,
+		material = node_groups.create_bombsquad_material(
+			name="BombSquad Material",
+			image_src = None,
 			uv_map_name = "Float2",
 		)
 		context.active_object.data.materials.append(material)
@@ -246,7 +244,6 @@ class MATERIAL_OT_add_bombsquad_colorize_shader(bpy.types.Operator):
 	bl_idname = "material.add_bombsquad_colorize_shader"
 	bl_label = "Add BombSquad Colorize Shader"
 	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
-
 
 	@classmethod
 	def poll(cls, context):
