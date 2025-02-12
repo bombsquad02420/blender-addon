@@ -137,6 +137,13 @@ def get_character_part_name(fullname):
 	return None
 
 
+def get_possible_texture_file_names(bob_name):
+	return [
+		bob_name + '.dds',
+		bob_name + 'Color.dds',
+	]
+
+
 """
 importing and exporting other types will work
 but they may not be sensibly mapped in blender

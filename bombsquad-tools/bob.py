@@ -396,15 +396,22 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			assert execution_context is not None
 			assert 'ba_data_dir' in execution_context
 			ba_data_dir = execution_context['ba_data_dir']
+
 			if ba_data_dir is not None:
-				texture_name = bob_name + '.dds'
-				texture_path = os.path.join(ba_data_dir, 'textures', texture_name)
-				print(f"{self.__class__.__name__}: [INFO] Trying to find texture `{texture_path}` for `{bob_name}`")
-				imported_texture_image = image_utils.load_image(texture_path)
-				if imported_texture_image is not None:
-					print(f"{self.__class__.__name__}: [INFO] Texture `{texture_path}` imported for `{bob_name}`")
-				else:
-					print(f"{self.__class__.__name__}: [INFO] Texture `{texture_path}` not found for `{bob_name}`")
+				texture_names = utils.get_possible_texture_file_names(bob_name)
+
+				valid_texture_path = None
+				for texture_name in texture_names:
+					texture_path = os.path.join(ba_data_dir, 'textures', texture_name)
+					if os.path.isfile(texture_path):
+						valid_texture_path = texture_path
+						print(f"{self.__class__.__name__}: [INFO] Found texture `{texture_path}` for `{bob_name}`")
+						break
+
+				imported_texture_image = image_utils.load_image(valid_texture_path)
+				if imported_texture_image is None:
+					print(f"{self.__class__.__name__}: [INFO] No texture found for `{bob_name}`")
+
 			else:
 				# TODO: try searching in current directory
 				print(f"{self.__class__.__name__}: [WARN] ba_data directory not found.")
