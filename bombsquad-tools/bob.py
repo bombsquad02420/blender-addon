@@ -3,6 +3,8 @@ import struct
 import bpy
 import bmesh
 import bpy_extras
+# FIXME: IDK why bpy_extras.image_utils does not work
+from bpy_extras import image_utils
 
 from . import utils
 
@@ -290,6 +292,18 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		default=False,
 	)
 
+	import_matching_textures: bpy.props.BoolProperty(
+		name="Import Matching Textures",
+		description="",
+		default=False,
+	)
+
+	setup_materials: bpy.props.BoolProperty(
+		name="Setup Materials",
+		description="",
+		default=False,
+	)
+
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
 
@@ -298,12 +312,18 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			'files',
 			'filepath',
 		))
+
+		dirname = os.path.dirname(self.filepath)
+		selected_files = [os.path.join(dirname, file.name) for file in self.files]
+		ba_data_dir = utils.get_ba_data_path_from_filepath(self.filepath)
+
+		print(f"{self.__class__.__name__}: [INFO] Files selected for import: {selected_files}")
 		
 		is_character = False
  
 		collection = None
 		if self.group_into_collection:
-			display_name = bpy.path.display_name_from_filepath(self.files[0].name)
+			display_name = bpy.path.display_name_from_filepath(selected_files[0])
 			character_part = utils.get_character_part_name(display_name)
 
 			if character_part is not None:
@@ -319,20 +339,17 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			context.scene.collection.children.link(collection)
 			context.view_layer.update()
 
-		ret = None
-		if self.files:
-			# Multiple file import
-			ret = {'CANCELLED'}
-			dirname = os.path.dirname(self.filepath)
-			for file in self.files:
-				path = os.path.join(dirname, file.name)
-				if self.import_bob(context, path, collection=collection, **keywords) == {'FINISHED'}:
-					ret = {'FINISHED'}
-				else:
-					self.report({'WARNING'}, f"The file `{path}` was not imported.")
-		else:
-			# Single file import
-			ret = self.import_bob(context, self.filepath, collection=collection, **keywords)
+		execution_context = {
+			'dirname': dirname,
+			'ba_data_dir': ba_data_dir,
+		}
+
+		ret = {'CANCELLED'}
+		for file_path in selected_files:
+			if self.import_bob(context, file_path, collection=collection, execution_context=execution_context, **keywords) == {'FINISHED'}:
+				ret = {'FINISHED'}
+			else:
+				self.report({'WARNING'}, f"The file `{file_path}` was not imported.")
 	
 		if ret != {'FINISHED'}:
 			return {'CANCELLED'}
@@ -346,8 +363,8 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 
 		return {'FINISHED'}
 
-	def import_bob(self, context, filepath, collection=None, **options):
-		print(f"{self.__class__.__name__}: [INFO] Importing `{filepath}` with options {options}")
+	def import_bob(self, context, filepath, collection=None, execution_context=None, **options):
+		print(f"{self.__class__.__name__}: [INFO] Importing `{filepath}` with options {options} and execution context {execution_context}")
 		filepath = os.fsencode(filepath)
 		
 		bob_data = None
@@ -369,13 +386,98 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 
 		bpy.ops.object.select_all(action='DESELECT')
 		obj.select_set(True)
+		context.view_layer.objects.active = obj
+		context.view_layer.update()
+
+		character_name = utils.get_character_name(bob_name)
 
 		if options['arrange_character_meshes']:
 			bpy.ops.scene.bombsquad_arrange_character()
-		
-		context.view_layer.objects.active = obj
-		context.view_layer.update()
-		
+
+		imported_texture_image = None
+		imported_mask_image = None
+		if options['import_matching_textures']:
+			assert execution_context is not None
+			assert 'dirname' in execution_context
+			assert 'ba_data_dir' in execution_context
+
+			dirname = execution_context['dirname']
+			ba_data_dir = execution_context['ba_data_dir']
+
+			texture_dir = dirname
+			if ba_data_dir is not None:
+				texture_dir = os.path.join(ba_data_dir, 'textures')
+
+			if character_name is not None:
+				texture_name = character_name + 'Color.dds'
+				mask_name = character_name + 'ColorMask.dds'
+				texture_path = os.path.join(texture_dir, texture_name)
+				mask_path = os.path.join(texture_dir, mask_name)
+
+				if texture_name in bpy.data.images:
+					print(f"{self.__class__.__name__}: [INFO] Reusing previously imported image `{texture_name}`")
+					imported_texture_image = bpy.data.images[texture_name]
+				else:
+					print(f"{self.__class__.__name__}: [INFO] Importing image `{texture_path}`")
+					imported_texture_image = image_utils.load_image(texture_path)
+					if imported_texture_image is None:
+						self.report({'WARNING'}, f"The image `{texture_path}` could not be imported.")
+						print(f"{self.__class__.__name__}: [WARN] The image `{texture_path}` could not be imported.")
+
+				if mask_name in bpy.data.images:
+					print(f"{self.__class__.__name__}: [INFO] Reusing previously imported image `{mask_name}`")
+					imported_mask_image = bpy.data.images[mask_name]
+				else:
+					print(f"{self.__class__.__name__}: [INFO] Importing image `{mask_path}`")
+					imported_mask_image = image_utils.load_image(mask_path)
+					if imported_mask_image is None:
+						self.report({'WARNING'}, f"The image `{mask_path}` could not be imported.")
+						print(f"{self.__class__.__name__}: [WARN] The image `{mask_path}` could not be imported.")
+
+			else:
+				possible_texture_names = utils.get_possible_texture_file_names(bob_name)
+
+				valid_texture_name = None
+				valid_texture_path = None
+				for texture_name in possible_texture_names:
+					texture_path = os.path.join(texture_dir, texture_name)
+					if os.path.isfile(texture_path):
+						valid_texture_path = texture_path
+						valid_texture_name = texture_name
+						print(f"{self.__class__.__name__}: [INFO] Found texture `{texture_path}` for `{bob_name}`")
+						break
+
+				if valid_texture_name is None:
+					print(f"{self.__class__.__name__}: [INFO] No texture found for `{bob_name}`")
+				elif valid_texture_name in bpy.data.images:
+					print(f"{self.__class__.__name__}: [INFO] Reusing previously imported image `{valid_texture_name}`")
+					imported_texture_image = bpy.data.images[valid_texture_name]
+				else:
+					print(f"{self.__class__.__name__}: [INFO] Importing image `{valid_texture_path}`")
+					imported_texture_image = image_utils.load_image(valid_texture_path)
+
+		if options['setup_materials']:
+			if character_name is not None:
+				material_name = character_name + ' Material'
+				if material_name in bpy.data.materials:
+					obj.data.materials.append(bpy.data.materials[material_name])
+				else:
+					bpy.ops.material.add_bombsquad_colorize_shader(
+						material_name=material_name,
+						image=imported_texture_image.name if imported_texture_image is not None else "",
+						color_mask=imported_mask_image.name if imported_mask_image is not None else "",
+					)
+			else:
+				if imported_texture_image is not None:
+					bpy.ops.material.add_bombsquad_shader(
+						material_name=bpy.path.display_name(imported_texture_image.name) + ' Material',
+						image=imported_texture_image.name,
+					)
+				else:
+					bpy.ops.material.add_bombsquad_shader(
+						material_name=bob_name + ' Material',
+					)
+
 		return {'FINISHED'}
 
 

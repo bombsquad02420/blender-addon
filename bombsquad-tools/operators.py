@@ -1,6 +1,6 @@
 import bpy
 
-from . import utils
+from . import utils, node_groups
 
 
 class SCENE_OT_bombsquad_arrange_character(bpy.types.Operator):
@@ -216,6 +216,102 @@ class OBJECT_OT_add_bombsquad_map_location_custom(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+class MATERIAL_OT_add_bombsquad_shader(bpy.types.Operator):
+	"""Add a simple BombSquad shader material that supports transparency"""
+	bl_idname = "material.add_bombsquad_shader"
+	bl_label = "Add BombSquad Shader"
+	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+	material_name: bpy.props.StringProperty(
+		name="Material Name",
+		default="BombSquad Material"
+	)
+	image: bpy.props.StringProperty(
+		name="Image",
+	)
+	uv_map: bpy.props.StringProperty(
+		name="UV Map",
+	)
+
+	@classmethod
+	def poll(cls, context):
+		return context.active_object is not None
+
+	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+		
+		active_object = context.active_object
+
+		image_src = None
+		if self.image and self.image in bpy.data.images:
+			image_src = bpy.data.images[self.image]
+
+		uv_map_name = self.uv_map
+		if uv_map_name == "" and active_object.data.uv_layers:
+			uv_map_name = active_object.data.uv_layers[0].name
+
+		material = node_groups.create_bombsquad_material(
+			name=self.material_name,
+			image_src=image_src,
+			uv_map_name=uv_map_name,
+		)
+		active_object.data.materials.append(material)
+
+		return {'FINISHED'}
+
+
+class MATERIAL_OT_add_bombsquad_colorize_shader(bpy.types.Operator):
+	"""Add a BombSquad shader material that supports color mask"""
+	bl_idname = "material.add_bombsquad_colorize_shader"
+	bl_label = "Add BombSquad Colorize Shader"
+	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+	material_name: bpy.props.StringProperty(
+		name="Material Name",
+		default="BombSquad Colorize Material"
+	)
+	image: bpy.props.StringProperty(
+		name="Image",
+	)
+	color_mask: bpy.props.StringProperty(
+		name="Color Mask",
+	)
+	uv_map: bpy.props.StringProperty(
+		name="UV Map",
+	)
+
+	@classmethod
+	def poll(cls, context):
+		return context.active_object is not None
+
+	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+				
+		active_object = context.active_object
+
+		image_src = None
+		if self.image and self.image in bpy.data.images:
+			image_src = bpy.data.images[self.image]
+
+		color_mask_src = None
+		if self.color_mask and self.color_mask in bpy.data.images:
+			color_mask_src = bpy.data.images[self.color_mask]
+
+		uv_map_name = self.uv_map
+		if uv_map_name == "" and active_object.data.uv_layers:
+			uv_map_name = active_object.data.uv_layers[0].name
+
+		material = node_groups.create_bombsquad_character_material(
+			name=self.material_name,
+			color_image_src=image_src,
+			color_mask_image_src=color_mask_src,
+			uv_map_name=uv_map_name,
+		)
+		active_object.data.materials.append(material)
+
+		return {'FINISHED'}
+
+
 classes = (
 	SCENE_OT_bombsquad_arrange_character,
 	COLLECTION_OT_bombsquad_create_character_exporter,
@@ -223,6 +319,8 @@ classes = (
 	COLLECTION_OT_bombsquad_create_cob_exporter,
 	OBJECT_OT_add_bombsquad_map_location,
 	OBJECT_OT_add_bombsquad_map_location_custom,
+	MATERIAL_OT_add_bombsquad_shader,
+	MATERIAL_OT_add_bombsquad_colorize_shader,
 )
 
 

@@ -101,12 +101,28 @@ class VIEW3D_PT_bombsquad_batch_export(bpy.types.Panel):
 		col.operator("wm.collection_export_all")
 
 
+class MATERIAL_PT_add_bombsquad_shader(bpy.types.Panel):
+	bl_idname = "MATERIAL_PT_add_bombsquad_shader"
+	bl_label = "BombSquad Shader"
+	bl_space_type = 'PROPERTIES'
+	bl_region_type = 'WINDOW'
+	bl_context = "material"
+	bl_options = {'DEFAULT_CLOSED'}
+
+	def draw(self, context):
+		layout = self.layout
+
+		col = layout.column(align=True)
+		col.operator('material.add_bombsquad_shader')
+		col.operator('material.add_bombsquad_colorize_shader')
+
 
 classes = (
 	VIEW3D_PT_bombsquad_character,
 	SCENE_PG_bombsquad_map,
 	VIEW3D_PT_bombsquad_map,
 	VIEW3D_PT_bombsquad_batch_export,
+	MATERIAL_PT_add_bombsquad_shader,
 )
 
 

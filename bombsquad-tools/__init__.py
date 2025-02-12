@@ -3,6 +3,7 @@ import bpy
 
 from . import operators, ui, bob, cob, leveldefs
 
+addon_dir = os.path.dirname(__file__)
 
 def register():
 	operators.register()
@@ -10,7 +11,7 @@ def register():
 	bob.register()
 	cob.register()
 	leveldefs.register()
-	bpy.utils.register_preset_path(os.path.join(os.path.dirname(__file__)))
+	bpy.utils.register_preset_path(addon_dir)
 
 
 def unregister():
@@ -19,4 +20,4 @@ def unregister():
 	bob.unregister()
 	ui.unregister()
 	operators.unregister()
-	bpy.utils.unregister_preset_path(os.path.join(os.path.dirname(__file__)))
+	bpy.utils.unregister_preset_path(addon_dir)
