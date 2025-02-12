@@ -136,6 +136,11 @@ def get_character_part_name(fullname):
 			return part
 	return None
 
+def get_character_name(bob_name):
+	for part_name in character_part_metadata:
+		if bob_name.endswith(part_name):
+			return bob_name.removesuffix(part_name)
+	return None
 
 def get_possible_texture_file_names(bob_name):
 	return [
