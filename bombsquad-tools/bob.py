@@ -3,6 +3,8 @@ import struct
 import bpy
 import bmesh
 import bpy_extras
+# FIXME: IDK why bpy_extras.image_utils does not work
+from bpy_extras import image_utils
 
 from . import utils
 
@@ -296,6 +298,12 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		default=False,
 	)
 
+	setup_materials: bpy.props.BoolProperty(
+		name="Setup Materials",
+		description="",
+		default=False,
+	)
+
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
 
@@ -377,10 +385,13 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 
 		bpy.ops.object.select_all(action='DESELECT')
 		obj.select_set(True)
+		context.view_layer.objects.active = obj
+		context.view_layer.update()
 
 		if options['arrange_character_meshes']:
 			bpy.ops.scene.bombsquad_arrange_character()
 
+		imported_texture_image = None
 		if options['import_matching_textures']:
 			assert execution_context is not None
 			assert 'ba_data_dir' in execution_context
@@ -389,18 +400,27 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 				texture_name = bob_name + '.dds'
 				texture_path = os.path.join(ba_data_dir, 'textures', texture_name)
 				print(f"{self.__class__.__name__}: [INFO] Trying to find texture `{texture_path}` for `{bob_name}`")
-				image = bpy_extras.image_utils.load_image(texture_path)
-				if image is not None:
+				imported_texture_image = image_utils.load_image(texture_path)
+				if imported_texture_image is not None:
 					print(f"{self.__class__.__name__}: [INFO] Texture `{texture_path}` imported for `{bob_name}`")
 				else:
 					print(f"{self.__class__.__name__}: [INFO] Texture `{texture_path}` not found for `{bob_name}`")
 			else:
+				# TODO: try searching in current directory
 				print(f"{self.__class__.__name__}: [WARN] ba_data directory not found.")
 				self.report({'WARNING'}, f"ba_data directory not found. Skipping importing textures.")
 
-		
-		context.view_layer.objects.active = obj
-		context.view_layer.update()
+		if options['setup_materials']:
+			if imported_texture_image is not None:
+				bpy.ops.material.add_bombsquad_shader(
+					material_name=bpy.path.display_name(imported_texture_image.name) + ' Material',
+					image=imported_texture_image.name,
+				)
+			else:
+				bpy.ops.material.add_bombsquad_shader(
+					material_name=bob_name + ' Material',
+				)
+
 		
 		return {'FINISHED'}
 
