@@ -1,3 +1,4 @@
+import os
 import bpy
 
 from . import utils, node_groups
@@ -120,6 +121,41 @@ class COLLECTION_OT_bombsquad_create_cob_exporter(bpy.types.Operator):
 		print(f"{self.__class__.__name__}: [INFO] Created collection exporter for collection `{collection.name}`.")
 
 		return {'FINISHED'}
+
+class SCENE_OT_bombsquad_export_textures(bpy.types.Operator):
+	"""Export all textures marked as BombSquad Texture"""
+	bl_idname = "scene.bombsquad_export_textures"
+	bl_label = "Export BombSquad Textures"
+	bl_options = {'REGISTER'}
+
+	export_directory: bpy.props.StringProperty(
+		name="Export Directory",
+		subtype='DIR_PATH',
+	)
+
+	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+
+		exported = 0
+		images = bpy.data.images
+		for image in images:
+			if not image.bombsquad_export_enabled:
+				continue
+			if not image.has_data:
+				self.report({'WARNING'}, f"Image `{image.name}` has no data. Skipping export.")
+				print(f"{self.__class__.__name__}: [WARN] Image `{image.name}` has no data.")
+				continue
+			filename = bpy.path.display_name_to_filepath(image.name) + '.png'
+			filepath = os.path.join(self.export_directory, filename)
+			print(f"{self.__class__.__name__}: [INFO] Exporting image `{image.name}` to {filepath}.")
+			image.save(filepath=filepath)
+			exported += 1
+
+		print(f"{self.__class__.__name__}: [INFO] Exported {exported} images.")
+		self.report({'INFO'}, f"Exported {exported} images.")
+
+		return {'FINISHED'}
+
 
 
 class OBJECT_OT_add_bombsquad_map_location(bpy.types.Operator):
@@ -317,6 +353,7 @@ classes = (
 	COLLECTION_OT_bombsquad_create_character_exporter,
 	COLLECTION_OT_bombsquad_create_bob_exporter,
 	COLLECTION_OT_bombsquad_create_cob_exporter,
+	SCENE_OT_bombsquad_export_textures,
 	OBJECT_OT_add_bombsquad_map_location,
 	OBJECT_OT_add_bombsquad_map_location_custom,
 	MATERIAL_OT_add_bombsquad_shader,
