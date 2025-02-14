@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "bombsquad_tools"
-version = "3.0.5"
+version = "3.0.6"
 name = "BombSquad Tools"
 tagline = "Tools for creating BombSquad game assets"
 maintainer = "aryan02420 <aryan02420@gmail.com>"
