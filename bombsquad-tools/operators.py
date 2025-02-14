@@ -122,6 +122,7 @@ class COLLECTION_OT_bombsquad_create_cob_exporter(bpy.types.Operator):
 
 		return {'FINISHED'}
 
+
 class SCENE_OT_bombsquad_export_textures(bpy.types.Operator):
 	"""Export all textures marked as BombSquad Texture"""
 	bl_idname = "scene.bombsquad_export_textures"
@@ -139,7 +140,7 @@ class SCENE_OT_bombsquad_export_textures(bpy.types.Operator):
 		exported = 0
 		images = bpy.data.images
 		for image in images:
-			if not image.bombsquad_export_enabled:
+			if not image.bombsquad.export_enabled:
 				continue
 			if not image.has_data:
 				self.report({'WARNING'}, f"Image `{image.name}` has no data. Skipping export.")
@@ -155,7 +156,6 @@ class SCENE_OT_bombsquad_export_textures(bpy.types.Operator):
 		self.report({'INFO'}, f"Exported {exported} images.")
 
 		return {'FINISHED'}
-
 
 
 class OBJECT_OT_add_bombsquad_map_location(bpy.types.Operator):

@@ -3,22 +3,6 @@ import bpy
 from . import utils
 
 
-class VIEW3D_PT_bombsquad_character(bpy.types.Panel):
-	bl_idname = "VIEW3D_PT_bombsquad_character"
-	bl_label = "BombSquad Character"
-	bl_space_type = 'VIEW_3D'
-	bl_region_type = 'UI'
-	bl_category = "BombSquad"
-	bl_context = "objectmode"
-
-	def draw(self, context):
-		layout = self.layout
-		
-		col = layout.column(align=True)
-		col.label(text="Arrange selected character parts")
-		col.operator_enum('scene.bombsquad_arrange_character', "style")
-
-
 class SCENE_PG_bombsquad_map(bpy.types.PropertyGroup):
 	known_location_type: bpy.props.EnumProperty(
 		items=utils.known_location_type_items,
@@ -37,6 +21,47 @@ class SCENE_PG_bombsquad_map(bpy.types.PropertyGroup):
 	)
 
 
+class SCENE_PG_bombsquad_texture(bpy.types.PropertyGroup):
+	active_image_index: bpy.props.IntProperty(
+		name="Active Image Index",
+		default=0,
+		options=set(),  # Remove ANIMATABLE default option.
+	)
+	export_directory: bpy.props.StringProperty(
+		name="Export Directory",
+		subtype='DIR_PATH',
+		options=set(),  # Remove ANIMATABLE default option.
+	)
+
+
+class SCENE_PG_bombsquad(bpy.types.PropertyGroup):
+	map: bpy.props.PointerProperty(type=SCENE_PG_bombsquad_map, name="BombSquad Map")
+	texture: bpy.props.PointerProperty(type=SCENE_PG_bombsquad_texture, name="BombSquad Texture")
+
+
+class IMAGE_PG_bombsquad(bpy.types.PropertyGroup):
+	export_enabled: bpy.props.BoolProperty(
+		name="Export?",
+		default=False
+	)
+
+
+class VIEW3D_PT_bombsquad_character(bpy.types.Panel):
+	bl_idname = "VIEW3D_PT_bombsquad_character"
+	bl_label = "BombSquad Character"
+	bl_space_type = 'VIEW_3D'
+	bl_region_type = 'UI'
+	bl_category = "BombSquad"
+	bl_context = "objectmode"
+
+	def draw(self, context):
+		layout = self.layout
+		
+		col = layout.column(align=True)
+		col.label(text="Arrange selected character parts")
+		col.operator_enum('scene.bombsquad_arrange_character', "style")
+
+
 class VIEW3D_PT_bombsquad_map(bpy.types.Panel):
 	bl_idname = "VIEW3D_PT_bombsquad_map"
 	bl_label = "BombSquad Map"
@@ -52,21 +77,21 @@ class VIEW3D_PT_bombsquad_map(bpy.types.Panel):
 		col = layout.column(align=True)
 		col.label(text="Add known location")
 		sp = col.split(factor=0.8)
-		sp.prop(scene.bombsquad_map, "known_location_type", text="")
+		sp.prop(scene.bombsquad.map, "known_location_type", text="")
 		sp = sp.split(factor=1.0)
 		props = sp.operator("object.add_bombsquad_map_location", text="Add")
-		props.location_type = scene.bombsquad_map.known_location_type
+		props.location_type = scene.bombsquad.map.known_location_type
 		
 		col = layout.column(align=True)
 		col.label(text="Add custom location")
 		sp = col.split(factor=0.8)
 		row = sp.row()
-		row.prop(scene.bombsquad_map, "custom_location_type", text="")
-		row.prop(scene.bombsquad_map, "custom_location_name", text="")
+		row.prop(scene.bombsquad.map, "custom_location_type", text="")
+		row.prop(scene.bombsquad.map, "custom_location_name", text="")
 		sp = sp.split(factor=1.0)
 		props = sp.operator("object.add_bombsquad_map_location_custom", text="Add")
-		props.location_type = scene.bombsquad_map.custom_location_type
-		props.location_name = scene.bombsquad_map.custom_location_name
+		props.location_type = scene.bombsquad.map.custom_location_type
+		props.location_name = scene.bombsquad.map.custom_location_name
 
 
 class BOMBSQUAD_TEXTURE_UL_items(bpy.types.UIList):
@@ -74,23 +99,10 @@ class BOMBSQUAD_TEXTURE_UL_items(bpy.types.UIList):
 		if self.layout_type in {'DEFAULT', 'COMPACT'}:
 			split = layout.split(factor=0.9)
 			split.prop(item, "name", text="", emboss=False, icon_value=icon)
-			split.prop(item, "bombsquad_export_enabled", text="")
+			split.prop(item.bombsquad, "export_enabled", text="")
 		elif self.layout_type == 'GRID':
 			layout.alignment = 'CENTER'
 			layout.label(text="", icon_value=icon)
-
-
-class SCENE_PG_bombsquad_texture(bpy.types.PropertyGroup):
-	active_image_index: bpy.props.IntProperty(
-		name="Active Image Index",
-		default=0,
-		options=set(),  # Remove ANIMATABLE default option.
-	)
-	export_directory: bpy.props.StringProperty(
-		name="Export Directory",
-		subtype='DIR_PATH',
-		options=set(),  # Remove ANIMATABLE default option.
-	)
 
 
 class VIEW3D_PT_bombsquad_batch_export(bpy.types.Panel):
@@ -126,11 +138,11 @@ class VIEW3D_PT_bombsquad_batch_export(bpy.types.Panel):
 
 		col = layout.column(align=True)
 		col.label(text="Textures to Export")
-		col.template_list("BOMBSQUAD_TEXTURE_UL_items", "custom_def_list", bpy.data, "images", scene.bombsquad_texture, "active_image_index", rows=5)
+		col.template_list("BOMBSQUAD_TEXTURE_UL_items", "custom_def_list", bpy.data, "images", scene.bombsquad.texture, "active_image_index", rows=5)
 		col.separator()
-		col.prop(scene.bombsquad_texture, "export_directory")
+		col.prop(scene.bombsquad.texture, "export_directory")
 		col.separator()
-		col.operator('scene.bombsquad_export_textures').export_directory = scene.bombsquad_texture.export_directory
+		col.operator('scene.bombsquad_export_textures').export_directory = scene.bombsquad.texture.export_directory
 
 
 class MATERIAL_PT_add_bombsquad_shader(bpy.types.Panel):
@@ -152,9 +164,11 @@ class MATERIAL_PT_add_bombsquad_shader(bpy.types.Panel):
 classes = (
 	SCENE_PG_bombsquad_map,
 	SCENE_PG_bombsquad_texture,
-	BOMBSQUAD_TEXTURE_UL_items,
+	SCENE_PG_bombsquad,
+	IMAGE_PG_bombsquad,
 	VIEW3D_PT_bombsquad_character,
 	VIEW3D_PT_bombsquad_map,
+	BOMBSQUAD_TEXTURE_UL_items,
 	VIEW3D_PT_bombsquad_batch_export,
 	MATERIAL_PT_add_bombsquad_shader,
 )
@@ -167,15 +181,14 @@ def register():
 	_register()
 
 	# PROPERTY
-	bpy.types.Scene.bombsquad_map = bpy.props.PointerProperty(type=SCENE_PG_bombsquad_map, name="BombSquad Map")
-	bpy.types.Scene.bombsquad_texture = bpy.props.PointerProperty(type=SCENE_PG_bombsquad_texture, name="BombSquad Texture")
-	bpy.types.Image.bombsquad_export_enabled = bpy.props.BoolProperty(name="Mark as BombSquad Texture", default=False)
+	bpy.types.Scene.bombsquad = bpy.props.PointerProperty(type=SCENE_PG_bombsquad)
+	bpy.types.Image.bombsquad = bpy.props.PointerProperty(type=IMAGE_PG_bombsquad)
 
 
 def unregister():
 	# PROPERTY
-	del bpy.types.Scene.bombsquad_map
-	del bpy.types.Scene.bombsquad_texture
+	del bpy.types.Scene.bombsquad
+	del bpy.types.Image.bombsquad
 
 	_unregister()
 
