@@ -97,9 +97,10 @@ class VIEW3D_PT_bombsquad_map(bpy.types.Panel):
 class BOMBSQUAD_TEXTURE_UL_items(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 		if self.layout_type in {'DEFAULT', 'COMPACT'}:
-			split = layout.split(factor=0.9)
-			split.prop(item, "name", text="", emboss=False, icon_value=icon)
-			split.prop(item.bombsquad, "export_enabled", text="")
+			layout.prop(item.bombsquad, "export_enabled", text="")
+			layout.prop(item, "name", text="", emboss=False, icon_value=icon)
+			if not item.has_data:
+				layout.label(text="(No Data)")
 		elif self.layout_type == 'GRID':
 			layout.alignment = 'CENTER'
 			layout.label(text="", icon_value=icon)
