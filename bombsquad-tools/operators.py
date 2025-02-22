@@ -177,26 +177,27 @@ class OBJECT_OT_add_bombsquad_map_location(bpy.types.Operator):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
 		
 		location = utils.location_metadata[self.location_type]
+		cursor_location = context.scene.cursor.location
 		empty = None
 
 		if location['draw'] == 'POINT':
 			empty = utils.add_point(
 				context,
 				name=self.location_type + '.000',
-				center=location['default_center'],
+				center=cursor_location,
 			)
 		elif location['draw'] == 'PLANE':
 			empty = utils.add_plane(
 				context,
 				name=self.location_type + '.000',
-				center=location['default_center'],
+				center=cursor_location,
 				size=location['default_size'],
 			)
 		elif location['draw'] == 'CUBE':
 			empty = utils.add_cube(
 				context,
 				name=self.location_type + '.000',
-				center=location['default_center'],
+				center=cursor_location,
 				size=location['default_size'],
 			)
 		
@@ -228,22 +229,26 @@ class OBJECT_OT_add_bombsquad_map_location_custom(bpy.types.Operator):
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
 		
+		cursor_location = context.scene.cursor.location
 		empty = None
 
 		if self.location_type == 'POINT':
 			empty = utils.add_point(
 				context,
 				name=self.location_name + '.000',
+				center=cursor_location,
 			)
 		elif self.location_type == 'PLANE':
 			empty = utils.add_plane(
 				context,
 				name=self.location_name + '.000',
+				center=cursor_location,
 			)
 		elif self.location_type == 'CUBE':
 			empty = utils.add_cube(
 				context,
 				name=self.location_name + '.000',
+				center=cursor_location,
 			)
 		
 		bpy.ops.object.select_all(action='DESELECT')
