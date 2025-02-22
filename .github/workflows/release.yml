@@ -15,6 +15,7 @@ jobs:
         with:
           tag_name: ${{ github.ref }}
           files: '*.zip'
+          name: ${{ github.ref_name }}
           body: |
             <placeolder>
           draft: true
