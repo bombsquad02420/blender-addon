@@ -203,6 +203,7 @@ class OBJECT_OT_add_bombsquad_map_location(bpy.types.Operator):
 		
 		bpy.ops.object.select_all(action='DESELECT')
 		empty.select_set(True)
+		context.view_layer.objects.active = empty
 
 		return {'FINISHED'}
 
@@ -253,6 +254,7 @@ class OBJECT_OT_add_bombsquad_map_location_custom(bpy.types.Operator):
 		
 		bpy.ops.object.select_all(action='DESELECT')
 		empty.select_set(True)
+		context.view_layer.objects.active = empty
 
 		return {'FINISHED'}
 
