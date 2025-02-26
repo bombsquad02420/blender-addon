@@ -162,6 +162,21 @@ class VIEW3D_PT_bombsquad_batch_export(bpy.types.Panel):
 		col.operator('scene.bombsquad_export_textures').export_directory = scene.bombsquad.texture.export_directory
 
 
+class VIEW3D_PT_bombsquad_debug(bpy.types.Panel):
+	bl_idname = "VIEW3D_PT_bombsquad_debug"
+	bl_label = "Debug"
+	bl_space_type = 'VIEW_3D'
+	bl_region_type = 'UI'
+	bl_category = "BombSquad"
+	bl_context = "objectmode"
+
+	def draw(self, context):
+		layout = self.layout
+
+		col = layout.column(align=True)
+		col.operator('mesh.bombsquad_convert_to_bob')
+
+
 classes = (
 	SCENE_PG_bombsquad_map,
 	SCENE_PG_bombsquad_texture,
@@ -172,6 +187,7 @@ classes = (
 	VIEW3D_PT_add_bombsquad_shader,
 	BOMBSQUAD_TEXTURE_UL_items,
 	VIEW3D_PT_bombsquad_batch_export,
+	VIEW3D_PT_bombsquad_debug,
 )
 
 

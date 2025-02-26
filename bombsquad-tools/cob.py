@@ -271,7 +271,7 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 
 	apply_modifiers: bpy.props.BoolProperty(
 		name="Apply Modifiers",
-		description="Exoprt mesh geometry with modifiers applied (as visible in render)",
+		description="Export mesh geometry with modifiers applied, as visible in the viewport",
 		default=True,
 	)
 
