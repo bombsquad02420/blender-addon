@@ -306,7 +306,7 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 					# skip empty
 					continue
 				dirname = os.path.dirname(self.filepath)
-				filename = bpy.path.display_name_to_filepath(obj.name) + '.bob'
+				filename = bpy.path.display_name_to_filepath(obj.name) + '.cob'
 				filepath = os.path.join(dirname, filename)
 				if self.export_cob(context, obj, filepath, **keywords) == {'FINISHED'}:
 					ret = {'FINISHED'}
