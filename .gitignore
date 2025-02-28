@@ -1,3 +1,9 @@
 # python cache
 .pyc
 __pycache__
+
+# generated files
+bombsquad_tools-*.zip
+
+# developer specific
+.vscode
