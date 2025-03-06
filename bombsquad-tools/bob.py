@@ -22,7 +22,7 @@ index x faceCount*3 (b / H / I)
 struct VertexObjectFull {
 	float position[3];
 	bs_uint16 uv[2]; // normalized to 16 bit unsigned ints 0 - 65535
-	bs_sint16  normal[3]; // normalized to 16 bit signed ints -32768 - 32767
+	bs_sint16 normal[3]; // normalized to 16 bit signed ints -32768 - 32767
 	bs_uint8 _padding[2];
 };
 
@@ -55,9 +55,11 @@ bs_to_bl_matrix = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up
 bl_to_bs_matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
 
 
-def to_mesh(mesh, bob_data):
+def bob_to_mesh(bob_data, bob_name):
 	verts = [vert["pos"] for vert in bob_data["vertices"]]
 	faces = [face["indices"] for face in bob_data["faces"]]
+
+	mesh = bpy.data.meshes.new(name=bob_name)
 	mesh.from_pydata(verts, [], faces)
 
 	bm = bmesh.new()
@@ -110,7 +112,7 @@ def _is_same_vertex(vert1, vert2):
 	return is_same_pos and is_same_norm and is_same_uv
 
 
-def from_mesh(mesh):
+def mesh_to_bob(mesh):
 	"""
 	.bob only supports faces with exactly 3 vertices,
 	so we need to triangulate our mesh first.
@@ -372,8 +374,7 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			bob_data = deserialize(file)
 
 		bob_name = bpy.path.display_name_from_filepath(filepath)
-		mesh = bpy.data.meshes.new(name=bob_name)
-		mesh = to_mesh(mesh=mesh, bob_data=bob_data)
+		mesh = bob_to_mesh(bob_data=bob_data, bob_name=bob_name)
 
 		if not mesh:
 			return {'CANCELLED'}
@@ -509,7 +510,7 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
 
 	apply_modifiers: bpy.props.BoolProperty(
 		name="Apply Modifiers",
-		description="Exoprt mesh geometry with modifiers applied (as visible in render)",
+		description="Export mesh geometry with modifiers applied, as visible in viewport",
 		default=True,
 	)
 
@@ -553,7 +554,7 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
 			return ret
 		
 		else:
-			# we are manually exporting a single object fro the menu
+			# we are manually exporting a single object from the menu
 			obj = context.active_object
 			selected_objects = context.selected_objects
 			
@@ -568,20 +569,16 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
 	def export_bob(self, context, obj, filepath, **options):
 		print(f"{self.__class__.__name__}: [INFO] Exporting object `{obj.name}` to `{filepath}`")
 
-		mesh = None
-		if options['apply_modifiers']:
-			depsgraph = context.evaluated_depsgraph_get()
-			modified_obj = obj.evaluated_get(depsgraph)
-			mesh = bpy.data.meshes.new_from_object(modified_obj, preserve_all_data_layers=True, depsgraph=depsgraph)
-		else:
-			mesh = obj.to_mesh(preserve_all_data_layers=True)
-
-		if options['apply_object_transformations']:
-			mesh.transform(obj.matrix_world)
+		mesh = utils.obj_to_mesh(
+			obj,
+			context,
+			apply_modifiers=options['apply_modifiers'],
+			apply_object_transformations=options['apply_object_transformations'],
+		)
+		bob_data = mesh_to_bob(mesh)
 
 		filepath = os.fsencode(filepath)
 		with open(filepath, 'wb') as file:
-			bob_data = from_mesh(mesh)
 			serialize(bob_data, file)
 
 		print(f"{self.__class__.__name__}: [INFO] Exported object `{obj.name}` to `{filepath}`")
@@ -639,10 +636,59 @@ def menu_func_export_bob(self, context):
 	self.layout.operator(EXPORT_MESH_OT_bombsquad_bob.bl_idname, text="Bombsquad Mesh (.bob)")
 
 
+class MESH_OT_CONVERT_TO_BOB(bpy.types.Operator):
+	"""Prepare a mesh for .bob export, but import it back instead of writing to a file"""
+	bl_idname = "mesh.bombsquad_convert_to_bob"
+	bl_label = "Convert to Bombsquad Mesh"
+	bl_options = {'REGISTER', 'PRESET', 'UNDO'}
+
+	apply_object_transformations: bpy.props.BoolProperty(
+		name="Apply Object Transformations",
+		description="Export mesh geometry with translation, rotation and scaling applied",
+		default=True,
+	)
+
+	apply_modifiers: bpy.props.BoolProperty(
+		name="Apply Modifiers",
+		description="Export mesh geometry with modifiers applied, as visible in viewport",
+		default=True,
+	)
+
+	@classmethod
+	def poll(cls, context):
+			return context.active_object is not None
+
+	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+
+		keywords = self.as_keywords(ignore=())
+
+		original_obj = context.active_object
+		export_mesh = obj_to_mesh(original_obj, context, keywords)
+		bob_data = mesh_to_bob(export_mesh)
+		import_mesh = bob_to_mesh(bob_data=bob_data, bob_name=original_obj.name)
+
+		if not import_mesh:
+			return {'CANCELLED'}
+
+		new_obj = bpy.data.objects.new(original_obj.name, import_mesh)
+		context.scene.collection.objects.link(new_obj)
+
+		bpy.ops.object.select_all(action='DESELECT')
+		new_obj.select_set(True)
+		context.view_layer.objects.active = new_obj
+		context.view_layer.update()
+
+		print(f"{self.__class__.__name__}: [INFO] Done!")
+
+		return {'FINISHED'}
+
+
 classes = (
 	IMPORT_MESH_OT_bombsquad_bob,
 	EXPORT_MESH_OT_bombsquad_bob,
 	IO_FH_bombsquad_bob,
+	MESH_OT_CONVERT_TO_BOB,
 )
 
 

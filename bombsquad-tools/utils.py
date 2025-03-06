@@ -14,6 +14,21 @@ def map_range(value, from_start=0, from_end=1, to_start=0, to_end=127, clamp=Fal
 	return mapped_value
 
 
+def obj_to_mesh(obj, context, apply_modifiers, apply_object_transformations):
+	mesh = None
+	if apply_modifiers:
+		depsgraph = context.evaluated_depsgraph_get()
+		modified_obj = obj.evaluated_get(depsgraph)
+		mesh = bpy.data.meshes.new_from_object(modified_obj, preserve_all_data_layers=True, depsgraph=depsgraph)
+	else:
+		mesh = obj.to_mesh(preserve_all_data_layers=True)
+
+	if apply_object_transformations:
+		mesh.transform(obj.matrix_world)
+
+	return mesh
+
+
 # Thanks EasyBPY!
 def get_collection(ref = None):
 	if ref is None:
@@ -164,7 +179,7 @@ for boxes, the size represents the overall dimension (diameter).
 otherwise, size is the distance of the edges of the box from the center (radius).
 
 see: get_def_bound_box and get_start_position in ballistica source code
-or search for `boxes['` in thhe ballistica source code
+or search for `boxes['` in the ballistica source code
 
 
 { 'draw': 'PLANE' }
@@ -175,7 +190,7 @@ to make it easier to read in the 3d view,
 
 see: get_start_position and RunaroundGame in ballistica source code
 
-# TODO: see getmaps in _appsubsystem.py for location desctiptions.
+# TODO: see getmaps in _appsubsystem.py for location descriptions.
 """
 location_metadata = {
 	'area_of_interest_bounds': {
