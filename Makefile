@@ -1,7 +1,7 @@
 ADDON_NAME := $(shell cat ./bombsquad-tools/blender_manifest.toml | grep -oP '(?<=^id = \").*(?=\")')
 VERSION := $(shell cat ./bombsquad-tools/blender_manifest.toml | grep -oP '(?<=^version = \").*(?=\")')
 
-.PHONY: dev tag publish
+.PHONY: dev tag publish CHANGELOG.md
 
 all: $(ADDON_NAME)-$(VERSION).zip
 
@@ -29,4 +29,8 @@ publish:
 		-H "Accept: */*" \
 		-H "Authorization: Bearer $(BLENDER_EXTENSIONS_API_TOKEN)" \
 		-H "Content-Type: multipart/form-data" \
-		-F "version_file=@$(ADDON_NAME)-$(VERSION).zip"
+		-F "version_file=@$(ADDON_NAME)-$(VERSION).zip" \
+		-F "release_notes=<CHANGELOG.md"
+
+CHANGELOG.md:
+	@git cliff --latest --output $@

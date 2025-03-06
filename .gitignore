@@ -4,6 +4,7 @@ __pycache__
 
 # generated files
 bombsquad_tools-*.zip
+CHANGELOG.md
 
 # developer specific
 .vscode

@@ -5,5 +5,6 @@ stdenv.mkDerivation {
 	buildInputs = [
 		entr
 		zip
+		git-cliff
 	];
 }
