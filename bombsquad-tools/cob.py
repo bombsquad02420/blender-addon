@@ -25,9 +25,11 @@ bs_to_bl_matrix = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up
 bl_to_bs_matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
 
 
-def to_mesh(mesh, cob_data):
+def cob_to_mesh(cob_data, cob_name):
 	verts = [vert["pos"] for vert in cob_data["vertices"]]
 	faces = [face["indices"] for face in cob_data["faces"]]
+	
+	mesh = bpy.data.meshes.new(name=cob_name)
 	mesh.from_pydata(verts, [], faces)
 
 	bm = bmesh.new()
@@ -44,7 +46,7 @@ def to_mesh(mesh, cob_data):
 	return mesh
 
 
-def from_mesh(mesh):
+def mesh_to_cob(mesh):
 	vertices = []
 	faces = []
 	normals = []
@@ -222,8 +224,7 @@ class IMPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			cob_data = deserialize(file)
 
 		cob_name = bpy.path.display_name_from_filepath(filepath)
-		mesh = bpy.data.meshes.new(name=cob_name)
-		mesh = to_mesh(mesh=mesh, cob_data=cob_data)
+		mesh = cob_to_mesh(cob_data=cob_data, cob_name=cob_name)
 
 		if not mesh:
 			return {'CANCELLED'}
@@ -282,6 +283,7 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
 
+		# FIXME: use bpy.path.abspath to convert '//' prefix for blend file cwd
 		keywords = self.as_keywords(ignore=(
 			'check_existing',
 			'filter_glob',
@@ -315,7 +317,7 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 			return ret
 
 		else:
-			# we are manually exporting a single object fro the menu
+			# we are manually exporting a single object from the menu
 			obj = context.active_object
 			selected_objects = context.selected_objects
 			
@@ -330,20 +332,16 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 	def export_cob(self, context, obj, filepath, **options):
 		print(f"{self.__class__.__name__}: [INFO] Exporting object `{obj.name}` to `{filepath}`")
 
-		mesh = None
-		if options['apply_modifiers']:
-			depsgraph = context.evaluated_depsgraph_get()
-			modified_obj = obj.evaluated_get(depsgraph)
-			mesh = bpy.data.meshes.new_from_object(modified_obj, preserve_all_data_layers=True, depsgraph=depsgraph)
-		else:
-			mesh = obj.to_mesh(preserve_all_data_layers=True)
-
-		if options['apply_object_transformations']:
-			mesh.transform(obj.matrix_world)
+		mesh = utils.obj_to_mesh(
+			obj,
+			context,
+			apply_modifiers=options['apply_modifiers'],
+			apply_object_transformations=options['apply_object_transformations'],
+		)
+		cob_data = mesh_to_cob(mesh)
 
 		filepath = os.fsencode(filepath)
 		with open(filepath, 'wb') as file:
-			cob_data = from_mesh(mesh)
 			serialize(cob_data, file)
 
 		print(f"{self.__class__.__name__}: [INFO] Exported object `{obj.name}` to `{filepath}`")
@@ -378,7 +376,7 @@ class EXPORT_MESH_OT_bombsquad_cob(bpy.types.Operator, bpy_extras.io_utils.Expor
 		layout.prop(self, 'apply_modifiers')
 
 
-# Enables importing files by draggin and dropping into the blender UI
+# Enables importing files by dragging and dropping into the blender UI
 # Enables export via collection exporter
 class IO_FH_bombsquad_cob(bpy.types.FileHandler):
 	bl_idname = "IO_FH_bombsquad_cob"
@@ -389,7 +387,7 @@ class IO_FH_bombsquad_cob(bpy.types.FileHandler):
 
 	@classmethod
 	def poll_drop(cls, context):
-		# drop sohuld only be allowed in 3d view and outliner
+		# drop should only be allowed in 3d view and outliner
 		return bpy_extras.io_utils.poll_file_object_drop(context)
 
 
@@ -401,10 +399,64 @@ def menu_func_export_cob(self, context):
 	self.layout.operator(EXPORT_MESH_OT_bombsquad_cob.bl_idname, text="Bombsquad Collision Mesh (.cob)")
 
 
+class MESH_OT_CONVERT_TO_COB(bpy.types.Operator):
+	"""Prepare a mesh for .cob export, but import it back instead of writing to a file"""
+	bl_idname = "mesh.bombsquad_convert_to_cob"
+	bl_label = "Convert to Bombsquad Collision Mesh"
+	bl_options = {'REGISTER', 'PRESET', 'UNDO'}
+
+	apply_object_transformations: bpy.props.BoolProperty(
+		name="Apply Object Transformations",
+		description="Export mesh geometry with translation, rotation and scaling applied",
+		default=True,
+	)
+
+	apply_modifiers: bpy.props.BoolProperty(
+		name="Apply Modifiers",
+		description="Export mesh geometry with modifiers applied, as visible in viewport",
+		default=True,
+	)
+
+	@classmethod
+	def poll(cls, context):
+			return context.active_object is not None
+
+	def execute(self, context):
+		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
+
+		keywords = self.as_keywords(ignore=())
+
+		original_obj = context.active_object
+		export_mesh = utils.obj_to_mesh(
+			original_obj,
+			context,
+			apply_modifiers=keywords['apply_modifiers'],
+			apply_object_transformations=keywords['apply_object_transformations'],
+		)
+		cob_data = mesh_to_cob(export_mesh)
+		import_mesh = cob_to_mesh(cob_data=cob_data, cob_name=original_obj.name)
+
+		if not import_mesh:
+			return {'CANCELLED'}
+
+		new_obj = bpy.data.objects.new(original_obj.name, import_mesh)
+		context.scene.collection.objects.link(new_obj)
+
+		bpy.ops.object.select_all(action='DESELECT')
+		new_obj.select_set(True)
+		context.view_layer.objects.active = new_obj
+		context.view_layer.update()
+
+		print(f"{self.__class__.__name__}: [INFO] Done!")
+
+		return {'FINISHED'}
+
+
 classes = (
 	IMPORT_MESH_OT_bombsquad_cob,
 	EXPORT_MESH_OT_bombsquad_cob,
 	IO_FH_bombsquad_cob,
+	MESH_OT_CONVERT_TO_COB,
 )
 
 

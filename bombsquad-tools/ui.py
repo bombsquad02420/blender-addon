@@ -175,6 +175,7 @@ class VIEW3D_PT_bombsquad_debug(bpy.types.Panel):
 
 		col = layout.column(align=True)
 		col.operator('mesh.bombsquad_convert_to_bob')
+		col.operator('mesh.bombsquad_convert_to_cob')
 
 
 classes = (

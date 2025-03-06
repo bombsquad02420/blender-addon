@@ -22,7 +22,7 @@ index x faceCount*3 (b / H / I)
 struct VertexObjectFull {
 	float position[3];
 	bs_uint16 uv[2]; // normalized to 16 bit unsigned ints 0 - 65535
-	bs_sint16  normal[3]; // normalized to 16 bit signed ints -32768 - 32767
+	bs_sint16 normal[3]; // normalized to 16 bit signed ints -32768 - 32767
 	bs_uint8 _padding[2];
 };
 
@@ -110,21 +110,6 @@ def _is_same_vertex(vert1, vert2):
 	is_same_norm = (vert1["norm"] - vert2["norm"]).length < 0.001
 	is_same_uv = (vert1["uv"] - vert2["uv"]).length < 0.001
 	return is_same_pos and is_same_norm and is_same_uv
-
-
-def obj_to_mesh(obj, context, options):
-	mesh = None
-	if options['apply_modifiers']:
-		depsgraph = context.evaluated_depsgraph_get()
-		modified_obj = obj.evaluated_get(depsgraph)
-		mesh = bpy.data.meshes.new_from_object(modified_obj, preserve_all_data_layers=True, depsgraph=depsgraph)
-	else:
-		mesh = obj.to_mesh(preserve_all_data_layers=True)
-
-	if options['apply_object_transformations']:
-		mesh.transform(obj.matrix_world)
-
-	return mesh
 
 
 def mesh_to_bob(mesh):
@@ -584,7 +569,12 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
 	def export_bob(self, context, obj, filepath, **options):
 		print(f"{self.__class__.__name__}: [INFO] Exporting object `{obj.name}` to `{filepath}`")
 
-		mesh = obj_to_mesh(obj, context, options)
+		mesh = utils.obj_to_mesh(
+			obj,
+			context,
+			apply_modifiers=options['apply_modifiers'],
+			apply_object_transformations=options['apply_object_transformations'],
+		)
 		bob_data = mesh_to_bob(mesh)
 
 		filepath = os.fsencode(filepath)
@@ -647,10 +637,10 @@ def menu_func_export_bob(self, context):
 
 
 class MESH_OT_CONVERT_TO_BOB(bpy.types.Operator):
-	"""Prepare a mesh for .bob export, but immport it back instead of writing to a file"""
+	"""Prepare a mesh for .bob export, but import it back instead of writing to a file"""
 	bl_idname = "mesh.bombsquad_convert_to_bob"
 	bl_label = "Convert to Bombsquad Mesh"
-	bl_options = {'REGISTER', 'PRESET', 'UNDO', 'INTERNAL'}
+	bl_options = {'REGISTER', 'PRESET', 'UNDO'}
 
 	apply_object_transformations: bpy.props.BoolProperty(
 		name="Apply Object Transformations",
