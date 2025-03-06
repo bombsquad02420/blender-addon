@@ -25,7 +25,7 @@ tag:
 # docs: https://extensions.blender.org/api/v1/swagger/
 publish:
 	curl -sS -X POST \
-		https://extensions.blender.org/api/v1/extensions/$(ADDON_NAME)/versions/upload/
+		https://extensions.blender.org/api/v1/extensions/$(ADDON_NAME)/versions/upload/ \
 		-H "Accept: */*" \
 		-H "Authorization: Bearer $(BLENDER_EXTENSIONS_API_TOKEN)" \
 		-H "Content-Type: multipart/form-data" \
