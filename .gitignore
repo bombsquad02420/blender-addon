@@ -1,6 +1,8 @@
-# python cache
-.pyc
-__pycache__
+# Python-generated files
+__pycache__/
+*.py[oc]
+wheels/
+*.egg-info
 
 # generated files
 bombsquad_tools-*.zip

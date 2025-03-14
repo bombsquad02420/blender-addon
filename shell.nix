@@ -1,8 +1,13 @@
-with import <nixpkgs> {};
+let
+	pkgs = import <nixpkgs> {};
+in
 
-stdenv.mkDerivation {
+pkgs.mkShellNoCC {
 	name = "bombsquad-tools";
-	buildInputs = [
+	packages = with pkgs; [
+		python311
+		uv
+		gnumake
 		entr
 		zip
 		git-cliff

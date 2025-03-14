@@ -1,0 +1,19 @@
+{
+	"extensions": {
+		"recommendations": [
+			"ms-python.python",
+		],
+	},
+	"settings": {
+		"python.defaultInterpreterPath": "./.venv/bin/python",
+		"python.autoComplete.extraPaths": [
+			"./.venv/lib64/python3.11/site-packages",
+			"./.venv/lib/python3.11/site-packages",
+		],
+	},
+	"folders": [
+		{
+			"path": "./",
+		},
+	],
+}

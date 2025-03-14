@@ -1,0 +1,15 @@
+[project]
+name = "bombsquad-tools"
+version = "0.0.0"
+classifiers = [
+	"Private :: Do Not Upload",
+]
+
+[dependency-groups]
+dev = [
+	"fake-bpy-module-4-2",
+]
+
+[tool.uv]
+python-preference = "only-system"
+python-downloads = "never"
