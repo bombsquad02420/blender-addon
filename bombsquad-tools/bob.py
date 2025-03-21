@@ -514,7 +514,7 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
 
 	@classmethod
 	def poll(cls, context):
-		return context.active_object is not None
+		return True
 
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
@@ -526,9 +526,10 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
 			'directory',
 			'collection',
 		))
-
+		
 		if self.collection:
-			collection = bpy.data.collections[self.collection]
+			collection_name: str = self.collection
+			collection = bpy.data.collections[collection_name]
 			objects = collection.objects
 
 			if len(objects)==0:
@@ -539,21 +540,30 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
 
 			ret = {'CANCELLED'}
 			for obj in objects:
-				if not obj.data:
-					# skip empty
+				if obj.type != 'MESH':
+					print(f"{self.__class__.__name__}: [INFO] Skipping `{obj.name}` because it is not a mesh.")
 					continue
 				dirname = os.path.dirname(self.filepath)
 				filename = bpy.path.display_name_to_filepath(obj.name) + '.bob'
 				filepath = os.path.join(dirname, filename)
 				if self.export_bob(context, obj, filepath, **keywords) == {'FINISHED'}:
 					ret = {'FINISHED'}
-				else:
-					self.report({'WARNING'}, f"The file `{path}` was not exported.")
 			return ret
 		
 		else:
 			# we are manually exporting a single object from the menu
 			obj = context.active_object
+
+			if obj is None:
+				print(f"{self.__class__.__name__}: [ERROR] No active object to export.")
+				self.report({'ERROR'}, f"No active object to export.")
+				return {'CANCELLED'}
+
+			if obj.type != 'MESH':
+				print(f"{self.__class__.__name__}: [ERROR] The active object `{obj.name}` is not a mesh.")
+				self.report({'ERROR'}, f"The active object `{obj.name}` is not a mesh.")
+				return {'CANCELLED'}
+
 			selected_objects = context.selected_objects
 			
 			if len(selected_objects) > 1:
@@ -611,7 +621,7 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
 		layout.prop(self, 'apply_modifiers')
 
 
-# Enables importing files by draggin and dropping into the blender UI
+# Enables importing files by dragging and dropping into the blender UI
 # Enables export via collection exporter
 class IO_FH_bombsquad_bob(bpy.types.FileHandler):
 	bl_idname = "IO_FH_bombsquad_bob"
@@ -622,7 +632,7 @@ class IO_FH_bombsquad_bob(bpy.types.FileHandler):
 
 	@classmethod
 	def poll_drop(cls, context):
-		# drop sohuld only be allowed in 3d view and outliner
+		# drop should only be allowed in 3d view and outliner
 		return bpy_extras.io_utils.poll_file_object_drop(context)
 
 
@@ -654,7 +664,13 @@ class MESH_OT_CONVERT_TO_BOB(bpy.types.Operator):
 
 	@classmethod
 	def poll(cls, context):
-			return context.active_object is not None
+		if context.active_object is None:
+			cls.poll_message_set("No active object in the scene.")
+			return False
+		if context.active_object.type != 'MESH':
+			cls.poll_message_set(f"The active object `{context.active_object.name}` is not a mesh.")
+			return False
+		return True
 
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
