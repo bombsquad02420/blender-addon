@@ -1,5 +1,11 @@
 import os
 import bpy
+import bpy_extras
+
+
+bs_to_bl_matrix = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up='Y').to_4x4()
+bl_to_bs_matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
+
 
 def map_range(value, from_start=0, from_end=1, to_start=0, to_end=127, clamp=False, precision=6):
 	mapped_value = to_start + (to_end - to_start) * (value - from_start) / (from_end - from_start)

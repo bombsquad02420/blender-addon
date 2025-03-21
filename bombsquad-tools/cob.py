@@ -21,9 +21,6 @@ normal x faceCount (fff)
 
 COB_FILE_ID = 13466
 
-bs_to_bl_matrix = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up='Y').to_4x4()
-bl_to_bs_matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
-
 
 def cob_to_mesh(cob_data, cob_name):
 	verts = [vert["pos"] for vert in cob_data["vertices"]]
@@ -35,7 +32,7 @@ def cob_to_mesh(cob_data, cob_name):
 	bm = bmesh.new()
 	bm.from_mesh(mesh)
 
-	bm.transform(bs_to_bl_matrix)
+	bm.transform(utils.bs_to_bl_matrix)
 
 	bm.to_mesh(mesh)
 	bm.free()
@@ -55,7 +52,7 @@ def mesh_to_cob(mesh):
 	bm.from_mesh(mesh)
 	bm.faces.ensure_lookup_table()
 
-	bm.transform(bl_to_bs_matrix)
+	bm.transform(utils.bl_to_bs_matrix)
 
 	bmesh.ops.triangulate(bm, faces=bm.faces)
 

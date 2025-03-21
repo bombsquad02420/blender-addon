@@ -51,8 +51,6 @@ struct VertexObjectFull {
 
 BOB_FILE_ID = 45623
 
-bs_to_bl_matrix = bpy_extras.io_utils.axis_conversion(from_forward='-Z', from_up='Y').to_4x4()
-bl_to_bs_matrix = bpy_extras.io_utils.axis_conversion(to_forward='-Z', to_up='Y').to_4x4()
 
 
 def bob_to_mesh(bob_data, bob_name):
@@ -87,7 +85,7 @@ def bob_to_mesh(bob_data, bob_name):
 			)
 			face.loops[vi][uv_layer].uv = uv
 
-	bm.transform(bs_to_bl_matrix)
+	bm.transform(utils.bs_to_bl_matrix)
 
 	bm.to_mesh(mesh)
 	bm.free()
@@ -136,7 +134,7 @@ def mesh_to_bob(mesh):
 	bm.faces.ensure_lookup_table()
 	# bm.verts.ensure_lookup_table()
 
-	bm.transform(bl_to_bs_matrix)
+	bm.transform(utils.bl_to_bs_matrix)
 
 	bmesh.ops.triangulate(bm, faces=bm.faces)
 
