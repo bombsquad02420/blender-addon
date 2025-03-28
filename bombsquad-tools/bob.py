@@ -5,8 +5,11 @@ import bmesh
 import bpy_extras
 # FIXME: IDK why bpy_extras.image_utils does not work
 from bpy_extras import image_utils
+from mathutils import Vector
 
 from . import utils
+
+from typing import Callable, Dict, List, Tuple, TypedDict, TypeVar
 
 
 """
@@ -52,8 +55,20 @@ struct VertexObjectFull {
 BOB_FILE_ID = 45623
 
 
+class BobVertexData(TypedDict):
+	pos: Tuple[float, float, float]
+	norm: Tuple[int, int, int]
+	uv: Tuple[int, int]
 
-def bob_to_mesh(bob_data, bob_name):
+class BobFaceData(TypedDict):
+	indices: Tuple[int, int, int]
+
+class BobData(TypedDict):
+	vertices: List[BobVertexData]
+	faces: List[BobFaceData]
+
+
+def bob_to_mesh(bob_data: BobData, bob_name) -> bpy.types.Mesh:
 	verts = [vert["pos"] for vert in bob_data["vertices"]]
 	faces = [face["indices"] for face in bob_data["faces"]]
 
@@ -67,23 +82,28 @@ def bob_to_mesh(bob_data, bob_name):
 	
 	for i, face in enumerate(bm.faces):
 		for vi, vert in enumerate(face.verts):
-			normal = bob_data["vertices"][faces[i][vi]]["norm"]
-			vert.normal = (
+			vertex_index = faces[i][vi]
+			normal = bob_data["vertices"][vertex_index]["norm"]
+			vert.normal = Vector((
 				utils.map_range(normal[0], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True, precision=6),
 				utils.map_range(normal[1], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True, precision=6),
 				utils.map_range(normal[2], from_start=-32767, from_end=32767, to_start=-1, to_end=1, clamp=True, precision=6),
-			)
+			))
 			# bm.verts[vi].normal = vert.normal
 
 	uv_layer = bm.loops.layers.uv.verify()
+
 	for i, face in enumerate(bm.faces):
 		for vi, vert in enumerate(face.verts):
-			uv = bob_data["vertices"][faces[i][vi]]["uv"]
+			vertex_index = faces[i][vi]
+			uv = bob_data["vertices"][vertex_index]["uv"]
 			uv = (
 				utils.map_range(uv[0], from_start=0, from_end=65535, to_start=0, to_end=1, clamp=True, precision=6),
 				utils.map_range(uv[1], from_start=0, from_end=65535, to_start=1, to_end=0, clamp=True, precision=6),
 			)
-			face.loops[vi][uv_layer].uv = uv
+			face_corner = face.loops[vi]
+			face_corner[uv_layer].uv = uv
+			#                     ^ FIXME: no type inference here
 
 	bm.transform(utils.bs_to_bl_matrix)
 
@@ -96,7 +116,8 @@ def bob_to_mesh(bob_data, bob_name):
 	return mesh
 
 
-def _find_index(lst, ref_item, comparator):
+T = TypeVar('T')
+def _find_index(lst: List[T], ref_item: T, comparator: Callable[[T, T], bool]):
 	for i, item in enumerate(lst):
 		if comparator(ref_item, item):
 			return i
@@ -110,15 +131,13 @@ def _is_same_vertex(vert1, vert2):
 	return is_same_pos and is_same_norm and is_same_uv
 
 
-def mesh_to_bob(mesh):
+def mesh_to_bob(mesh: bpy.types.Mesh) -> BobData:
 	"""
 	.bob only supports faces with exactly 3 vertices,
 	so we need to triangulate our mesh first.
-	"""
 
-	"""
-	.bob has uv coordinates associated with each vertex,
-	but blender has uv coordinates associated with each face.
+	.bob has uv coordinates associated with each vertex.
+	but blender has uv coordinates associated with each face,
 	since the same vertex can have different uv coordinates in different faces.
 	To work around this limitation,
 	we create a new vertex whenever we encounter a vertex with different uv coordinates.
@@ -126,8 +145,8 @@ def mesh_to_bob(mesh):
 	but here we implement it manually.
 	"""
 
-	vertices = []
-	faces = []
+	vertices: List[BobVertexData] = []
+	faces: List[BobFaceData] = []
 
 	bm = bmesh.new()
 	bm.from_mesh(mesh)
@@ -136,21 +155,31 @@ def mesh_to_bob(mesh):
 
 	bm.transform(utils.bl_to_bs_matrix)
 
+	# TODO: only triangulate if required. Warn user if triangulation was performed and suggest to use triangulate modifier instead since that would give some control over triangulation 
 	bmesh.ops.triangulate(bm, faces=bm.faces)
 
 	uv_layer = None
 	if len(bm.loops.layers.uv) > 0:
+		# TODO: show warning if multiple uv maps
+		# FIXME: decide whether to use the first, active, or some uv layer with known name/prefix
 		uv_layer = bm.loops.layers.uv[0]
+
 	for i, face in enumerate(bm.faces):
-		faceverts = []
+		faceverts: List[int] = []
 		for vi, vert in enumerate(face.verts):
-			uv = face.loops[vi][uv_layer].uv if uv_layer else (0, 0)
-			# orig_vert = bm.verts[vi]
+			face_corner = face.loops[vi]
+			uv = face_corner[uv_layer].uv if uv_layer else (0, 0)
+			#                          ^ FIXME: no type inference here
+
 			current_vertex = {
 				"pos": vert.co,
 				"uv":  uv,
 				"norm": vert.normal,
 			}
+
+			# each vertex of each face is considered new.
+			# if this new vertex exactly matches any existing vertex, use the existing one.
+			# otherwise use the new vertex
 			index = _find_index(vertices, current_vertex, _is_same_vertex)
 			if index == -1:
 				vertices.append(current_vertex)
@@ -180,7 +209,7 @@ def mesh_to_bob(mesh):
 	}
 
 
-def serialize(data, file):
+def serialize(data: BobData, file):
 	def writestruct(s, *args):
 		file.write(struct.pack(s, *args))
 
@@ -205,20 +234,20 @@ def serialize(data, file):
 	return
 
 
-def deserialize(file):
+def deserialize(file) -> BobData:
 	def readstruct(s):
 		tup = struct.unpack(s, file.read(struct.calcsize(s)))
 		return tup[0] if len(tup) == 1 else tup
 
 	assert readstruct("<I") == BOB_FILE_ID
-	meshFormat = readstruct("<I")
+	meshFormat: int = readstruct("<I")
 	assert meshFormat in [0, 1, 2]
 
-	vertexCount = readstruct("<I")
-	faceCount = readstruct("<I")
+	vertexCount: int = readstruct("<I")
+	faceCount: int = readstruct("<I")
 
-	vertices = []
-	faces = []
+	vertices: List[BobVertexData] = []
+	faces: List[BobFaceData] = []
 
 	for i in range(vertexCount):
 		pos = readstruct("<fff")
@@ -307,15 +336,16 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
 
-		keywords = self.as_keywords(ignore=(
+		keywords: Dict = self.as_keywords(ignore=(
 			'filter_glob',
 			'files',
 			'filepath',
 		))
 
-		dirname = os.path.dirname(self.filepath)
+		filepath: str = self.filepath
+		dirname = os.path.dirname(filepath)
 		selected_files = [os.path.join(dirname, file.name) for file in self.files]
-		ba_data_dir = utils.get_ba_data_path_from_filepath(self.filepath)
+		ba_data_dir = utils.get_ba_data_path_from_filepath(filepath)
 
 		print(f"{self.__class__.__name__}: [INFO] Files selected for import: {selected_files}")
 		
@@ -348,11 +378,9 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		for file_path in selected_files:
 			if self.import_bob(context, file_path, collection=collection, execution_context=execution_context, **keywords) == {'FINISHED'}:
 				ret = {'FINISHED'}
-			else:
-				self.report({'WARNING'}, f"The file `{file_path}` was not imported.")
 	
 		if ret != {'FINISHED'}:
-			return {'CANCELLED'}
+			return {'CANCELLED'} # show warnings instead
 
 		if self.group_into_collection and self.setup_collection_exporter:
 			utils.set_active_collection(collection)
@@ -389,6 +417,7 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 		context.view_layer.update()
 
 		character_name = utils.get_character_name(bob_name)
+		is_character = character_name is not None
 
 		if options['arrange_character_meshes']:
 			bpy.ops.scene.bombsquad_arrange_character()
@@ -407,7 +436,7 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 			if ba_data_dir is not None:
 				texture_dir = os.path.join(ba_data_dir, 'textures')
 
-			if character_name is not None:
+			if is_character:
 				texture_name = character_name + 'Color.dds'
 				mask_name = character_name + 'ColorMask.dds'
 				texture_path = os.path.join(texture_dir, texture_name)
@@ -456,7 +485,7 @@ class IMPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Impor
 					imported_texture_image = image_utils.load_image(valid_texture_path)
 
 		if options['setup_materials']:
-			if character_name is not None:
+			if is_character:
 				material_name = character_name + ' Material'
 				if material_name in bpy.data.materials:
 					obj.data.materials.append(bpy.data.materials[material_name])
@@ -519,7 +548,7 @@ class EXPORT_MESH_OT_bombsquad_bob(bpy.types.Operator, bpy_extras.io_utils.Expor
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
 
-		keywords = self.as_keywords(ignore=(
+		keywords: Dict = self.as_keywords(ignore=(
 			'check_existing',
 			'filter_glob',
 			'filepath',
@@ -630,17 +659,19 @@ class IO_FH_bombsquad_bob(bpy.types.FileHandler):
 	bl_export_operator = "export_mesh.bombsquad_bob"
 	bl_file_extensions = ".bob"
 
+	# TODO: import multiple files https://docs.blender.org/api/current/bpy.types.FileHandler.html#basic-filehandler-for-operator-that-imports-multiple-files
+
 	@classmethod
 	def poll_drop(cls, context):
 		# drop should only be allowed in 3d view and outliner
 		return bpy_extras.io_utils.poll_file_object_drop(context)
 
 
-def menu_func_import_bob(self, context):
+def menu_func_import_bob(self: bpy.types.Menu, context: bpy.types.Context):
 	self.layout.operator(IMPORT_MESH_OT_bombsquad_bob.bl_idname, text="Bombsquad Mesh (.bob)")
 
 
-def menu_func_export_bob(self, context):
+def menu_func_export_bob(self: bpy.types.Menu, context: bpy.types.Context):
 	self.layout.operator(EXPORT_MESH_OT_bombsquad_bob.bl_idname, text="Bombsquad Mesh (.bob)")
 
 
@@ -675,7 +706,7 @@ class MESH_OT_CONVERT_TO_BOB(bpy.types.Operator):
 	def execute(self, context):
 		print(f"{self.__class__.__name__}: [INFO] Executing with options {self.as_keywords()}")
 
-		keywords = self.as_keywords(ignore=())
+		keywords: Dict = self.as_keywords(ignore=())
 
 		original_obj = context.active_object
 		export_mesh = utils.obj_to_mesh(
