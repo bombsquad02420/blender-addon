@@ -1,0 +1,4 @@
+hello from blender
+['Cube', 'Light', 'Camera']
+['Light', 'Camera']
+done
