@@ -10,6 +10,10 @@
 			"./.venv/lib64/python3.11/site-packages",
 			"./.venv/lib/python3.11/site-packages",
 		],
+		"python.analysis.diagnosticSeverityOverrides": {
+			// Disable warning "Call expression not allowed in type expression" on bpy.Props.XXX annotations
+			"reportInvalidTypeForm": "none",
+		},
 	},
 	"folders": [
 		{
