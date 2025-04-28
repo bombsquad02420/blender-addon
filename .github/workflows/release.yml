@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: kenji-miyake/setup-git-cliff@v2
       - run: make
-      - run: make changelog
+      - run: make CHANGELOG.md
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref }}
