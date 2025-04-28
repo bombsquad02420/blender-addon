@@ -664,7 +664,12 @@ class MESH_OT_CONVERT_TO_BOB(bpy.types.Operator):
 		keywords = self.as_keywords(ignore=())
 
 		original_obj = context.active_object
-		export_mesh = obj_to_mesh(original_obj, context, keywords)
+		export_mesh = utils.obj_to_mesh(
+			original_obj,
+			context,
+			apply_modifiers=keywords['apply_modifiers'],
+			apply_object_transformations=keywords['apply_object_transformations'],
+		)
 		bob_data = mesh_to_bob(export_mesh)
 		import_mesh = bob_to_mesh(bob_data=bob_data, bob_name=original_obj.name)
 
