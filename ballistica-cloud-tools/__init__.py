@@ -5,13 +5,18 @@ _modules = []
 
 
 def register():
-	from . import props, operators, ui
+	from . import nodegroup, operators, props, ui
 	_modules[:] = [props, operators, ui]
 	for module in _modules:
 		module.register()
+	# Lists the bundled "Ballistica Colorize" node group in the Asset
+	# Browser and the shader editor's Add menu.
+	nodegroup.register_library()
 
 
 def unregister():
+	from . import nodegroup
+	nodegroup.unregister_library()
 	for module in reversed(_modules):
 		module.unregister()
 	_modules.clear()

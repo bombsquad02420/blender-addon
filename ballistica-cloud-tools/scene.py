@@ -204,57 +204,55 @@ def parent_to_bone(obj, arm, bone, world_matrix):
 
 # ---- material ----
 
-def build_material(name, root, texture, mask, settings):
-	"""Colorize preview: texture tinted through the mask's R/G/B channels."""
+# Group input -> collection setting that drives it.
+TINT_DRIVERS = (('Highlight 1', 'color'), ('Highlight 2', 'highlight'), ('Highlight 3', 'highlight2'))
+
+
+def build_material(name, root, texture, mask, collection):
+	"""Textures through the bundled "Ballistica Colorize" group.
+
+	The group's Highlight 1/2/3 inputs are driven by the collection's
+	color / highlight / highlight2 settings, so the preview follows the
+	panel (and keeps working without the addon).
+	"""
+	from . import nodegroup
+
 	mat = bpy.data.materials.new(name)
 	mat.use_nodes = True
 	nodes, links = mat.node_tree.nodes, mat.node_tree.links
 	nodes.clear()
 	out = nodes.new('ShaderNodeOutputMaterial')
-	bsdf = nodes.new('ShaderNodeBsdfPrincipled')
-	bsdf.name = 'bct_bsdf'
-	links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
+	out.location = (300, 0)
+	group = nodes.new('ShaderNodeGroup')
+	group.node_tree = nodegroup.get()
+	group.location = (0, 0)
+	group.width = 200
+	links.new(group.outputs['BSDF'], out.inputs['Surface'])
 	tex = nodes.new('ShaderNodeTexImage')
 	tex.image = _image(root, texture, data=False)
-	color_out = tex.outputs['Color']
+	tex.location = (-350, 150)
+	links.new(tex.outputs['Color'], group.inputs['Color'])
 	mask_node = nodes.new('ShaderNodeTexImage')
 	mask_node.image = _image(root, mask, data=True)
-	split = nodes.new('ShaderNodeSeparateColor')
-	links.new(mask_node.outputs['Color'], split.inputs['Color'])
-	for channel, field in (('Red', 'color'), ('Green', 'highlight'), ('Blue', 'highlight2')):
-		rgb = nodes.new('ShaderNodeRGB')
-		rgb.name = f'bct_{field}'
-		mix = nodes.new('ShaderNodeMix')
-		mix.data_type = 'RGBA'
-		mix.blend_type = 'MULTIPLY'
-		links.new(split.outputs[channel], _socket(mix.inputs, 'Factor_Float'))
-		links.new(color_out, _socket(mix.inputs, 'A_Color'))
-		links.new(rgb.outputs['Color'], _socket(mix.inputs, 'B_Color'))
-		color_out = _socket(mix.outputs, 'Result_Color')
-	links.new(color_out, bsdf.inputs['Base Color'])
-	if tex.image is not None:
-		links.new(tex.outputs['Alpha'], bsdf.inputs['Alpha'])
-	_arrange(mat)
-	update_material(mat, settings)
+	mask_node.location = (-350, -150)
+	links.new(mask_node.outputs['Color'], group.inputs['Color Mask'])
+	for socket_name, field in TINT_DRIVERS:
+		drive_color(group.inputs[socket_name], collection, f'ballistica_character.{field}')
 	return mat
 
 
-def update_material(mat, settings):
-	nodes = mat.node_tree.nodes
-	for field in ('color', 'highlight', 'highlight2'):
-		node = nodes.get(f'bct_{field}')
-		if node is not None:
-			node.outputs['Color'].default_value = (*getattr(settings, field), 1.0)
-	bsdf = nodes.get('bct_bsdf')
-	if bsdf is not None:
-		bsdf.inputs['Roughness'].default_value = max(0.15, 1.0 - settings.reflection_scale * 0.5)
-
-
-def _socket(sockets, identifier):
-	for socket in sockets:
-		if socket.identifier == identifier:
-			return socket
-	raise KeyError(identifier)
+def drive_color(socket, collection, data_path):
+	"""Drive an RGBA socket's RGB from a collection's 3-float property."""
+	for index in range(3):
+		fcurve = socket.driver_add('default_value', index)
+		driver = fcurve.driver
+		driver.type = 'AVERAGE'
+		var = driver.variables[0] if driver.variables else driver.variables.new()
+		var.name = 'value'
+		var.type = 'SINGLE_PROP'
+		var.targets[0].id_type = 'COLLECTION'
+		var.targets[0].id = collection
+		var.targets[0].data_path = f'{data_path}[{index}]'
 
 
 def _image(root, logical, data):
@@ -265,11 +263,6 @@ def _image(root, logical, data):
 	if data:
 		image.colorspace_settings.name = 'Non-Color'
 	return image
-
-
-def _arrange(mat):
-	for i, node in enumerate(mat.node_tree.nodes):
-		node.location = (-300 * (i % 4), -250 * (i // 4))
 
 
 # ---- guides ----

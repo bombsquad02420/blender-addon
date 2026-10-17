@@ -48,7 +48,23 @@ for name, attachments in (('agent_johnson', 0), ('zoe', 4), ('pixel', 2)):
 	assert len(found) == attachments, (name, [o.name for o in found])
 	assert operators.check(collection) == [], operators.check(collection)
 
+# Colorize: the bundled asset group, driven by the collection's tints.
+from ballistica_cloud_tools import nodegroup  # noqa: E402
+
+libraries = [lib.name for lib in bpy.context.preferences.filepaths.asset_libraries]
+assert nodegroup.LIBRARY_NAME in libraries, libraries
+group = bpy.data.node_groups[nodegroup.GROUP_NAME]
+assert group.asset_data is not None, 'node group should stay marked as an asset'
+assert [s.name for s in group.interface.items_tree if s.in_out == 'INPUT'] == [n for n, _ in nodegroup.INPUTS]
 agent = bpy.data.collections['agent_johnson']
+material = bpy.data.materials['agent_johnson']
+node = next(n for n in material.node_tree.nodes if n.type == 'GROUP')
+agent.ballistica_character.highlight = (0.25, 0.5, 0.75)
+bpy.context.view_layer.update()
+value = tuple(round(v, 4) for v in node.inputs['Highlight 2'].default_value[:3])
+assert value == (0.25, 0.5, 0.75), value
+agent.ballistica_character.highlight = (1.0, 0.5, 0.3)  # back to the file's value
+
 head = next(o for o in agent.objects if o.name == 'head')
 bpy.context.view_layer.objects.active = head
 assert bpy.ops.ballistica.export_character() == {'FINISHED'}
@@ -64,5 +80,6 @@ written = objfile.read(os.path.join(ws, 'meshes', 'agent_head.obj'))
 assert len(original.faces) == len(written.faces)
 
 package.unregister()
+assert nodegroup.LIBRARY_NAME not in [lib.name for lib in bpy.context.preferences.filepaths.asset_libraries]
 shutil.rmtree(os.path.dirname(ws))
 print('blender_smoke: OK')

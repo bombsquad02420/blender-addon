@@ -31,11 +31,10 @@ def _build(context, root, character_path, character):
 		key = (texture, mask)
 		if key not in materials:
 			label = name if key == (settings.color_texture, settings.color_mask_texture) else f'{name}_{texture.rsplit("/", 1)[-1]}'
-			materials[key] = scene.build_material(label, root, texture, mask, settings)
+			materials[key] = scene.build_material(label, root, texture, mask, collection)
 		return materials[key]
 
 	body_material = material_for(settings.color_texture, settings.color_mask_texture)
-	settings.material_name = body_material.name
 
 	missing = []
 	for part, field, _ in rig.PARTS:

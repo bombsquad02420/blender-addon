@@ -27,4 +27,6 @@ paths_exclude_pattern = [
 	"/BCHAR_FORMAT.md",
 	"/webui/",
 	"/tests/",
+	"/assets/build_assets.py",
+	"*.blend1",
 ]

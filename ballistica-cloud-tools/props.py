@@ -23,13 +23,13 @@ def _float(name, field, **kwargs):
 	return bpy.props.FloatProperty(name=name, default=D[field], min=lo, max=hi, options=_options(), **kwargs)
 
 
-def _update_material(self, context):
-	"""Keep the material preview in step with the tint fields."""
-	from . import scene
+def _tag_collection(self, context):
+	"""Re-evaluate drivers reading this setting (material tints).
 
-	material = bpy.data.materials.get(self.material_name)
-	if material is not None and material.use_nodes:
-		scene.update_material(material, self)
+	Setting a Python property on a collection doesn't tag the collection
+	in the depsgraph by itself, so drivers wouldn't see the change.
+	"""
+	self.id_data.update_tag()
 
 
 def _vec(name, field, color=False, default=None, span=None, update=None):
@@ -109,7 +109,6 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	raw_json: bpy.props.StringProperty(
 		name="Raw Definition", description="The full .bchar as last loaded; unmodelled fields are kept from here",
 		options={'HIDDEN'})
-	material_name: bpy.props.StringProperty(name="Material", options={'HIDDEN'})
 	show_all_assets: bpy.props.BoolProperty(
 		name="Show All Assets", description="List every asset in pickers, not just likely matches",
 		default=False, options=_options())
@@ -120,11 +119,11 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 		options=_options())
 	icon_texture: _ref("Icon Texture", 'texture', 'icon')
 	icon_mask_texture: _ref("Icon Mask Texture", 'texture', 'icon_mask')
-	color: _vec("Color", 'color', color=True, default=(0.5, 0.5, 0.5), update=_update_material)
-	highlight: _vec("Highlight", 'highlight', color=True, default=(0.5, 0.5, 0.5), update=_update_material)
+	color: _vec("Color", 'color', color=True, default=(0.5, 0.5, 0.5), update=_tag_collection)
+	highlight: _vec("Highlight", 'highlight', color=True, default=(0.5, 0.5, 0.5), update=_tag_collection)
 	highlight_name: bpy.props.StringProperty(name="Highlight Name", description="Translation key", options=_options())
 	highlight_editing: bpy.props.BoolProperty(name="Highlight Editing", default=D['highlight_editing'], options=_options())
-	highlight2: _vec("Highlight 2", 'highlight2', color=True, span=(0.0, 1.0), update=_update_material)
+	highlight2: _vec("Highlight 2", 'highlight2', color=True, span=(0.0, 1.0), update=_tag_collection)
 	highlight2_name: bpy.props.StringProperty(name="Highlight 2 Name", description="Translation key", options=_options())
 	highlight2_editing: bpy.props.BoolProperty(name="Highlight 2 Editing", default=D['highlight2_editing'], options=_options())
 
@@ -172,7 +171,7 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	eyelid_angle: _float("Eyelid Angle", 'eyelid_angle')
 
 	# Surface
-	reflection_scale: _float("Reflection Scale", 'reflection_scale', update=_update_material)
+	reflection_scale: _float("Reflection Scale", 'reflection_scale')
 
 	# Advanced (not in the web UI form)
 	flippers: bpy.props.BoolProperty(
