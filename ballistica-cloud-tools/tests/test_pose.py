@@ -50,7 +50,12 @@ class PoseTest(unittest.TestCase):
 		out = [wing.rotation[r][2] for r in range(3)]
 		self.assertLess(out[0], 0)  # right wing: to the character's right
 		self.assertLess(out[2], 0)  # behind
-		self.assertEqual(wing.location, self.placements['torso'].location)
+		self.assertAlmostEqual(wing.location[1], self.placements['torso'].location[1])
+
+	def test_torso_sits_back_but_shoulders_stay(self):
+		torso = self.placements['torso']
+		self.assertAlmostEqual(torso.location[2], -pose.TORSO_BACK)  # game -Z is Blender +Y
+		self.assertAlmostEqual(self.joints['shoulder'][2], rig.SHOULDER_ON_TORSO[2])
 
 	def test_rotations_are_orthonormal(self):
 		for name, placement in self.placements.items():

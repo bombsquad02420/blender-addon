@@ -15,6 +15,7 @@ import math
 from . import rig
 
 ARM_DROP_DEGREES = 20.0
+TORSO_BACK = 0.04  # game units behind the rig's torso centre (Blender +Y)
 
 
 class Placement:
@@ -83,6 +84,11 @@ def compute(shoulder_offset=(0.0, 0.0, 0.0), arm_drop=ARM_DROP_DEGREES):
 	joints['wing_tip'] = wing.point((0.0, 0.0, 0.3))
 	joints['roller'] = (0.0, rig.STAND_ROLLER_HEIGHT, 0.0)
 	joints['torso'] = torso.location
+
+	# The torso art sits a little back from where the rig's joints put it,
+	# matching the web UI's rest pose (estimated by eye). Only the torso
+	# moves; shoulders and head stay on their joints.
+	placements['torso'] = Placement(_add(torso.location, (0.0, 0.0, -TORSO_BACK)), torso.rotation)
 
 	# Stand the feet on the ground.
 	drop = (0.0, toes.location[1] - rig.TOES_RADIUS, 0.0)
