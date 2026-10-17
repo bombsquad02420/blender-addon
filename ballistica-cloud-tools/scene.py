@@ -22,6 +22,7 @@ MIRROR_X = Matrix.Diagonal((-1.0, 1.0, 1.0, 1.0))
 
 ARMATURE_SUFFIX = "_rig"
 GUIDES_SUFFIX = " Guides"
+BODY_SUFFIX = " Body"
 SIDES = (('R', 1.0), ('L', -1.0))
 
 # Bone layout: name -> (head joint, tail joint, parent). Right side only;

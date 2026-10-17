@@ -65,7 +65,8 @@ value = tuple(round(v, 4) for v in node.inputs['Highlight 2'].default_value[:3])
 assert value == (0.25, 0.5, 0.75), value
 agent.ballistica_character.highlight = (1.0, 0.5, 0.3)  # back to the file's value
 
-head = next(o for o in agent.objects if o.name == 'head')
+assert any(o.name == 'head' for o in bpy.data.collections['agent_johnson Body'].objects)
+head = next(o for o in agent.all_objects if o.name == 'head')
 bpy.context.view_layer.objects.active = head
 assert bpy.ops.ballistica.export_character() == {'FINISHED'}
 changed = sorted(k for k, v in snapshot().items() if before.get(k) != v)
