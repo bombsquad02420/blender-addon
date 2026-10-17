@@ -22,7 +22,25 @@ MIRROR_X = Matrix.Diagonal((-1.0, 1.0, 1.0, 1.0))
 
 ARMATURE_SUFFIX = "_rig"
 GUIDES_SUFFIX = " Guides"
-BODY_SUFFIX = " Body"
+# Child collections the character's objects are sorted into, in outliner
+# order. Part -> group for the body part meshes.
+GROUPS = ('Head', 'Body', 'Arms', 'Legs', 'Attachments', 'Eyes')
+PART_GROUPS = {
+	'head': 'Head',
+	'torso': 'Body', 'pelvis': 'Body',
+	'upper_arm': 'Arms', 'forearm': 'Arms', 'hand': 'Arms',
+	'upper_leg': 'Legs', 'lower_leg': 'Legs', 'toes': 'Legs',
+}
+
+
+def make_groups(collection):
+	"""Create the character's child collections; return name -> collection."""
+	groups = {}
+	for group in GROUPS:
+		child = bpy.data.collections.new(f'{collection.name} {group}')
+		collection.children.link(child)
+		groups[group] = child
+	return groups
 SIDES = (('R', 1.0), ('L', -1.0))
 
 # Bone layout: name -> (head joint, tail joint, parent). Right side only;
@@ -413,14 +431,15 @@ def _capsule(radius, length):
 
 # ---- eyes ----
 
-def build_eyes(collection, arm, placements, settings):
+def build_eyes(collection, arm, placements, settings, target):
+	"""Eye stand-ins, linked into `target`; drivers read `collection`."""
 	eyes = []
 	head = placements['head']
 	for side, sign, style in (('L', 1.0, settings.eye_style_left), ('R', -1.0, settings.eye_style_right)):
 		if style == 'none':
 			continue
 		obj = bpy.data.objects.new(f'eye.{side}', _sphere(rig.EYE_MESH_SCALE * 0.5))
-		collection.objects.link(obj)
+		target.objects.link(obj)
 		obj.hide_render = True
 		obj.ballistica_part.role = 'eye'
 		obj.ballistica_part.side = side
@@ -439,7 +458,8 @@ def build_eyes(collection, arm, placements, settings):
 LIMB_TARGETS = ('upper_arm', 'forearm', 'hand', 'upper_leg', 'lower_leg', 'toes', 'wing')
 
 
-def build_attachments(collection, arm, placements, attachments, root, material_for):
+def build_attachments(into, arm, placements, attachments, root, material_for):
+	"""Attachment segment meshes, linked into the `into` collection."""
 	"""Place attachment segment meshes on their target parts (rest pose).
 
 	A first segment hangs from the attachment's spot (its transform on the
@@ -475,7 +495,7 @@ def build_attachments(collection, arm, placements, attachments, root, material_f
 					continue
 				name = f"attachment{index}.{seg_index}" + (f".{side_name}" if side_name != 'C' else '')
 				obj = bpy.data.objects.new(name, mesh_from_obj(path, segment['mesh']))
-				collection.objects.link(obj)
+				into.objects.link(obj)
 				obj.ballistica_part.role = 'attachment'
 				obj.data.materials.append(material_for(segment))
 				parent_to_bone(obj, arm, bone_name(body_part, 'R' if side_name == 'C' else side_name), world)

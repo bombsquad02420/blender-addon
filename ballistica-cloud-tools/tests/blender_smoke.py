@@ -44,7 +44,8 @@ before = snapshot()
 for name, attachments in (('agent_johnson', 0), ('zoe', 4), ('pixel', 2)):
 	assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', f'{name}.bchar')) == {'FINISHED'}
 	collection = bpy.data.collections[name]
-	found = [o for o in collection.objects if o.ballistica_part.role == 'attachment']
+	found = [o for o in collection.all_objects if o.ballistica_part.role == 'attachment']
+	assert all(o.users_collection[0].name == f'{name} Attachments' for o in found)
 	assert len(found) == attachments, (name, [o.name for o in found])
 	assert operators.check(collection) == [], operators.check(collection)
 
@@ -65,7 +66,9 @@ value = tuple(round(v, 4) for v in node.inputs['Highlight 2'].default_value[:3])
 assert value == (0.25, 0.5, 0.75), value
 agent.ballistica_character.highlight = (1.0, 0.5, 0.3)  # back to the file's value
 
-assert any(o.name == 'head' for o in bpy.data.collections['agent_johnson Body'].objects)
+assert [o.name for o in bpy.data.collections['agent_johnson Head'].objects] == ['head']
+assert sorted(o.name for o in bpy.data.collections['agent_johnson Legs'].objects) == sorted(f'{p}.{s}' for p in ('upper_leg', 'lower_leg', 'toes') for s in 'RL')
+assert [c.name for c in agent.children] == [f'agent_johnson {g}' for g in ('Head', 'Body', 'Arms', 'Legs', 'Attachments', 'Eyes', 'Guides')]
 head = next(o for o in agent.all_objects if o.name == 'head')
 bpy.context.view_layer.objects.active = head
 assert bpy.ops.ballistica.export_character() == {'FINISHED'}
@@ -119,7 +122,7 @@ zoe = bpy.data.collections['zoe']
 zoe.ballistica_character.eye_offset = (0.07, -0.03, 0.2)
 bpy.context.view_layer.update()
 zoe_arm = next(o for o in zoe.objects if o.type == 'ARMATURE')
-eye_obj = next(o for o in zoe.objects if o.ballistica_part.role == 'eye' and o.ballistica_part.side == 'L')
+eye_obj = next(o for o in bpy.data.collections['zoe Eyes'].objects if o.ballistica_part.role == 'eye' and o.ballistica_part.side == 'L')
 head_centre = scene.TO_GAME @ (zoe_arm.matrix_world @ zoe_arm.pose.bones['head'].tail)
 offset = tuple(round(c, 4) for c in (scene.TO_GAME @ eye_obj.matrix_world.translation) - head_centre)
 assert offset == (0.07, -0.03, 0.2), offset

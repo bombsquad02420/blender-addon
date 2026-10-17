@@ -35,8 +35,7 @@ def _build(context, root, character_path, character):
 		return materials[key]
 
 	body_material = material_for(settings.color_texture, settings.color_mask_texture)
-	body = bpy.data.collections.new(name + scene.BODY_SUFFIX)  # The body part meshes.
-	collection.children.link(body)
+	groups = scene.make_groups(collection)
 
 	missing = []
 	for part, field, _ in rig.PARTS:
@@ -47,7 +46,7 @@ def _build(context, root, character_path, character):
 		if path is None:
 			missing.append(logical)
 			continue
-		right = _part_object(body, f'{part}.R' if part in rig.PAIRED_PARTS else part, scene.mesh_from_obj(path, logical), part, body_material)
+		right = _part_object(groups[scene.PART_GROUPS[part]], f'{part}.R' if part in rig.PAIRED_PARTS else part, scene.mesh_from_obj(path, logical), part, body_material)
 		world = scene.placement_matrix(placements[part])
 		scene.parent_to_bone(right, arm, scene.bone_name(part, 'R'), world)
 		if part not in rig.PAIRED_PARTS:
@@ -57,13 +56,13 @@ def _build(context, root, character_path, character):
 		left_logical = getattr(settings, f'left_{part}_mesh')
 		left_path = workspace.file_path(root, left_logical, 'mesh') if left_logical else None
 		mesh = scene.mesh_from_obj(left_path, left_logical) if left_path else right.data
-		left = _part_object(body, f'{part}.L', mesh, part, body_material)
+		left = _part_object(groups[scene.PART_GROUPS[part]], f'{part}.L', mesh, part, body_material)
 		left.ballistica_part.side = 'L'
 		scene.parent_to_bone(left, arm, scene.bone_name(part, 'L'), scene.MIRROR_X @ world)
 
-	scene.build_eyes(collection, arm, placements, settings)
+	scene.build_eyes(collection, arm, placements, settings, groups['Eyes'])
 	scene.build_attachments(
-		collection, arm, placements, character.attachments, root,
+		groups['Attachments'], arm, placements, character.attachments, root,
 		lambda segment: material_for(segment.get('texture') or settings.color_texture,
 			segment.get('mask_texture') or settings.color_mask_texture))
 	scene.build_guides(collection, arm, placements, joints, settings)
