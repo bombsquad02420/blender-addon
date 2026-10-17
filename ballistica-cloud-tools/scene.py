@@ -460,15 +460,14 @@ def build_eyes(collection, arm, placements, settings, target):
 	eyes = []
 	head = placements['head']
 	mesh = None  # One shared mesh; the right eye mirrors it via its scale.
-	for side, sign, style in (('L', 1.0, settings.eye_style_left), ('R', -1.0, settings.eye_style_right)):
-		if style == 'none':
-			continue
+	# Both eyes always exist; each is hidden while its style is 'none'.
+	hidden_when = f"v == {rig.EYE_STYLES.index('none')}"
+	for side, field in (('L', 'eye_style_left'), ('R', 'eye_style_right')):
 		if mesh is None:
 			mesh = _sphere(rig.EYE_MESH_SCALE * 0.5 * EYE_STAND_IN_SIZE)
 			mesh.name = 'eye'
 		obj = bpy.data.objects.new(f'eye.{side}', mesh)
 		target.objects.link(obj)
-		obj.hide_render = True
 		obj.ballistica_part.role = 'eye'
 		obj.ballistica_part.side = side
 		obj.color = (*settings.eyeball_color, 1.0)
@@ -479,6 +478,8 @@ def build_eyes(collection, arm, placements, settings, target):
 			# The right eye is the left mirrored: -1 on X.
 			expression = '-v' if side == 'R' and axis == 0 else 'v'
 			drive_value(obj, 'scale', axis, collection, 'eye_scale', expression)
+		for path in ('hide_viewport', 'hide_render'):
+			drive_value(obj, path, -1, collection, field, hidden_when)
 		eyes.append(obj)
 	return eyes
 

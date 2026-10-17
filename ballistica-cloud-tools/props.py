@@ -82,9 +82,11 @@ def _sounds(name):
 
 
 def _eye_style(name):
+	# Item order matters: the eye stand-ins' visibility drivers read the
+	# enum as its index (see scene.build_eyes).
 	return bpy.props.EnumProperty(
 		name=name, items=[(s, s.capitalize(), '') for s in rig.EYE_STYLES],
-		default=D['eye_style_left'], options=_options())
+		default=D['eye_style_left'], options=_options(), update=_tag_collection)
 
 
 PART_ITEMS = [(p, p.replace('_', ' ').title(), '') for p, _, _ in rig.PARTS] + [

@@ -159,6 +159,18 @@ saved = json.load(open(os.path.join(ws, 'characters', 'agent_johnson.bchar')))['
 assert saved['shoulder_offset'] == [0.03, -0.02, 0.01], saved.get('shoulder_offset')
 assert saved['eye_offset'] == [0.07, -0.03, 0.2], saved.get('eye_offset')
 
+# Eyes: both always exist and hide while their style is 'none'.
+agent_eyes = {o.ballistica_part.side: o for o in bpy.data.collections['agent_johnson Eyes'].objects}
+assert set(agent_eyes) == {'L', 'R'}
+assert agent_eyes['L'].hide_viewport and agent_eyes['R'].hide_render  # Agent Johnson's eyes are 'none'
+agent.ballistica_character.eye_style_left = 'regular'
+bpy.context.view_layer.update()
+assert not agent_eyes['L'].hide_viewport and not agent_eyes['L'].hide_render
+assert agent_eyes['R'].hide_viewport  # the right eye is still 'none'
+agent.ballistica_character.eye_style_left = 'none'
+bpy.context.view_layer.update()
+assert agent_eyes['L'].hide_viewport
+
 # Parts start with identity transforms; moving one and resetting puts it back.
 legs = [o for o in agent.all_objects if o.ballistica_part.role in ('upper_leg', 'toes')]
 assert all(o.matrix_basis == __import__('mathutils').Matrix.Identity(4) for o in legs)
