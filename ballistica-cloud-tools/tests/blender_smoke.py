@@ -71,7 +71,7 @@ agent.ballistica_character.highlight = (1.0, 0.5, 0.3)  # back to the file's val
 
 assert [o.name for o in bpy.data.collections['agent_johnson Head'].objects] == ['head']
 assert sorted(o.name for o in bpy.data.collections['agent_johnson Legs'].objects) == sorted(f'{p}.{s}' for p in ('upper_leg', 'lower_leg', 'toes') for s in 'RL')
-assert [c.name for c in agent.children] == [f'agent_johnson {g}' for g in ('Head', 'Body', 'Arms', 'Legs', 'Attachments', 'Eyes', 'Guides')]
+assert [c.name for c in agent.children] == [f'agent_johnson {g}' for g in ('Rig', 'Head', 'Body', 'Arms', 'Legs', 'Attachments', 'Eyes', 'Guides')]
 head = next(o for o in agent.all_objects if o.name == 'head')
 bpy.context.view_layer.objects.active = head
 assert bpy.ops.ballistica.export_character() == {'FINISHED'}
@@ -90,7 +90,7 @@ assert len(original.faces) == len(written.faces)
 from mathutils import Vector  # noqa: E402
 from ballistica_cloud_tools import scene  # noqa: E402
 
-arm = next(o for o in agent.objects if o.type == 'ARMATURE')
+arm = next(o for o in bpy.data.collections['agent_johnson Rig'].objects if o.type == 'ARMATURE')
 bones = arm.data.bones
 assert bones['forearm.R'].use_connect and bones['toes.L'].use_connect and bones['head'].use_connect
 assert bones['upper_arm.R'].parent.name == 'shoulder_offset.R'
@@ -124,7 +124,7 @@ assert moved('eye_offset.R') == (-0.07, -0.03, 0.2), moved('eye_offset.R')
 zoe = bpy.data.collections['zoe']
 zoe.ballistica_character.eye_offset = (0.07, -0.03, 0.2)
 bpy.context.view_layer.update()
-zoe_arm = next(o for o in zoe.objects if o.type == 'ARMATURE')
+zoe_arm = next(o for o in zoe.all_objects if o.type == 'ARMATURE')
 eye_obj = next(o for o in bpy.data.collections['zoe Eyes'].objects if o.ballistica_part.role == 'eye' and o.ballistica_part.side == 'L')
 head_centre = scene.TO_GAME @ (zoe_arm.matrix_world @ zoe_arm.pose.bones['head'].tail)
 offset = tuple(round(c, 4) for c in (scene.TO_GAME @ eye_obj.matrix_world.translation) - head_centre)

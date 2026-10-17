@@ -50,6 +50,30 @@ class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 		layout.prop(settings, 'show_all_assets')
 
 
+class VIEW3D_PT_ballistica_visibility(_Panel, bpy.types.Panel):
+	"""Viewport visibility of the character's child collections."""
+	bl_label = "Visibility"
+	bl_parent_id = 'VIEW3D_PT_ballistica_character'
+
+	@classmethod
+	def poll(cls, context):
+		return active_character(context) is not None
+
+	def draw(self, context):
+		from .scene import _layer_collections
+
+		collection = active_character(context)
+		grid = self.layout.grid_flow(columns=2, even_columns=True, align=True)
+		prefix = collection.name + ' '
+		for child in collection.children:
+			layer = next(_layer_collections(context.view_layer.layer_collection, child), None)
+			if layer is None:
+				continue
+			label = child.name[len(prefix):] if child.name.startswith(prefix) else child.name
+			# The button is pressed while the collection is visible.
+			grid.prop(layer, 'hide_viewport', text=label, toggle=True, invert_checkbox=True)
+
+
 class _Section(_Panel):
 	bl_parent_id = 'VIEW3D_PT_ballistica_character'
 	bl_options = {'DEFAULT_CLOSED'}
@@ -141,6 +165,7 @@ def _triangles(collection):
 
 classes = (
 	VIEW3D_PT_ballistica_character,
+	VIEW3D_PT_ballistica_visibility,
 	VIEW3D_PT_ballistica_identity,
 	VIEW3D_PT_ballistica_textures,
 	VIEW3D_PT_ballistica_meshes,

@@ -24,7 +24,7 @@ ARMATURE_SUFFIX = "_rig"
 GUIDES_SUFFIX = " Guides"
 # Child collections the character's objects are sorted into, in outliner
 # order. Part -> group for the body part meshes.
-GROUPS = ('Head', 'Body', 'Arms', 'Legs', 'Attachments', 'Eyes')
+GROUPS = ('Rig', 'Head', 'Body', 'Arms', 'Legs', 'Attachments', 'Eyes')
 PART_GROUPS = {
 	'head': 'Head',
 	'torso': 'Body', 'pelvis': 'Body',
@@ -178,6 +178,7 @@ def obj_from_mesh(mesh):
 # ---- armature ----
 
 def build_armature(collection, joints):
+	"""(`collection` is where the armature object is linked: the Rig group.)"""
 	"""Rest-pose armature, built at zero shoulder and eye offsets.
 
 	Chains are connected so posing keeps them joined. The offset bones

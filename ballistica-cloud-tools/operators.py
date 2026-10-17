@@ -21,9 +21,10 @@ def _build(context, root, character_path, character):
 	settings.character_path = character_path
 	props.load_into(settings, character)
 
+	groups = scene.make_groups(collection)
 	# Rest pose at zero offsets; the offset bones' drivers apply them.
 	placements, joints = pose.compute()
-	arm = scene.build_armature(collection, joints)
+	arm = scene.build_armature(groups['Rig'], joints)
 
 	materials = {}
 
@@ -35,7 +36,6 @@ def _build(context, root, character_path, character):
 		return materials[key]
 
 	body_material = material_for(settings.color_texture, settings.color_mask_texture)
-	groups = scene.make_groups(collection)
 
 	missing = []
 	for part, field, _ in rig.PARTS:
