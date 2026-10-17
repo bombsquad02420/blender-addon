@@ -98,6 +98,12 @@ class BALLISTICA_OT_import_character(bpy.types.Operator, ImportHelper):
 			return {'CANCELLED'}
 		if character.type != rig.CHARACTER_TYPE:
 			self.report({'WARNING'}, f"Unknown character type '{character.type}'; importing as {rig.CHARACTER_TYPE}.")
+		from . import nodegroup
+		try:
+			nodegroup.get()  # Before building anything, so a broken install leaves no half-built scene.
+		except (nodegroup.MissingAssetError, OSError) as exc:
+			self.report({'ERROR'}, str(exc))
+			return {'CANCELLED'}
 		if context.object is not None and context.object.mode != 'OBJECT':
 			bpy.ops.object.mode_set(mode='OBJECT')
 		collection, missing = _build(context, root, workspace.logical_path(root, self.filepath), character)

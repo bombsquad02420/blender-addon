@@ -79,6 +79,19 @@ original = objfile.read(os.path.join(SAMPLE, 'meshes', 'agent_head.obj'))
 written = objfile.read(os.path.join(ws, 'meshes', 'agent_head.obj'))
 assert len(original.faces) == len(written.faces)
 
+# A missing assets file must fail the import loudly, building nothing.
+real = nodegroup.ASSETS_BLEND
+nodegroup.ASSETS_BLEND = real + '.missing'
+bpy.data.node_groups.remove(bpy.data.node_groups[nodegroup.GROUP_NAME])
+count = len(bpy.data.collections)
+try:
+	bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'spaz.bchar'))
+	raise AssertionError('import should have failed')
+except RuntimeError as exc:
+	assert 'Bundled asset file not found' in str(exc), exc
+assert len(bpy.data.collections) == count
+nodegroup.ASSETS_BLEND = real
+
 package.unregister()
 assert nodegroup.LIBRARY_NAME not in [lib.name for lib in bpy.context.preferences.filepaths.asset_libraries]
 shutil.rmtree(os.path.dirname(ws))

@@ -12,7 +12,7 @@ Highlight 3 is `highlight2`.
 
 The group ships in assets/ballistica_assets.blend (built by
 assets/build_assets.py) and is appended from there; `create()` is what that
-script runs.
+build script runs, never the addon at runtime.
 """
 
 import os
@@ -83,22 +83,26 @@ def create():
 	return group
 
 
+class MissingAssetError(RuntimeError):
+	"""The bundled asset file is missing or doesn't contain the node group."""
+
+
 def get():
-	"""The node group, appended from the bundled .blend if needed."""
+	"""The node group, appended from the bundled .blend if needed.
+
+	Raises MissingAssetError rather than building a substitute: a missing
+	or unreadable assets file is a broken build (run `make cloud-assets`).
+	"""
 	group = bpy.data.node_groups.get(GROUP_NAME)
 	if group is not None and group.library is None:
 		return group
-	if os.path.isfile(ASSETS_BLEND):
-		try:
-			with bpy.data.libraries.load(ASSETS_BLEND, link=False, assets_only=True) as (src, dst):
-				if GROUP_NAME in src.node_groups:
-					dst.node_groups = [GROUP_NAME]
-		except (OSError, RuntimeError):
-			pass  # Unreadable bundled file: fall back to building the group.
-		appended = bpy.data.node_groups.get(GROUP_NAME)
-		if appended is not None:
-			return appended
-	return create()  # Bundled file missing or unreadable: build it in place.
+	if not os.path.isfile(ASSETS_BLEND):
+		raise MissingAssetError(f"Bundled asset file not found: {ASSETS_BLEND}. Rebuild the addon (make cloud-build).")
+	with bpy.data.libraries.load(ASSETS_BLEND, link=False, assets_only=True) as (src, dst):
+		if GROUP_NAME not in src.node_groups:
+			raise MissingAssetError(f'"{GROUP_NAME}" not found in {ASSETS_BLEND}. Rebuild the addon (make cloud-build).')
+		dst.node_groups = [GROUP_NAME]
+	return bpy.data.node_groups[GROUP_NAME]
 
 
 def _socket(sockets, identifier):
