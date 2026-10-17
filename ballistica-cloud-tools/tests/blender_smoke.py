@@ -122,6 +122,23 @@ eye_obj = next(o for o in zoe.objects if o.ballistica_part.role == 'eye' and o.b
 head_centre = scene.TO_GAME @ (zoe_arm.matrix_world @ zoe_arm.pose.bones['head'].tail)
 offset = tuple(round(c, 4) for c in (scene.TO_GAME @ eye_obj.matrix_world.translation) - head_centre)
 assert offset == (0.07, -0.03, 0.2), offset
+# Sizes: guides and eyes follow the panel's radii and eye scale.
+zs = zoe.ballistica_character
+zs.torso_radius, zs.thigh_radius, zs.ankle_radius, zs.eye_scale = 0.25, 0.06, 0.045, 1.5
+bpy.context.view_layer.update()
+import re  # noqa: E402
+guide = {re.sub(r'\.\d{3}$', '', o.name): o for o in bpy.data.collections['zoe Guides'].objects}
+
+
+def dims(obj):
+	return tuple(round(d, 3) for d in obj.dimensions)
+
+
+assert dims(guide['guide_torso'])[0] == 0.5, dims(guide['guide_torso'])
+assert dims(guide['guide_upper_leg.R'])[0] == 0.12 and dims(guide['guide_upper_leg.L'])[1] == round(0.12 + 2 * 0.06, 3), dims(guide['guide_upper_leg.L'])
+assert dims(guide['guide_lower_leg.R'])[0] == 0.09 and dims(guide['guide_lower_leg.R'])[1] == 0.26, dims(guide['guide_lower_leg.R'])
+assert dims(eye_obj)[0] == round(0.09 * 1.5, 3), dims(eye_obj)
+
 bpy.ops.ballistica.export_character()
 import json  # noqa: E402
 saved = json.load(open(os.path.join(ws, 'characters', 'agent_johnson.bchar')))['data']

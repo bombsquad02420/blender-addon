@@ -151,12 +151,12 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	fall_sounds: _sounds("Fall Sounds")
 
 	# Physique
-	torso_radius: _float("Torso Radius", 'torso_radius')
+	torso_radius: _float("Torso Radius", 'torso_radius', update=_tag_collection)
 	shoulder_offset: _vec(
 		"Shoulder Offset", 'shoulder_offset', update=_tag_collection,
 		description="Drives the shoulder_offset bones (right side; mirrored for the left)")
-	thigh_radius: _float("Thigh Radius", 'thigh_radius')
-	ankle_radius: _float("Ankle Radius", 'ankle_radius')
+	thigh_radius: _float("Thigh Radius", 'thigh_radius', update=_tag_collection)
+	ankle_radius: _float("Ankle Radius", 'ankle_radius', update=_tag_collection)
 	step_separation: _float("Step Separation", 'step_separation')
 	idle_arm_stiffness: _float("Idle Arm Stiffness", 'idle_arm_stiffness')
 	arm_swing: _float("Arm Swing", 'arm_swing')
@@ -165,7 +165,7 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	# Eyes
 	eye_style_left: _eye_style("Eye Style Left")
 	eye_style_right: _eye_style("Eye Style Right")
-	eye_scale: _float("Eye Scale", 'eye_scale')
+	eye_scale: _float("Eye Scale", 'eye_scale', update=_tag_collection)
 	eye_offset: _vec(
 		"Eye Offset", 'eye_offset', update=_tag_collection,
 		description="Drives the eye_offset bones (left eye, from the head centre; mirrored for the right)")

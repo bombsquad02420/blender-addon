@@ -300,16 +300,19 @@ def build_guides(collection, arm, placements, joints, settings):
 	# Hidden in the viewport until toggled on in the outliner.
 	for layer in _layer_collections(bpy.context.view_layer.layer_collection, guides):
 		layer.hide_viewport = True
+	# Per-character sizes are built at their defaults and scaled by drivers
+	# (see GUIDE_SCALE_DRIVERS), so the panel resizes them live.
+	thigh, ankle = rig.DEFAULTS['thigh_radius'], rig.DEFAULTS['ankle_radius']
 	shapes = [
 		('head', 'C', _sphere(rig.HEAD_RADIUS)),
-		('torso', 'C', _sphere(settings.torso_radius)),
+		('torso', 'C', _sphere(rig.DEFAULTS['torso_radius'])),
 		('pelvis', 'C', _box(rig.PELVIS_SIZE)),
 	]
 	limbs = [
 		('upper_arm', _capsule(rig.UPPER_ARM_RADIUS, rig.UPPER_ARM_LENGTH)),
 		('forearm', _capsule(rig.LOWER_ARM_RADIUS, rig.LOWER_ARM_LENGTH)),
-		('upper_leg', _capsule(settings.thigh_radius, rig.UPPER_LEG_LENGTH)),
-		('lower_leg', _capsule(settings.ankle_radius, rig.LOWER_LEG_SPAN - 2 * settings.ankle_radius)),
+		('upper_leg', _capsule(thigh, rig.UPPER_LEG_LENGTH)),
+		('lower_leg', _capsule(ankle, rig.LOWER_LEG_SPAN - 2 * ankle)),
 		('toes', _sphere(rig.TOES_RADIUS)),
 	]
 	for part, mesh in limbs:
@@ -326,6 +329,8 @@ def build_guides(collection, arm, placements, joints, settings):
 		if side == 'L':
 			world = MIRROR_X @ world
 		parent_to_bone(obj, arm, bone_name(part, side), world)
+		for axis, expression, field in GUIDE_SCALE_DRIVERS.get(part, ()):
+			drive_value(obj, 'scale', axis, collection, field, expression)
 	roller = bpy.data.objects.new('guide_roller', _sphere(rig.ROLLER_RADIUS))
 	guides.objects.link(roller)
 	roller.display_type = 'WIRE'
@@ -333,6 +338,37 @@ def build_guides(collection, arm, placements, joints, settings):
 	roller.ballistica_part.role = 'guide'
 	parent_to_bone(roller, arm, 'pelvis', Matrix.Translation(game_point(joints['roller'])))
 	return guides
+
+
+# Guide part -> (object scale axis, expression of `v`, setting). Capsules lie
+# along their local Y; X and Z are their radius. A capsule's full length is
+# its length plus both round caps; scaling unevenly makes the caps a little
+# oval, which is fine for a guide.
+_THIGH, _ANKLE = rig.DEFAULTS['thigh_radius'], rig.DEFAULTS['ankle_radius']
+_THIGH_SPAN = rig.UPPER_LEG_LENGTH + 2 * _THIGH
+GUIDE_SCALE_DRIVERS = {
+	'torso': [(i, f"v/{rig.DEFAULTS['torso_radius']}", 'torso_radius') for i in range(3)],
+	'upper_leg': [
+		(0, f'v/{_THIGH}', 'thigh_radius'),
+		(2, f'v/{_THIGH}', 'thigh_radius'),
+		(1, f'({rig.UPPER_LEG_LENGTH} + 2*v)/{_THIGH_SPAN}', 'thigh_radius'),
+	],
+	# The lower leg's whole span is fixed; only its thickness changes.
+	'lower_leg': [(0, f'v/{_ANKLE}', 'ankle_radius'), (2, f'v/{_ANKLE}', 'ankle_radius')],
+}
+
+
+def drive_value(obj, path, index, collection, field, expression):
+	"""Drive obj.path[index] by `expression` of a collection setting `v`."""
+	driver = obj.driver_add(path, index).driver
+	driver.type = 'SCRIPTED'
+	var = driver.variables.new()
+	var.name = 'v'
+	var.type = 'SINGLE_PROP'
+	var.targets[0].id_type = 'COLLECTION'
+	var.targets[0].id = collection
+	var.targets[0].data_path = f'ballistica_character.{field}'
+	driver.expression = expression
 
 
 def _layer_collections(layer, collection):
@@ -382,7 +418,7 @@ def build_eyes(collection, arm, placements, settings):
 	for side, sign, style in (('L', 1.0, settings.eye_style_left), ('R', -1.0, settings.eye_style_right)):
 		if style == 'none':
 			continue
-		obj = bpy.data.objects.new(f'eye.{side}', _sphere(rig.EYE_MESH_SCALE * 0.5 * settings.eye_scale))
+		obj = bpy.data.objects.new(f'eye.{side}', _sphere(rig.EYE_MESH_SCALE * 0.5))
 		collection.objects.link(obj)
 		obj.hide_render = True
 		obj.ballistica_part.role = 'eye'
@@ -391,6 +427,8 @@ def build_eyes(collection, arm, placements, settings):
 		# Placed at the head centre; the eye_offset bone carries it out to
 		# the offset (the bones' rest is zero offset).
 		parent_to_bone(obj, arm, f'eye_offset.{side}', Matrix.Translation(game_point(head.location)))
+		for axis in range(3):
+			drive_value(obj, 'scale', axis, collection, 'eye_scale', 'v')
 		eyes.append(obj)
 	return eyes
 
