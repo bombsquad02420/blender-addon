@@ -41,3 +41,14 @@ publish:
 
 CHANGELOG.md:
 	@git cliff --latest --output $@
+
+# ballistica-cloud-tools: built with Blender's extension builder so the
+# manifest's [build] excludes (docs, tests) apply.
+BLENDER ?= blender
+CLOUD_DIR := ./ballistica-cloud-tools
+
+cloud-build:
+	$(BLENDER) --command extension build --source-dir $(CLOUD_DIR) --output-dir .
+
+cloud-test:
+	python3 -m unittest discover -s $(CLOUD_DIR)/tests
