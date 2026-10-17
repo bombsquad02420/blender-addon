@@ -33,6 +33,11 @@ PART_GROUPS = {
 }
 
 
+# Groups hidden in the viewport on import (like Guides); toggle them on in
+# the N panel or the outliner.
+HIDDEN_GROUPS = ('Rig', 'Eyes')
+
+
 def make_groups(collection):
 	"""Create the character's child collections; return name -> collection."""
 	groups = {}
@@ -40,6 +45,9 @@ def make_groups(collection):
 		child = bpy.data.collections.new(f'{collection.name} {group}')
 		collection.children.link(child)
 		groups[group] = child
+		if group in HIDDEN_GROUPS:
+			for layer in _layer_collections(bpy.context.view_layer.layer_collection, child):
+				layer.hide_viewport = True
 	return groups
 SIDES = (('R', 1.0), ('L', -1.0))
 

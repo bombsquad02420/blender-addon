@@ -71,6 +71,9 @@ agent.ballistica_character.highlight = (1.0, 0.5, 0.3)  # back to the file's val
 
 assert [o.name for o in bpy.data.collections['agent_johnson Head'].objects] == ['head']
 assert sorted(o.name for o in bpy.data.collections['agent_johnson Legs'].objects) == sorted(f'{p}.{s}' for p in ('upper_leg', 'lower_leg', 'toes') for s in 'RL')
+from ballistica_cloud_tools.scene import _layer_collections  # noqa: E402
+hidden = {c.name for c in agent.children if next(_layer_collections(bpy.context.view_layer.layer_collection, c)).hide_viewport}
+assert hidden == {'agent_johnson Rig', 'agent_johnson Eyes', 'agent_johnson Guides'}, hidden
 assert [c.name for c in agent.children] == [f'agent_johnson {g}' for g in ('Rig', 'Head', 'Body', 'Arms', 'Legs', 'Attachments', 'Eyes', 'Guides')]
 head = next(o for o in agent.all_objects if o.name == 'head')
 bpy.context.view_layer.objects.active = head
