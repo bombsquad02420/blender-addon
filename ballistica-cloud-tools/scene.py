@@ -249,11 +249,20 @@ class _edit_mode:
 
 
 def parent_to_bone(obj, arm, bone, world_matrix):
+	"""Bone-parent `obj` so it sits at `world_matrix` with an identity transform.
+
+	The rest placement goes into the parent inverse, leaving the object's
+	own location/rotation/scale at zero. Moving a part to get at it is then
+	undone by Alt+G/R/S (or Reset Parts), and export never reads transforms.
+	"""
 	obj.parent = arm
 	obj.parent_type = 'BONE'
 	obj.parent_bone = bone
 	bpy.context.view_layer.update()
 	obj.matrix_world = world_matrix
+	# world = bone @ parent_inverse @ basis: move the basis into the inverse.
+	obj.matrix_parent_inverse = obj.matrix_basis.copy()
+	obj.matrix_basis = Matrix.Identity(4)
 
 
 # ---- material ----

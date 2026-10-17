@@ -159,6 +159,22 @@ saved = json.load(open(os.path.join(ws, 'characters', 'agent_johnson.bchar')))['
 assert saved['shoulder_offset'] == [0.03, -0.02, 0.01], saved.get('shoulder_offset')
 assert saved['eye_offset'] == [0.07, -0.03, 0.2], saved.get('eye_offset')
 
+# Parts start with identity transforms; moving one and resetting puts it back.
+legs = [o for o in agent.all_objects if o.ballistica_part.role in ('upper_leg', 'toes')]
+assert all(o.matrix_basis == __import__('mathutils').Matrix.Identity(4) for o in legs)
+home = {o.name: o.matrix_world.copy() for o in legs}
+for o in legs:
+	o.location = (0.5, 0.2, -0.1)
+	o.rotation_euler = (0.3, 0.0, 1.0)
+for o in bpy.context.view_layer.objects:
+	o.select_set(False)
+bpy.context.view_layer.objects.active = legs[0]
+bpy.context.view_layer.update()
+assert bpy.ops.ballistica.reset_parts() == {'FINISHED'}
+bpy.context.view_layer.update()
+for o in legs:
+	assert all(abs(a - b) < 1e-6 for ra, rb in zip(o.matrix_world, home[o.name]) for a, b in zip(ra, rb)), o.name
+
 # A missing assets file must fail the import loudly, building nothing.
 real = nodegroup.ASSETS_BLEND
 nodegroup.ASSETS_BLEND = real + '.missing'
