@@ -79,34 +79,54 @@ original = objfile.read(os.path.join(SAMPLE, 'meshes', 'agent_head.obj'))
 written = objfile.read(os.path.join(ws, 'meshes', 'agent_head.obj'))
 assert len(original.faces) == len(written.faces)
 
-# Bones: chains are connected; placement settings follow the bones.
+# Bones: chains are connected; panel offsets drive the offset bones.
+from mathutils import Vector  # noqa: E402
+from ballistica_cloud_tools import scene  # noqa: E402
+
 arm = next(o for o in agent.objects if o.type == 'ARMATURE')
 bones = arm.data.bones
 assert bones['forearm.R'].use_connect and bones['toes.L'].use_connect and bones['head'].use_connect
-assert not bones['upper_arm.R'].use_connect
-settings = arm.ballistica_rig
-start = tuple(settings.shoulder_offset)
-head_l = arm.pose.bones['upper_arm.L'].head.copy()
-head_r = arm.pose.bones['upper_arm.R'].head.copy()
-# Move the right shoulder 0.02 toward the character's right (Blender -X) in armature space.
-bone = arm.pose.bones['upper_arm.R']
-bone.location = bone.bone.matrix_local.to_3x3().inverted() @ __import__('mathutils').Vector((-0.02, 0.0, 0.0))
+assert bones['upper_arm.R'].parent.name == 'shoulder_offset.R'
+assert bones['eye_offset.L'].parent.name == 'head'
+settings = agent.ballistica_character
+
+
+def game_head(bone):
+	"""A pose bone's head in game space (armature space, game axes)."""
+	return scene.TO_GAME @ arm.pose.bones[bone].head
+
+
+settings.shoulder_offset = (0.0, 0.0, 0.0)
+settings.eye_offset = (0.0, 0.0, 0.0)
 bpy.context.view_layer.update()
-moved = tuple(round(v, 4) for v in settings.shoulder_offset)
-assert moved == (round(start[0] - 0.02, 4), round(start[1], 4), round(start[2], 4)), (start, moved)
-dl = arm.pose.bones['upper_arm.L'].head - head_l
-dr = arm.pose.bones['upper_arm.R'].head - head_r
-assert abs(dl.x + dr.x) < 1e-5 and abs(dl.y - dr.y) < 1e-5 and abs(dl.z - dr.z) < 1e-5, (dl, dr)  # mirrored
-eye = arm.pose.bones['eye.L']
-eye.location = eye.bone.matrix_local.to_3x3().inverted() @ __import__('mathutils').Vector((0.01, 0.0, 0.0))
+base = {b: game_head(b) for b in ('upper_arm.R', 'upper_arm.L', 'eye_offset.L', 'eye_offset.R')}
+settings.shoulder_offset = (0.03, -0.02, 0.01)
+settings.eye_offset = (0.07, -0.03, 0.2)
 bpy.context.view_layer.update()
-assert round(settings.eye_offset[0], 4) == round(0.065 + 0.01, 4), tuple(settings.eye_offset)
-before_bchar = snapshot()['characters/agent_johnson.bchar']
+
+
+def moved(bone):
+	return tuple(round(c, 4) for c in game_head(bone) - base[bone])
+
+
+assert moved('upper_arm.R') == (0.03, -0.02, 0.01), moved('upper_arm.R')
+assert moved('upper_arm.L') == (-0.03, -0.02, 0.01), moved('upper_arm.L')
+assert moved('eye_offset.L') == (0.07, -0.03, 0.2), moved('eye_offset.L')
+assert moved('eye_offset.R') == (-0.07, -0.03, 0.2), moved('eye_offset.R')
+# The eye stand-in sits at head centre + eye_offset (Zoe has visible eyes).
+zoe = bpy.data.collections['zoe']
+zoe.ballistica_character.eye_offset = (0.07, -0.03, 0.2)
+bpy.context.view_layer.update()
+zoe_arm = next(o for o in zoe.objects if o.type == 'ARMATURE')
+eye_obj = next(o for o in zoe.objects if o.ballistica_part.role == 'eye' and o.ballistica_part.side == 'L')
+head_centre = scene.TO_GAME @ (zoe_arm.matrix_world @ zoe_arm.pose.bones['head'].tail)
+offset = tuple(round(c, 4) for c in (scene.TO_GAME @ eye_obj.matrix_world.translation) - head_centre)
+assert offset == (0.07, -0.03, 0.2), offset
 bpy.ops.ballistica.export_character()
 import json  # noqa: E402
 saved = json.load(open(os.path.join(ws, 'characters', 'agent_johnson.bchar')))['data']
-assert [round(v, 4) for v in saved['shoulder_offset']] == [round(start[0] - 0.02, 4), 0.0, 0.0], saved.get('shoulder_offset')
-assert [round(v, 4) for v in saved['eye_offset']] == [0.075, -0.036, 0.205], saved.get('eye_offset')
+assert saved['shoulder_offset'] == [0.03, -0.02, 0.01], saved.get('shoulder_offset')
+assert saved['eye_offset'] == [0.07, -0.03, 0.2], saved.get('eye_offset')
 
 # A missing assets file must fail the import loudly, building nothing.
 real = nodegroup.ASSETS_BLEND

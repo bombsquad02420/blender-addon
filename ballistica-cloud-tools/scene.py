@@ -30,22 +30,27 @@ BONES = (
 	('pelvis', 'pelvis', 'spine', None),
 	('torso', 'spine', 'neck', 'pelvis'),
 	('head', 'neck', 'head', 'torso'),
-	('upper_arm', 'shoulder', 'elbow', 'torso'),
+	('shoulder_offset', 'shoulder', 'shoulder_tip', 'torso'),
+	('upper_arm', 'shoulder', 'elbow', 'shoulder_offset'),
 	('forearm', 'elbow', 'wrist', 'upper_arm'),
 	('hand', 'wrist', 'hand_tip', 'forearm'),
 	('upper_leg', 'hip', 'knee', 'pelvis'),
 	('lower_leg', 'knee', 'ankle', 'upper_leg'),
 	('toes', 'ankle', 'toe_tip', 'lower_leg'),
 	('wing', 'torso', 'wing_tip', 'torso'),
-	('eye', 'eye', 'eye_tip', 'head'),
+	('eye_offset', 'head', 'eye_tip', 'head'),
 )
 
-# Bones whose position in Pose Mode is a .bchar value (see placement drivers).
-MOVABLE_BONES = ('pelvis', 'upper_arm.R', 'eye.L')
+# Offset bones: rest at the rig's base point (zero offset); their Pose Mode
+# location is driven by the panel's .bchar values (see offset drivers).
+# Constraints can be added to these without touching the posing chains.
+OFFSET_BONES = ('shoulder_offset', 'eye_offset')
+# Bones meant to be posed by moving, not just rotating.
+MOVABLE_BONES = ('pelvis',)
 
 
 # Parts with a bone per side (limbs, plus the wing spots).
-SIDED_BONES = (*rig.PAIRED_PARTS, 'wing', 'eye')
+SIDED_BONES = (*rig.PAIRED_PARTS, 'wing', *OFFSET_BONES)
 
 
 def bone_name(part, side):
@@ -153,10 +158,13 @@ def obj_from_mesh(mesh):
 
 # ---- armature ----
 
-def build_armature(collection, joints, eye_offset):
-	"""Rest-pose armature. Chains are connected so posing keeps them joined;
-	bones that start away from their parent's tail (shoulders, hips, eyes,
-	wings) stay free, and the placement ones can be moved in Pose Mode."""
+def build_armature(collection, joints):
+	"""Rest-pose armature, built at zero shoulder and eye offsets.
+
+	Chains are connected so posing keeps them joined. The offset bones
+	start at the rig's base points; drivers move them by the .bchar
+	offsets, carrying the arms and eyes along.
+	"""
 	data = bpy.data.armatures.new(collection.name + ARMATURE_SUFFIX)
 	data.display_type = 'STICK'
 	arm = bpy.data.objects.new(collection.name + ARMATURE_SUFFIX, data)
@@ -167,11 +175,8 @@ def build_armature(collection, joints, eye_offset):
 	points = dict(joints)
 	wrist, elbow = Vector(points['wrist']), Vector(points['elbow'])
 	points['hand_tip'] = tuple(wrist + (wrist - elbow).normalized() * 0.06)
-	head = Vector(points['head'])
-	# Right eye (-X, like every .R bone); eye.L mirrors it.
-	eye = head + Vector((-abs(eye_offset[0]), eye_offset[1], eye_offset[2]))
-	points['eye'] = tuple(eye)
-	points['eye_tip'] = tuple(eye + Vector((0.0, 0.0, 0.06)))  # looking forward (+Z)
+	points['shoulder_tip'] = tuple(Vector(points['shoulder']) + Vector((0.0, 0.06, 0.0)))  # a short stub up
+	points['eye_tip'] = tuple(Vector(points['head']) + Vector((0.0, 0.0, 0.08)))  # looking forward (+Z)
 
 	tails = {}
 	with _edit_mode(arm):
@@ -188,7 +193,8 @@ def build_armature(collection, joints, eye_offset):
 				if parent:
 					parent_name = bone_name(parent, side)
 					bone.parent = bones[parent_name]
-					bone.use_connect = tails[parent_name] == head_joint
+					# Offset bones must stay free: connected bones ignore location.
+					bone.use_connect = tails[parent_name] == head_joint and part not in OFFSET_BONES
 	for bone in arm.pose.bones:
 		if bone.name not in MOVABLE_BONES:
 			bone.lock_location = (True, True, True)
@@ -376,15 +382,15 @@ def build_eyes(collection, arm, placements, settings):
 	for side, sign, style in (('L', 1.0, settings.eye_style_left), ('R', -1.0, settings.eye_style_right)):
 		if style == 'none':
 			continue
-		ox, oy, oz = settings.eye_offset
-		local = (sign * abs(ox), oy, oz)  # eye_offset is mirrored to both eyes
 		obj = bpy.data.objects.new(f'eye.{side}', _sphere(rig.EYE_MESH_SCALE * 0.5 * settings.eye_scale))
 		collection.objects.link(obj)
 		obj.hide_render = True
 		obj.ballistica_part.role = 'eye'
 		obj.ballistica_part.side = side
 		obj.color = (*settings.eyeball_color, 1.0)
-		parent_to_bone(obj, arm, f'eye.{side}', Matrix.Translation(game_point(head.point(local))))
+		# Placed at the head centre; the eye_offset bone carries it out to
+		# the offset (the bones' rest is zero offset).
+		parent_to_bone(obj, arm, f'eye_offset.{side}', Matrix.Translation(game_point(head.location)))
 		eyes.append(obj)
 	return eyes
 
@@ -438,50 +444,43 @@ def build_attachments(collection, arm, placements, attachments, root, material_f
 	return objects
 
 
-# ---- placement drivers ----
+# ---- offset drivers ----
 
-# .bchar setting <- the bone whose Pose Mode position sets it.
-PLACEMENT_BONES = (('shoulder_offset', 'upper_arm.R'), ('eye_offset', 'eye.L'))
-# The other side follows its mirror bone.
-MIRRORED_BONES = (('upper_arm.L', 'upper_arm.R'), ('eye.R', 'eye.L'))
+# Bone -> (collection setting, mirrored). The .R bones use the value with
+# x negated: .bchar eye_offset is the left eye's (+X), and the shoulder
+# value is mirrored for the left arm.
+OFFSET_DRIVERS = (
+	('shoulder_offset.R', 'shoulder_offset', False),
+	('shoulder_offset.L', 'shoulder_offset', True),
+	('eye_offset.L', 'eye_offset', False),
+	('eye_offset.R', 'eye_offset', True),
+)
 
 
-def setup_placement_drivers(arm, settings):
-	"""Drive placement settings from bones, and mirror the left side.
+def setup_offset_drivers(collection, arm):
+	"""Drive each offset bone's Pose Mode location from the panel value.
 
-	A pose bone's location is in its own rest frame, so a setting is its
-	value at import plus a fixed linear map of the bone's location: simple
-	driver expressions, no Python scripts needed.
+	A pose bone's location is in its own rest frame, so each component is a
+	fixed linear map of the game-space value: simple driver expressions,
+	no Python scripts needed.
 	"""
-	for field, bone_name_ in PLACEMENT_BONES:
-		start = tuple(getattr(settings, field))
-		setattr(arm.ballistica_rig, field, start)
-		to_game = TO_GAME @ arm.data.bones[bone_name_].matrix_local.to_3x3()
+	for bone, field, mirrored in OFFSET_DRIVERS:
+		to_local = arm.data.bones[bone].matrix_local.to_3x3().inverted() @ TO_BLENDER
+		if mirrored:
+			to_local = to_local @ Matrix.Diagonal((-1.0, 1.0, 1.0))
+		pose_bone = arm.pose.bones[bone]
+		pose_bone.lock_location = (False, False, False)
 		for i in range(3):
-			fcurve = arm.driver_add(f'ballistica_rig.{field}', i)
-			_linear_driver(fcurve.driver, arm, bone_name_, to_game[i], start[i])
-	for target, source in MIRRORED_BONES:
-		src = arm.data.bones[source].matrix_local.to_3x3()
-		dst = arm.data.bones[target].matrix_local.to_3x3()
-		mapping = dst.inverted() @ Matrix.Diagonal((-1.0, 1.0, 1.0)) @ src
-		pose_bone = arm.pose.bones[target]
-		for i in range(3):
-			fcurve = pose_bone.driver_add('location', i)
-			_linear_driver(fcurve.driver, arm, source, mapping[i], 0.0)
-
-
-def _linear_driver(driver, arm, bone, coefficients, constant):
-	driver.type = 'SCRIPTED'
-	terms = [f'{constant:.6f}']
-	for axis, coefficient in zip('XYZ', coefficients):
-		var = driver.variables.new()
-		var.name = f'l{axis.lower()}'
-		var.type = 'TRANSFORMS'
-		target = var.targets[0]
-		target.id = arm
-		target.bone_target = bone
-		target.transform_type = f'LOC_{axis}'
-		target.transform_space = 'LOCAL_SPACE'
-		if abs(coefficient) > 1e-9:
-			terms.append(f'{coefficient:.6f}*{var.name}')
-	driver.expression = ' + '.join(terms)
+			driver = pose_bone.driver_add('location', i).driver
+			driver.type = 'SCRIPTED'
+			terms = []
+			for j in range(3):
+				var = driver.variables.new()
+				var.name = 'xyz'[j]
+				var.type = 'SINGLE_PROP'
+				var.targets[0].id_type = 'COLLECTION'
+				var.targets[0].id = collection
+				var.targets[0].data_path = f'ballistica_character.{field}[{j}]'
+				if abs(to_local[i][j]) > 1e-9:
+					terms.append(f'{to_local[i][j]:.6f}*{var.name}')
+			driver.expression = ' + '.join(terms) or '0'

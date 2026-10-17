@@ -32,15 +32,12 @@ def _tag_collection(self, context):
 	self.id_data.update_tag()
 
 
-def _vec(name, field, color=False, default=None, span=None, update=None, driven=False):
+def _vec(name, field, color=False, default=None, span=None, update=None, description=''):
 	lo, hi = span or R[field]
 	kwargs = {'update': update} if update else {}
-	if driven:
-		kwargs['description'] = "Driven by the armature: move the bone in Pose Mode"
 	return bpy.props.FloatVectorProperty(
-		name=name, size=3, default=default or D[field], min=lo, max=hi,
-		subtype='COLOR' if color else 'XYZ',
-		options={'ANIMATABLE'} if driven else _options(), **kwargs)
+		name=name, description=description, size=3, default=default or D[field], min=lo, max=hi,
+		subtype='COLOR' if color else 'XYZ', options=_options(), **kwargs)
 
 
 def _asset_search(kind, role=None):
@@ -103,23 +100,6 @@ class OBJECT_PG_ballistica_part(bpy.types.PropertyGroup):
 		name="Side", items=[('CENTER', 'Center', ''), ('R', 'Right', ''), ('L', 'Left', '')], options=_options())
 
 
-class OBJECT_PG_ballistica_rig(bpy.types.PropertyGroup):
-	"""Placement values driven by the character's armature bones.
-
-	Collections can't hold drivers, so these live on the armature object;
-	while it exists they override the collection's stored values.
-	"""
-	shoulder_offset: _vec("Shoulder Offset", 'shoulder_offset', driven=True)
-	eye_offset: _vec("Eye Offset", 'eye_offset', driven=True)
-
-
-RIG_FIELDS = ('shoulder_offset', 'eye_offset')
-
-
-def armature_of(collection):
-	return next((o for o in collection.objects if o.type == 'ARMATURE'), None)
-
-
 class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	is_character: bpy.props.BoolProperty(name="Is Character", default=False, options=_options())
 	workspace_root: bpy.props.StringProperty(name="Workspace", subtype='DIR_PATH', options=_options())
@@ -172,7 +152,9 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 
 	# Physique
 	torso_radius: _float("Torso Radius", 'torso_radius')
-	shoulder_offset: _vec("Shoulder Offset", 'shoulder_offset')
+	shoulder_offset: _vec(
+		"Shoulder Offset", 'shoulder_offset', update=_tag_collection,
+		description="Drives the shoulder_offset bones (right side; mirrored for the left)")
 	thigh_radius: _float("Thigh Radius", 'thigh_radius')
 	ankle_radius: _float("Ankle Radius", 'ankle_radius')
 	step_separation: _float("Step Separation", 'step_separation')
@@ -184,7 +166,9 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	eye_style_left: _eye_style("Eye Style Left")
 	eye_style_right: _eye_style("Eye Style Right")
 	eye_scale: _float("Eye Scale", 'eye_scale')
-	eye_offset: _vec("Eye Offset", 'eye_offset')
+	eye_offset: _vec(
+		"Eye Offset", 'eye_offset', update=_tag_collection,
+		description="Drives the eye_offset bones (left eye, from the head centre; mirrored for the right)")
 	eye_color: _vec("Eye Color", 'eye_color', color=True)
 	eyeball_color: _vec("Eyeball Color", 'eyeball_color', color=True)
 	eyelid_color: _vec("Eyelid Color", 'eyelid_color', color=True)
@@ -249,16 +233,11 @@ def to_character(settings):
 	for field in rig.SOUND_FIELDS:
 		sounds = [s.strip() for s in getattr(settings, field).split(',') if s.strip()]
 		character.set(field, sounds)
-	arm = armature_of(settings.id_data)
-	if arm is not None:
-		for field in RIG_FIELDS:
-			character.set(field, tuple(getattr(arm.ballistica_rig, field)))
 	return character
 
 
 classes = (
 	OBJECT_PG_ballistica_part,
-	OBJECT_PG_ballistica_rig,
 	COLLECTION_PG_ballistica_character,
 )
 
@@ -268,11 +247,9 @@ def register():
 		bpy.utils.register_class(cls)
 	bpy.types.Collection.ballistica_character = bpy.props.PointerProperty(type=COLLECTION_PG_ballistica_character)
 	bpy.types.Object.ballistica_part = bpy.props.PointerProperty(type=OBJECT_PG_ballistica_part)
-	bpy.types.Object.ballistica_rig = bpy.props.PointerProperty(type=OBJECT_PG_ballistica_rig)
 
 
 def unregister():
-	del bpy.types.Object.ballistica_rig
 	del bpy.types.Object.ballistica_part
 	del bpy.types.Collection.ballistica_character
 	for cls in reversed(classes):

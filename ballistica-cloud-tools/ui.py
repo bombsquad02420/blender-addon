@@ -60,19 +60,12 @@ class _Section(_Panel):
 		return active_character(context) is not None
 
 	def draw(self, context):
-		from .props import RIG_FIELDS, armature_of
-
-		collection = active_character(context)
-		settings = collection.ballistica_character
-		arm = armature_of(collection)
+		settings = active_character(context).ballistica_character
 		layout = self.layout
 		layout.use_property_split = True
 		layout.use_property_decorate = False
 		for field in self.fields:
-			if arm is not None and field in RIG_FIELDS:
-				layout.prop(arm.ballistica_rig, field)  # Driven by the armature's bones.
-			else:
-				layout.prop(settings, field)
+			layout.prop(settings, field)
 
 
 class VIEW3D_PT_ballistica_identity(_Section, bpy.types.Panel):

@@ -21,8 +21,9 @@ def _build(context, root, character_path, character):
 	settings.character_path = character_path
 	props.load_into(settings, character)
 
-	placements, joints = pose.compute(tuple(settings.shoulder_offset))
-	arm = scene.build_armature(collection, joints, tuple(settings.eye_offset))
+	# Rest pose at zero offsets; the offset bones' drivers apply them.
+	placements, joints = pose.compute()
+	arm = scene.build_armature(collection, joints)
 
 	materials = {}
 
@@ -64,7 +65,7 @@ def _build(context, root, character_path, character):
 		lambda segment: material_for(segment.get('texture') or settings.color_texture,
 			segment.get('mask_texture') or settings.color_mask_texture))
 	scene.build_guides(collection, arm, placements, joints, settings)
-	scene.setup_placement_drivers(arm, settings)
+	scene.setup_offset_drivers(collection, arm)
 	return collection, missing
 
 
@@ -182,8 +183,6 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 		if not root or not os.path.isfile(os.path.join(root, workspace.WORKSPACE_FILE)):
 			self.report({'ERROR'}, f"Workspace folder not found: {root or '(none)'}")
 			return {'CANCELLED'}
-		# Placement settings are driven by bones; evaluate before reading.
-		context.view_layer.update()
 		written = []
 
 		# Meshes: write each part's mesh data to the file its field names.
