@@ -52,3 +52,6 @@ cloud-build:
 
 cloud-test:
 	python3 -m unittest discover -s $(CLOUD_DIR)/tests
+
+cloud-blender-test:
+	$(BLENDER) -b --factory-startup --python $(CLOUD_DIR)/tests/blender_smoke.py -- ../ClassicCharacterAssets

@@ -59,6 +59,26 @@ ATTACHMENT_SEGMENTS = {
 	'static': 1,
 }
 
+# Joint anchors of each simulated segment, first segment first:
+# (parent_anchor on the previous segment, child_anchor on this one), both in
+# the segment's own space. A first segment hangs from the attachment's spot.
+_TUFT = ((0.0, 0.0, 0.0), (0.0, -0.08, -0.12))
+_ANTENNA_ROOT = ((0.0, 0.0, 0.0), (0.0, 0.0, -0.065))
+_ANTENNA = ((0.0, 0.0, 0.065), (0.0, 0.0, -0.065))
+ATTACHMENT_ANCHORS = {
+	'legacy_tuft_large': (_TUFT,),
+	'legacy_tuft_medium': (_TUFT,),
+	'legacy_tuft_small': (_TUFT,),
+	'legacy_ponytail_2': (
+		((0.0, 0.0, 0.0), (0.0, -0.01, 0.1)),
+		((0.0, 0.01, -0.1), (0.0, -0.01, 0.12)),
+	),
+	'antenna': (_ANTENNA_ROOT,),
+	'antenna_2': (_ANTENNA_ROOT, _ANTENNA),
+	'antenna_3': (_ANTENNA_ROOT, _ANTENNA, _ANTENNA),
+	'antenna_4': (_ANTENNA_ROOT, _ANTENNA, _ANTENNA, _ANTENNA),
+}
+
 # ---- characterranges.py ----
 
 BASIC_SPAZ_RANGES = {
