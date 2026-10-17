@@ -57,6 +57,9 @@ assert nodegroup.LIBRARY_NAME in libraries, libraries
 group = bpy.data.node_groups[nodegroup.GROUP_NAME]
 assert group.asset_data is not None, 'node group should stay marked as an asset'
 assert [s.name for s in group.interface.items_tree if s.in_out == 'INPUT'] == [n for n, _ in nodegroup.INPUTS]
+assert [s.name for s in group.interface.items_tree if s.in_out == 'OUTPUT'] == ['Color']
+output = next(n for n in bpy.data.materials['agent_johnson'].node_tree.nodes if n.type == 'OUTPUT_MATERIAL')
+assert output.inputs['Surface'].links[0].from_socket.name == 'Color'
 agent = bpy.data.collections['agent_johnson']
 material = bpy.data.materials['agent_johnson']
 node = next(n for n in material.node_tree.nodes if n.type == 'GROUP')

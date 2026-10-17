@@ -272,7 +272,8 @@ def build_material(name, root, texture, mask, collection):
 	group.node_tree = nodegroup.get()
 	group.location = (0, 0)
 	group.width = 200
-	links.new(group.outputs['BSDF'], out.inputs['Surface'])
+	# The colorized color straight into the output, unlit like the web UI.
+	links.new(group.outputs['Color'], out.inputs['Surface'])
 	tex = nodes.new('ShaderNodeTexImage')
 	tex.image = _image(root, texture, data=False)
 	tex.location = (-350, 150)

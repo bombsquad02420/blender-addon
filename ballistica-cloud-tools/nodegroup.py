@@ -51,7 +51,6 @@ def create():
 		socket.default_value = DEFAULTS[name]
 		socket.description = description
 		sockets[name] = socket
-	iface.new_socket(name='BSDF', in_out='OUTPUT', socket_type='NodeSocketShader')
 	iface.new_socket(name='Color', in_out='OUTPUT', socket_type='NodeSocketColor')
 
 	nodes, links = group.nodes, group.links
@@ -74,11 +73,6 @@ def create():
 		links.new(group_in.outputs[highlight], _socket(mix.inputs, 'B_Color'))
 		color = _socket(mix.outputs, 'Result_Color')
 
-	bsdf = nodes.new('ShaderNodeBsdfPrincipled')
-	bsdf.location = (250, 150)
-	bsdf.inputs['Roughness'].default_value = 0.6
-	links.new(color, bsdf.inputs['Base Color'])
-	links.new(bsdf.outputs['BSDF'], group_out.inputs['BSDF'])
 	links.new(color, group_out.inputs['Color'])
 	return group
 
