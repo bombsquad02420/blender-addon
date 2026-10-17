@@ -141,7 +141,11 @@ def dims(obj):
 assert dims(guide['guide_torso'])[0] == 0.5, dims(guide['guide_torso'])
 assert dims(guide['guide_upper_leg.R'])[0] == 0.12 and dims(guide['guide_upper_leg.L'])[1] == round(0.12 + 2 * 0.06, 3), dims(guide['guide_upper_leg.L'])
 assert dims(guide['guide_lower_leg.R'])[0] == 0.09 and dims(guide['guide_lower_leg.R'])[1] == 0.26, dims(guide['guide_lower_leg.R'])
-assert dims(eye_obj)[0] == round(0.09 * 1.5, 3), dims(eye_obj)
+assert dims(eye_obj)[0] == round(0.09 * 1.78 * 1.5, 3), dims(eye_obj)
+eyes = [o for o in bpy.data.collections['zoe Eyes'].objects]
+assert len({o.data.name for o in eyes}) == 1, [o.data.name for o in eyes]  # one shared mesh
+right = next(o for o in eyes if o.ballistica_part.side == 'R')
+assert tuple(round(v, 3) for v in right.scale) == (-1.5, 1.5, 1.5), tuple(right.scale)
 
 bpy.ops.ballistica.export_character()
 import json  # noqa: E402

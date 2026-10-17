@@ -431,14 +431,23 @@ def _capsule(radius, length):
 
 # ---- eyes ----
 
+# The stand-in eyeball's size relative to the rig's eye_mesh_scale, to
+# match the game's eye art.
+EYE_STAND_IN_SIZE = 1.78
+
+
 def build_eyes(collection, arm, placements, settings, target):
 	"""Eye stand-ins, linked into `target`; drivers read `collection`."""
 	eyes = []
 	head = placements['head']
+	mesh = None  # One shared mesh; the right eye mirrors it via its scale.
 	for side, sign, style in (('L', 1.0, settings.eye_style_left), ('R', -1.0, settings.eye_style_right)):
 		if style == 'none':
 			continue
-		obj = bpy.data.objects.new(f'eye.{side}', _sphere(rig.EYE_MESH_SCALE * 0.5))
+		if mesh is None:
+			mesh = _sphere(rig.EYE_MESH_SCALE * 0.5 * EYE_STAND_IN_SIZE)
+			mesh.name = 'eye'
+		obj = bpy.data.objects.new(f'eye.{side}', mesh)
 		target.objects.link(obj)
 		obj.hide_render = True
 		obj.ballistica_part.role = 'eye'
@@ -448,7 +457,9 @@ def build_eyes(collection, arm, placements, settings, target):
 		# the offset (the bones' rest is zero offset).
 		parent_to_bone(obj, arm, f'eye_offset.{side}', Matrix.Translation(game_point(head.location)))
 		for axis in range(3):
-			drive_value(obj, 'scale', axis, collection, 'eye_scale', 'v')
+			# The right eye is the left mirrored: -1 on X.
+			expression = '-v' if side == 'R' and axis == 0 else 'v'
+			drive_value(obj, 'scale', axis, collection, 'eye_scale', expression)
 		eyes.append(obj)
 	return eyes
 
