@@ -70,10 +70,19 @@ def compute(shoulder_offset=(0.0, 0.0, 0.0), arm_drop=ARM_DROP_DEGREES):
 	knee = upper_leg.point(rig.KNEE_ON_UPPER_LEG)
 	lower_leg = _attach(knee, leg, rig.KNEE_ON_LOWER_LEG)
 	ankle = lower_leg.point(rig.ANKLE_ON_LOWER_LEG)
-	toes = _attach(ankle, IDENTITY, rig.ANKLE_ON_TOES)
+	# The foot shares the leg's frame (z down, y forward), as the engine
+	# draws it; the toes mesh is long along its own y.
+	toes = _attach(ankle, leg, rig.ANKLE_ON_TOES)
 	placements.update(upper_leg=upper_leg, lower_leg=lower_leg, toes=toes)
-	joints.update(hip=hip, knee=knee, ankle=ankle, toe_tip=toes.point((0.0, 0.0, rig.TOES_RADIUS)))
+	joints.update(hip=hip, knee=knee, ankle=ankle, toe_tip=toes.point((0.0, rig.TOES_RADIUS, 0.0)))
+
+	# Wing: frame at the torso centre, +Z out toward the wing's rest point
+	# (behind and to the side), +Y up (ApplyWingTransform_).
+	wing = Placement(torso.location, _aim(rig.WING_ATTACH, up=(0.0, 1.0, 0.0)))
+	placements['wing'] = wing
+	joints['wing_tip'] = wing.point((0.0, 0.0, 0.3))
 	joints['roller'] = (0.0, rig.STAND_ROLLER_HEIGHT, 0.0)
+	joints['torso'] = torso.location
 
 	# Stand the feet on the ground.
 	drop = (0.0, toes.location[1] - rig.TOES_RADIUS, 0.0)

@@ -36,11 +36,16 @@ BONES = (
 	('upper_leg', 'hip', 'knee', 'pelvis'),
 	('lower_leg', 'knee', 'ankle', 'upper_leg'),
 	('toes', 'ankle', 'toe_tip', 'lower_leg'),
+	('wing', 'torso', 'wing_tip', 'torso'),
 )
 
 
+# Parts with a bone per side (limbs, plus the wing spots).
+SIDED_BONES = (*rig.PAIRED_PARTS, 'wing')
+
+
 def bone_name(part, side):
-	return f'{part}.{side}' if part in rig.PAIRED_PARTS else part
+	return f'{part}.{side}' if part in SIDED_BONES else part
 
 
 def game_point(v):
@@ -159,13 +164,13 @@ def build_armature(collection, joints):
 	with _edit_mode(arm):
 		bones = data.edit_bones
 		for part, head, tail, parent in BONES:
-			sides = SIDES if part in rig.PAIRED_PARTS else (('C', 1.0),)
+			sides = SIDES if part in SIDED_BONES else (('C', 1.0),)
 			for side, sign in sides:
 				bone = bones.new(bone_name(part, side))
 				bone.head = game_point(_mirror(points[head], sign))
 				bone.tail = game_point(_mirror(points[tail], sign))
 				if parent:
-					bone.parent = bones[bone_name(parent, side) if parent in rig.PAIRED_PARTS else parent]
+					bone.parent = bones[bone_name(parent, side)]
 					bone.use_connect = False
 	return arm
 
@@ -273,6 +278,9 @@ def build_guides(collection, arm, placements, joints, settings):
 	guides = bpy.data.collections.new(collection.name + GUIDES_SUFFIX)
 	collection.children.link(guides)
 	guides.hide_render = True
+	# Hidden in the viewport until toggled on in the outliner.
+	for layer in _layer_collections(bpy.context.view_layer.layer_collection, guides):
+		layer.hide_viewport = True
 	shapes = [
 		('head', 'C', _sphere(rig.HEAD_RADIUS)),
 		('torso', 'C', _sphere(settings.torso_radius)),
@@ -306,6 +314,13 @@ def build_guides(collection, arm, placements, joints, settings):
 	roller.ballistica_part.role = 'guide'
 	parent_to_bone(roller, arm, 'pelvis', Matrix.Translation(game_point(joints['roller'])))
 	return guides
+
+
+def _layer_collections(layer, collection):
+	if layer.collection == collection:
+		yield layer
+	for child in layer.children:
+		yield from _layer_collections(child, collection)
 
 
 def _bm_mesh(name, build):
@@ -379,8 +394,7 @@ def build_attachments(collection, arm, placements, attachments, root, material_f
 		target = attachment.get('target', 'head')
 		kind = attachment.get('kind', 'static')
 		side = attachment.get('side', 'both')
-		# Wings hang from the torso; the exact wing spot isn't in the rig data.
-		body_part = 'torso' if target == 'wing' else target
+		body_part = target
 		if target in LIMB_TARGETS:
 			sides = [s for s, _ in SIDES if side == 'both' or (side, s) in (('right', 'R'), ('left', 'L'))]
 		else:

@@ -3,7 +3,8 @@
 The addon never reads game files at runtime, so these values are vendored.
 Source: ballistica `tools/bacommon/` at commit 5cd091644 (2026-10-14):
 `characterrig.py` (SPAZ_RIG), `characterranges.py` (ranges) and
-`characterbuilder.py` (defaults and enums). Update them together when
+`characterbuilder.py` (defaults and enums), plus the wing frame from
+`src/ballistica/scene_v1/node/spaz_node.cc`. Update them together when
 ballistica changes.
 
 Coordinates are game space: Y up, Z forward, the character's right is -X.
@@ -45,6 +46,12 @@ HAND_OFFSET = 0.04
 HAND_TURN = 10.0
 EYE_MESH_SCALE = 0.09
 EYEBALL_PITCH = -10.0
+
+# Wings (src/ballistica/scene_v1/node/spaz_node.cc: kWingAttach*, at rest,
+# and ApplyWingTransform_). A wing's frame sits at the torso centre with
+# +Z pointing from there toward this torso-space point; this is the right
+# wing's, the left mirrors it.
+WING_ATTACH = (-0.3, 0.0, -0.45)
 
 # Segment counts per simulated attachment kind (characterrig.ATTACHMENT_RIGS).
 ATTACHMENT_SEGMENTS = {

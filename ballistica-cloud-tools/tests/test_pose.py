@@ -39,6 +39,19 @@ class PoseTest(unittest.TestCase):
 		self.assertGreater(j['head'][1], j['neck'][1])
 		self.assertAlmostEqual(self.placements['toes'].location[1], rig.TOES_RADIUS)  # feet on the ground
 
+	def test_foot_lies_flat_pointing_forward(self):
+		toes = self.placements['toes']
+		forward = [toes.rotation[r][1] for r in range(3)]  # the toes mesh is long along its y
+		self.assertAlmostEqual(forward[2], 1.0)
+		self.assertGreater(toes.location[2], self.joints['ankle'][2])  # foot extends forward of the ankle
+
+	def test_wing_points_back_and_out_from_torso(self):
+		wing = self.placements['wing']
+		out = [wing.rotation[r][2] for r in range(3)]
+		self.assertLess(out[0], 0)  # right wing: to the character's right
+		self.assertLess(out[2], 0)  # behind
+		self.assertEqual(wing.location, self.placements['torso'].location)
+
 	def test_rotations_are_orthonormal(self):
 		for name, placement in self.placements.items():
 			m = placement.rotation
