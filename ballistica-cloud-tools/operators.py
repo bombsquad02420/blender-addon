@@ -5,7 +5,6 @@ import os
 
 import bpy
 from bpy_extras.io_utils import ImportHelper
-from mathutils import Vector
 
 from . import bchar, objfile, pose, props, rig, scene, workspace
 from .ui import active_character
@@ -23,7 +22,7 @@ def _build(context, root, character_path, character):
 	props.load_into(settings, character)
 
 	placements, joints = pose.compute(tuple(settings.shoulder_offset))
-	arm = scene.build_armature(collection, joints)
+	arm = scene.build_armature(collection, joints, tuple(settings.eye_offset))
 
 	materials = {}
 
@@ -65,6 +64,7 @@ def _build(context, root, character_path, character):
 		lambda segment: material_for(segment.get('texture') or settings.color_texture,
 			segment.get('mask_texture') or settings.color_mask_texture))
 	scene.build_guides(collection, arm, placements, joints, settings)
+	scene.setup_placement_drivers(arm, settings)
 	return collection, missing
 
 
@@ -112,18 +112,6 @@ class BALLISTICA_OT_import_character(bpy.types.Operator, ImportHelper):
 		else:
 			self.report({'INFO'}, f"Imported {collection.name}")
 		return {'FINISHED'}
-
-
-def read_placement(collection, settings):
-	"""Update shoulder_offset from the armature's posed shoulder (right side)."""
-	arm = next((o for o in collection.objects if o.type == 'ARMATURE'), None)
-	if arm is None or 'upper_arm.R' not in arm.pose.bones:
-		return
-	_, base = pose.compute((0.0, 0.0, 0.0))
-	posed = arm.pose.bones['upper_arm.R'].head
-	delta = scene.TO_GAME @ (Vector(posed) - scene.game_point(base['shoulder']))
-	lo, hi = rig.BASIC_SPAZ_RANGES['shoulder_offset']
-	settings.shoulder_offset = [rig.clamp(round(c, 4), (lo, hi)) for c in delta]
 
 
 def check(collection):
@@ -194,7 +182,8 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 		if not root or not os.path.isfile(os.path.join(root, workspace.WORKSPACE_FILE)):
 			self.report({'ERROR'}, f"Workspace folder not found: {root or '(none)'}")
 			return {'CANCELLED'}
-		read_placement(collection, settings)
+		# Placement settings are driven by bones; evaluate before reading.
+		context.view_layer.update()
 		written = []
 
 		# Meshes: write each part's mesh data to the file its field names.

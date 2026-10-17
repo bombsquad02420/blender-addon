@@ -32,12 +32,15 @@ def _tag_collection(self, context):
 	self.id_data.update_tag()
 
 
-def _vec(name, field, color=False, default=None, span=None, update=None):
+def _vec(name, field, color=False, default=None, span=None, update=None, driven=False):
 	lo, hi = span or R[field]
 	kwargs = {'update': update} if update else {}
+	if driven:
+		kwargs['description'] = "Driven by the armature: move the bone in Pose Mode"
 	return bpy.props.FloatVectorProperty(
 		name=name, size=3, default=default or D[field], min=lo, max=hi,
-		subtype='COLOR' if color else 'XYZ', options=_options(), **kwargs)
+		subtype='COLOR' if color else 'XYZ',
+		options={'ANIMATABLE'} if driven else _options(), **kwargs)
 
 
 def _asset_search(kind, role=None):
@@ -98,6 +101,23 @@ class OBJECT_PG_ballistica_part(bpy.types.PropertyGroup):
 	role: bpy.props.EnumProperty(name="Role", items=[('NONE', 'None', '')] + PART_ITEMS, options=_options())
 	side: bpy.props.EnumProperty(
 		name="Side", items=[('CENTER', 'Center', ''), ('R', 'Right', ''), ('L', 'Left', '')], options=_options())
+
+
+class OBJECT_PG_ballistica_rig(bpy.types.PropertyGroup):
+	"""Placement values driven by the character's armature bones.
+
+	Collections can't hold drivers, so these live on the armature object;
+	while it exists they override the collection's stored values.
+	"""
+	shoulder_offset: _vec("Shoulder Offset", 'shoulder_offset', driven=True)
+	eye_offset: _vec("Eye Offset", 'eye_offset', driven=True)
+
+
+RIG_FIELDS = ('shoulder_offset', 'eye_offset')
+
+
+def armature_of(collection):
+	return next((o for o in collection.objects if o.type == 'ARMATURE'), None)
 
 
 class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
@@ -229,11 +249,16 @@ def to_character(settings):
 	for field in rig.SOUND_FIELDS:
 		sounds = [s.strip() for s in getattr(settings, field).split(',') if s.strip()]
 		character.set(field, sounds)
+	arm = armature_of(settings.id_data)
+	if arm is not None:
+		for field in RIG_FIELDS:
+			character.set(field, tuple(getattr(arm.ballistica_rig, field)))
 	return character
 
 
 classes = (
 	OBJECT_PG_ballistica_part,
+	OBJECT_PG_ballistica_rig,
 	COLLECTION_PG_ballistica_character,
 )
 
@@ -243,9 +268,11 @@ def register():
 		bpy.utils.register_class(cls)
 	bpy.types.Collection.ballistica_character = bpy.props.PointerProperty(type=COLLECTION_PG_ballistica_character)
 	bpy.types.Object.ballistica_part = bpy.props.PointerProperty(type=OBJECT_PG_ballistica_part)
+	bpy.types.Object.ballistica_rig = bpy.props.PointerProperty(type=OBJECT_PG_ballistica_rig)
 
 
 def unregister():
+	del bpy.types.Object.ballistica_rig
 	del bpy.types.Object.ballistica_part
 	del bpy.types.Collection.ballistica_character
 	for cls in reversed(classes):

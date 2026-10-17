@@ -79,6 +79,35 @@ original = objfile.read(os.path.join(SAMPLE, 'meshes', 'agent_head.obj'))
 written = objfile.read(os.path.join(ws, 'meshes', 'agent_head.obj'))
 assert len(original.faces) == len(written.faces)
 
+# Bones: chains are connected; placement settings follow the bones.
+arm = next(o for o in agent.objects if o.type == 'ARMATURE')
+bones = arm.data.bones
+assert bones['forearm.R'].use_connect and bones['toes.L'].use_connect and bones['head'].use_connect
+assert not bones['upper_arm.R'].use_connect
+settings = arm.ballistica_rig
+start = tuple(settings.shoulder_offset)
+head_l = arm.pose.bones['upper_arm.L'].head.copy()
+head_r = arm.pose.bones['upper_arm.R'].head.copy()
+# Move the right shoulder 0.02 toward the character's right (Blender -X) in armature space.
+bone = arm.pose.bones['upper_arm.R']
+bone.location = bone.bone.matrix_local.to_3x3().inverted() @ __import__('mathutils').Vector((-0.02, 0.0, 0.0))
+bpy.context.view_layer.update()
+moved = tuple(round(v, 4) for v in settings.shoulder_offset)
+assert moved == (round(start[0] - 0.02, 4), round(start[1], 4), round(start[2], 4)), (start, moved)
+dl = arm.pose.bones['upper_arm.L'].head - head_l
+dr = arm.pose.bones['upper_arm.R'].head - head_r
+assert abs(dl.x + dr.x) < 1e-5 and abs(dl.y - dr.y) < 1e-5 and abs(dl.z - dr.z) < 1e-5, (dl, dr)  # mirrored
+eye = arm.pose.bones['eye.L']
+eye.location = eye.bone.matrix_local.to_3x3().inverted() @ __import__('mathutils').Vector((0.01, 0.0, 0.0))
+bpy.context.view_layer.update()
+assert round(settings.eye_offset[0], 4) == round(0.065 + 0.01, 4), tuple(settings.eye_offset)
+before_bchar = snapshot()['characters/agent_johnson.bchar']
+bpy.ops.ballistica.export_character()
+import json  # noqa: E402
+saved = json.load(open(os.path.join(ws, 'characters', 'agent_johnson.bchar')))['data']
+assert [round(v, 4) for v in saved['shoulder_offset']] == [round(start[0] - 0.02, 4), 0.0, 0.0], saved.get('shoulder_offset')
+assert [round(v, 4) for v in saved['eye_offset']] == [0.075, -0.036, 0.205], saved.get('eye_offset')
+
 # A missing assets file must fail the import loudly, building nothing.
 real = nodegroup.ASSETS_BLEND
 nodegroup.ASSETS_BLEND = real + '.missing'
