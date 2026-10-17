@@ -94,7 +94,7 @@ def get():
 				if GROUP_NAME in src.node_groups:
 					dst.node_groups = [GROUP_NAME]
 		except (OSError, RuntimeError):
-			pass  # e.g. an older Blender that can't read the bundled file
+			pass  # Unreadable bundled file: fall back to building the group.
 		appended = bpy.data.node_groups.get(GROUP_NAME)
 		if appended is not None:
 			return appended

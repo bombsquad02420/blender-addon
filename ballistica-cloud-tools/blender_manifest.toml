@@ -8,7 +8,7 @@ maintainer = "aryan02420 <aryan02420@gmail.com>"
 type = "add-on"
 website = "https://github.com/bombsquad02420/blender-addon"
 tags = ["Import-Export", "Rigging"]
-blender_version_min = "4.2.0"
+blender_version_min = "5.2.0"
 
 license = ["SPDX:GPL-3.0-or-later"]
 copyright = [

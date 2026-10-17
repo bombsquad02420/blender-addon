@@ -47,7 +47,7 @@ Why not sync from inside Blender yet:
 
 - **No reusable Python client.** Ballistica's own Python `bacloud` uses
   Python 3.14-only syntax (e.g. `except ValueError, OSError:`), while Blender
-  4.2+ ships Python 3.11. A Blender-side SDK means a fresh port of the TS SDK
+  5.2 ships Python 3.13. A Blender-side SDK means a fresh port of the TS SDK
   (wire protocol, SmartSocket session, transfers) — similar in size to it.
 - **Extra dependency.** The session runs over WebSocket; Blender does not
   bundle `websockets`, so the extension would need to ship it as a wheel.
@@ -231,8 +231,6 @@ without hand-made tables:
 The addon is **self-contained**: it never reads game or ballistica files at
 runtime. The rig numbers and ranges it needs are copied into the addon at
 development time, with a note of the ballistica version they came from.
-(The modules use Python 3.12 `type` aliases, so Blender 4.2's Python 3.11
-couldn't import them anyway.)
 
 ### Textures
 
@@ -538,8 +536,9 @@ Answered 2026-10-17:
 - ~~Sounds and strings~~: sounds are plain strings; strings are shown as
   translation keys only and the `strings/` folder is ignored.
 - ~~In-Blender sync~~: not needed for now.
-- ~~Blender version floor~~: 4.2 (`blender_version_min = "4.2.0"`); develop
-  and test on Blender 5.2.2 as well.
+- ~~Blender version floor~~: 5.2 (`blender_version_min = "5.2.0"`),
+  developed and tested on 5.2.2. The bundled asset `.blend` is generated at
+  build time, so build releases with the minimum supported Blender.
 - ~~Attachments, `left_*`, `flippers`~~: JSON-only in the web UI; the addon
   edits them in its Advanced and Attachments sections.
 - ~~`team_coloring_strength`~~: meaning unclear, but preserved on import and
