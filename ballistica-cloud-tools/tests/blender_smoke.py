@@ -166,6 +166,7 @@ home = {o.name: o.matrix_world.copy() for o in legs}
 for o in legs:
 	o.location = (0.5, 0.2, -0.1)
 	o.rotation_euler = (0.3, 0.0, 1.0)
+arm.pose.bones['upper_leg.R'].rotation_quaternion = (0.7, 0.7, 0.0, 0.0)  # pose a leg too
 for o in bpy.context.view_layer.objects:
 	o.select_set(False)
 bpy.context.view_layer.objects.active = legs[0]
@@ -174,6 +175,9 @@ assert bpy.ops.ballistica.reset_parts() == {'FINISHED'}
 bpy.context.view_layer.update()
 for o in legs:
 	assert all(abs(a - b) < 1e-6 for ra, rb in zip(o.matrix_world, home[o.name]) for a, b in zip(ra, rb)), o.name
+assert tuple(arm.pose.bones['upper_leg.R'].rotation_quaternion) == (1.0, 0.0, 0.0, 0.0)
+moved = tuple(round(c, 4) for c in game_head('upper_arm.R') - base['upper_arm.R'])
+assert moved == (0.03, -0.02, 0.01), moved  # driven shoulder offset survives the reset
 
 # A missing assets file must fail the import loudly, building nothing.
 real = nodegroup.ASSETS_BLEND

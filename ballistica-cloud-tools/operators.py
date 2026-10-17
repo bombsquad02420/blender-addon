@@ -154,9 +154,9 @@ RESETTABLE_ROLES = (*(p for p, _, _ in rig.PARTS), 'attachment', 'eye')
 
 
 class BALLISTICA_OT_reset_parts(bpy.types.Operator):
-	"""Move body parts, attachments and eyes back to their place on the rig (the selected ones, or all of them if none of the character's are selected)"""
+	"""Put the character back in its T-pose: clear the armature's pose and move body parts, attachments and eyes back onto their bones (only the selected parts if any are selected)"""
 	bl_idname = 'ballistica.reset_parts'
-	bl_label = "Reset Parts"
+	bl_label = "Reset to T-Pose"
 	bl_options = {'REGISTER', 'UNDO'}
 
 	@classmethod
@@ -164,18 +164,29 @@ class BALLISTICA_OT_reset_parts(bpy.types.Operator):
 		return active_character(context) is not None
 
 	def execute(self, context):
-		parts = [o for o in active_character(context).all_objects if o.ballistica_part.role in RESETTABLE_ROLES]
+		collection = active_character(context)
+		parts = [o for o in collection.all_objects if o.ballistica_part.role in RESETTABLE_ROLES]
+		# Rest placement lives in each part's parent inverse, so an identity
+		# transform puts a part back on its bone.
 		selected = [o for o in parts if o.select_get()]
 		for obj in selected or parts:
-			# Rest placement lives in the parent inverse, so identity is home.
-			# Driven channels (eye scale) are re-applied by their drivers.
-			obj.location = (0.0, 0.0, 0.0)
-			obj.rotation_euler = (0.0, 0.0, 0.0)
-			obj.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
-			obj.scale = (1.0, 1.0, 1.0)
-		active_character(context).update_tag()  # re-run scale drivers
-		self.report({'INFO'}, f"Reset {len(selected or parts)} part(s)")
+			_clear_transform(obj)
+		if not selected:
+			arm = next((o for o in collection.all_objects if o.type == 'ARMATURE'), None)
+			if arm is not None:
+				for bone in arm.pose.bones:
+					_clear_transform(bone)  # Offset bones' location is re-applied by drivers.
+		collection.update_tag()  # Re-run drivers (offsets, eye scale).
+		self.report({'INFO'}, f"Reset {len(selected)} part(s)" if selected else f"Reset {collection.name} to its T-pose")
 		return {'FINISHED'}
+
+
+def _clear_transform(item):
+	item.location = (0.0, 0.0, 0.0)
+	item.rotation_euler = (0.0, 0.0, 0.0)
+	item.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+	item.rotation_axis_angle = (0.0, 0.0, 1.0, 0.0)
+	item.scale = (1.0, 1.0, 1.0)
 
 
 class BALLISTICA_OT_check_character(bpy.types.Operator):
