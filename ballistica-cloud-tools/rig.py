@@ -47,11 +47,14 @@ HAND_TURN = 10.0
 EYE_MESH_SCALE = 0.09
 EYEBALL_PITCH = -10.0
 
-# Wings (src/ballistica/scene_v1/node/spaz_node.cc: kWingAttach*, at rest,
-# and ApplyWingTransform_). A wing's frame sits at the torso centre with
-# +Z pointing from there toward this torso-space point; this is the right
-# wing's, the left mirrors it.
-WING_ATTACH = (-0.3, 0.0, -0.45)
+# Wings (src/ballistica/scene_v1/node/spaz_node.cc: kWingAttach*,
+# ApplyWingTransform_). A wing's frame sits at the torso centre with +Z
+# pointing from there toward a torso-space point; these are the right
+# wing's, the left mirrors them. The preview uses the flap point, the
+# wider spread the web UI shows.
+WING_ATTACH_REST = (-0.3, 0.0, -0.45)
+WING_ATTACH_FLAP = (-0.55, 0.0, -0.35)
+WING_ATTACH = WING_ATTACH_FLAP
 
 # Segment counts per simulated attachment kind (characterrig.ATTACHMENT_RIGS).
 ATTACHMENT_SEGMENTS = {
