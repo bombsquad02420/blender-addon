@@ -413,6 +413,9 @@ class StubLayout:
 	def prop(self, data, name, **kwargs):
 		assert name in data.bl_rna.properties, name
 
+	def panel(self, idname, default_closed=False):
+		return StubLayout(), StubLayout()  # (header, body): drawn open
+
 	def template_list(self, listtype, listid, data, prop, active_data, active_prop, **kwargs):
 		assert prop in data.bl_rna.properties and active_prop in active_data.bl_rna.properties
 

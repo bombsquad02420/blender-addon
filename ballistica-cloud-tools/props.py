@@ -192,7 +192,7 @@ class COLLECTION_PG_ballistica_segment(bpy.types.PropertyGroup):
 	texture: _ref("Texture", 'texture', 'color', update=_segment_changed)
 	mask_texture: _ref("Mask Texture", 'texture', 'mask', update=_segment_changed)
 	translate: bpy.props.FloatVectorProperty(
-		name="Translate", size=3, subtype='TRANSLATION', options=_options(), update=_placement_changed,
+		name="Translate", size=3, subtype='XYZ', options=_options(), update=_placement_changed,
 		description="Where the segment's art sits on its body, game axes (Y up, Z forward)")
 	rotate: bpy.props.FloatVectorProperty(
 		name="Rotate", size=3, description="Heading, pitch, roll in degrees", options=_options(),
@@ -208,7 +208,7 @@ class COLLECTION_PG_ballistica_attachment(bpy.types.PropertyGroup):
 	side: bpy.props.EnumProperty(name="Side", items=_side_items, options=_options(), update=_attachment_changed)
 	kind: bpy.props.EnumProperty(name="Kind", items=_kind_items, options=_options(), update=_attachment_changed)
 	translate: bpy.props.FloatVectorProperty(
-		name="Translate", size=3, subtype='TRANSLATION', min=AR['position'][0], max=AR['position'][1],
+		name="Translate", size=3, subtype='XYZ', min=AR['position'][0], max=AR['position'][1],
 		description="Where it sits on the target part, in the part's space, game axes (Y up, Z forward)",
 		options=_options(), update=_placement_changed)
 	rotate: bpy.props.FloatVectorProperty(

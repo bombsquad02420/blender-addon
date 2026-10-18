@@ -212,46 +212,59 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 		col.prop(attachment, 'side')
 		col.prop(attachment, 'kind')
 
-		box = layout.box()
-		header = box.row()
-		header.label(text="Placement on the target part", icon='EMPTY_ARROWS')
-		header.operator('ballistica.attachment_select', text="Select", icon='RESTRICT_SELECT_OFF').segment = -1
-		box.use_property_split = True
-		box.use_property_decorate = False
-		box.prop(attachment, 'translate')
-		box.prop(attachment, 'rotate', text="Rotate (H, P, R)")
+		# Collapsible sub-sections (layout panels remember open/closed per
+		# id, so each attachment field group keeps its state).
+		header, body = layout.panel('BALLISTICA_attach_placement', default_closed=False)
+		header.label(text="Placement", icon='EMPTY_ARROWS')
+		if body is not None:
+			_split(body)
+			body.label(text="Where it hangs on the target part (game axes: Y up, Z forward).")
+			body.operator('ballistica.attachment_select', text="Select Anchor", icon='RESTRICT_SELECT_OFF').segment = -1
+			body.prop(attachment, 'translate')
+			body.prop(attachment, 'rotate', text="Heading, Pitch, Roll")
 
 		if attachments.is_springy(attachment.kind):
-			box = layout.box()
-			box.label(text="Spring", icon='FORCE_HARMONIC')
-			box.use_property_split = True
-			box.use_property_decorate = False
-			for field in attachments.TUNING:
-				box.prop(attachment, field)
-			if attachments.segment_count(attachment.kind) > 1:
-				box.label(text="Change per segment")
-				for field in attachments.TUNING_CHANGES:
-					box.prop(attachment, field)
+			header, body = layout.panel('BALLISTICA_attach_spring', default_closed=True)
+			header.label(text="Spring", icon='FORCE_HARMONIC')
+			if body is not None:
+				_split(body)
+				for field in attachments.TUNING:
+					body.prop(attachment, field)
+				if attachments.segment_count(attachment.kind) > 1:
+					body.label(text="Change per segment")
+					for field in attachments.TUNING_CHANGES:
+						body.prop(attachment, field)
 
-		layout.label(text="Segments")
-		layout.template_list(
+		header, body = layout.panel('BALLISTICA_attach_segments', default_closed=False)
+		header.label(text=f"Segments ({len(attachment.segments)})", icon='MESH_DATA')
+		if body is None:
+			return
+		body.template_list(
 			'BALLISTICA_UL_segments', '', attachment, 'segments', attachment, 'active_segment_index',
 			rows=1, maxrows=4)
 		j = attachment.active_segment_index
-		if 0 <= j < len(attachment.segments):
-			segment = attachment.segments[j]
-			col = layout.column()
-			col.use_property_split = True
-			col.use_property_decorate = False
-			col.prop(segment, 'mesh')
-			col.prop(segment, 'texture')
-			col.prop(segment, 'mask_texture')
-			row = col.row()
-			row.label(text="Art on the segment")
-			row.operator('ballistica.attachment_select', text="Select", icon='RESTRICT_SELECT_OFF').segment = j
-			col.prop(segment, 'translate')
-			col.prop(segment, 'rotate', text="Rotate (H, P, R)")
-			col.prop(segment, 'scale')
+		if not 0 <= j < len(attachment.segments):
+			return
+		segment = attachment.segments[j]
+		col = body.column()
+		_split(col)
+		col.prop(segment, 'mesh')
+		col.prop(segment, 'texture')
+		col.prop(segment, 'mask_texture')
+		header, art = body.panel('BALLISTICA_attach_art', default_closed=True)
+		header.label(text="Art Offset")
+		if art is not None:
+			_split(art)
+			art.label(text="Moves the mesh on its segment; use Placement to move the attachment.")
+			art.operator('ballistica.attachment_select', text="Select Art", icon='RESTRICT_SELECT_OFF').segment = j
+			art.prop(segment, 'translate')
+			art.prop(segment, 'rotate', text="Heading, Pitch, Roll")
+			art.prop(segment, 'scale')
+
+
+def _split(layout):
+	layout.use_property_split = True
+	layout.use_property_decorate = False
 
 
 def _triangles(collection):
