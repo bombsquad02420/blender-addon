@@ -239,9 +239,14 @@ def check(collection):
 		if not character.get(field):
 			problems.append(f"{field} is required")
 	exported = {f for p, f, _ in rig.PARTS if any(o.ballistica_part.role == p for o in _exportable_parts(collection))}
+	from . import attachments as attach_rules
+	for index, attachment in enumerate(settings.attachments):
+		problems += attach_rules.problems(props.attachment_record(attachment), index)
 	for field, kind, logical in character.referenced_assets():
 		if field in exported or workspace.file_path(root, logical, kind) is not None:
 			continue
+		if kind == 'mesh' and field.startswith('attachments') and _loaded_attachment_mesh(root, logical) is not None:
+			continue  # Made in Blender; export writes it.
 		if kind == 'texture' and scene.find_image(workspace.new_file_path(root, logical, kind)) is not None:
 			continue  # Made in Blender; export writes it.
 		problems.append(f"{field}: {logical} not found in the workspace")
@@ -453,6 +458,7 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 			self.report({'ERROR'}, f"Workspace folder not found: {root or '(none)'}")
 			return {'CANCELLED'}
 		written = []
+		attach_scene.sync_from_handles(collection)
 
 		# Meshes: write each part's mesh data to the file its field names.
 		for obj in _exportable_parts(collection):
@@ -460,15 +466,12 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 			field = dict((p, f) for p, f, _ in rig.PARTS)[part]
 			logical = getattr(settings, field) or f'meshes/{collection.name}_{part}'
 			setattr(settings, field, logical)
-			path = workspace.file_path(root, logical, 'mesh')
-			signature = scene.mesh_signature(obj.data)
-			if path is not None and obj.data.get(scene.SIGNATURE_KEY) == signature:
-				continue  # Unchanged since import or last export.
-			path = path or workspace.new_file_path(root, logical, 'mesh')
-			os.makedirs(os.path.dirname(path), exist_ok=True)
-			objfile.write(path, scene.obj_from_mesh(obj.data))
-			obj.data[scene.SIGNATURE_KEY] = signature
-			written.append(os.path.relpath(path, root))
+			_write_mesh(root, logical, obj.data, written)
+		# Attachment segment meshes made or edited in Blender.
+		for logical in _attachment_refs(settings, ('mesh',)):
+			mesh = _loaded_attachment_mesh(root, logical)
+			if mesh is not None:
+				_write_mesh(root, logical, mesh, written)
 
 		# Textures: save images edited in Blender back as PNG, and write ones
 		# made in Blender that aren't on disk yet (a new character's).
@@ -477,20 +480,11 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 			('color_texture', False), ('color_mask_texture', True),
 			('icon_texture', False), ('icon_mask_texture', True),
 		):
-			logical = getattr(settings, field)
-			if not logical:
-				continue
-			path = workspace.file_path(root, logical, 'texture') or workspace.new_file_path(root, logical, 'texture')
-			image = scene.find_image(path)
-			exists = os.path.isfile(path)
-			if image is not None and (image.is_dirty or not exists):
-				os.makedirs(os.path.dirname(path), exist_ok=True)
-				image.save()
-				written.append(os.path.relpath(path, root))
-			elif not exists:
-				continue
-			if data:
-				masks.append(path)
+			_save_texture(root, getattr(settings, field), data, written, masks)
+		for logical in _attachment_refs(settings, ('texture',)):
+			_save_texture(root, logical, False, written, masks)
+		for logical in _attachment_refs(settings, ('mask_texture',)):
+			_save_texture(root, logical, True, written, masks)
 		if workspace.mark_data_textures(root, masks):
 			written.append(workspace.WORKSPACE_FILE)
 
@@ -499,11 +493,62 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 		if character.save(bchar_path):
 			written.append(os.path.relpath(bchar_path, root))
 		settings.raw_json = json.dumps(character.raw)
+		for attachment, raw in zip(settings.attachments, character.attachments):
+			attachment.raw_json = json.dumps(raw)
 
 		for problem in check(collection):
 			self.report({'WARNING'}, problem)
 		self.report({'INFO'}, f"Wrote {len(written)} file(s)" + (f": {', '.join(written)}" if written else " (nothing changed)"))
 		return {'FINISHED'}
+
+
+def _write_mesh(root, logical, mesh, written):
+	"""Write a mesh to its logical path unless it's unchanged on disk."""
+	path = workspace.file_path(root, logical, 'mesh')
+	signature = scene.mesh_signature(mesh)
+	if path is not None and mesh.get(scene.SIGNATURE_KEY) == signature:
+		return  # Unchanged since import or last export.
+	path = path or workspace.new_file_path(root, logical, 'mesh')
+	os.makedirs(os.path.dirname(path), exist_ok=True)
+	objfile.write(path, scene.obj_from_mesh(mesh))
+	mesh[scene.SIGNATURE_KEY] = signature
+	written.append(os.path.relpath(path, root))
+
+
+def _save_texture(root, logical, data, written, masks):
+	"""Save an image edited (or made) in Blender to its logical path."""
+	if not logical:
+		return
+	path = workspace.file_path(root, logical, 'texture') or workspace.new_file_path(root, logical, 'texture')
+	image = scene.find_image(path)
+	exists = os.path.isfile(path)
+	if image is not None and (image.is_dirty or not exists):
+		os.makedirs(os.path.dirname(path), exist_ok=True)
+		image.save()
+		written.append(os.path.relpath(path, root))
+	elif not exists:
+		return
+	if data and path not in masks:
+		masks.append(path)
+
+
+def _attachment_refs(settings, keys):
+	"""Distinct logical paths used by attachment segments for `keys`."""
+	seen = []
+	for attachment in settings.attachments:
+		for segment in attachment.segments:
+			for key in keys:
+				value = getattr(segment, key)
+				if value and value not in seen:
+					seen.append(value)
+	return seen
+
+
+def _loaded_attachment_mesh(root, logical):
+	"""The attachment mesh already in Blender for a path (not loading it)."""
+	return next(
+		(m for m in bpy.data.meshes if m.get(attach_scene.LOGICAL_KEY) == logical and m.get(attach_scene.ROOT_KEY) == root),
+		None)
 
 
 def menu_import(self, context):

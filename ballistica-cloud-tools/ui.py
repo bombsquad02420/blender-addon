@@ -156,26 +156,102 @@ class VIEW3D_PT_ballistica_advanced(_Section, bpy.types.Panel):
 	bl_label = "Advanced"
 	fields = ('flippers', *(f'left_{p}_mesh' for p in rig.PAIRED_PARTS))
 
+
+
+class BALLISTICA_UL_attachments(bpy.types.UIList):
+	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
+		from . import attachments
+
+		sides = '' if item.target in rig.UNSIDED_TARGETS else f' · {item.side}'
+		label = f"{item.target.replace('_', ' ')} · {item.kind.replace('_', ' ')}{sides}"
+		problems = attachments.problems(_record(item))
+		layout.label(text=label, icon='ERROR' if problems else 'LINKED')
+
+
+class BALLISTICA_UL_segments(bpy.types.UIList):
+	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
+		layout.label(text=f"{index + 1}: {item.mesh or '(no mesh)'}", icon='MESH_DATA' if item.mesh else 'ERROR')
+
+
+def _record(attachment):
+	from . import props
+
+	return props.attachment_record(attachment)
+
+
+class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
+	bl_label = "Attachments"
+
 	def draw(self, context):
-		super().draw(context)
+		from . import attachments
+
 		collection = active_character(context)
-		count = len(_attachments(collection))
-		self.layout.label(text=f"{count} attachment(s), kept as loaded", icon='LINKED')
+		settings = collection.ballistica_character
+		layout = self.layout
+		row = layout.row()
+		row.template_list(
+			'BALLISTICA_UL_attachments', '', settings, 'attachments', settings, 'active_attachment_index', rows=3)
+		col = row.column(align=True)
+		col.operator('ballistica.attachment_add', icon='ADD', text="")
+		col.operator('ballistica.attachment_remove', icon='REMOVE', text="")
+		col.separator()
+		col.operator('ballistica.attachment_move', icon='TRIA_UP', text="").direction = 'UP'
+		col.operator('ballistica.attachment_move', icon='TRIA_DOWN', text="").direction = 'DOWN'
 
+		index = settings.active_attachment_index
+		if not 0 <= index < len(settings.attachments):
+			return
+		attachment = settings.attachments[index]
+		for problem in attachments.problems(_record(attachment), index):
+			layout.label(text=problem, icon='ERROR')
 
-def _attachments(collection):
-	import json
+		col = layout.column()
+		col.use_property_split = True
+		col.use_property_decorate = False
+		col.prop(attachment, 'target')
+		col.prop(attachment, 'side')
+		col.prop(attachment, 'kind')
 
-	raw = collection.ballistica_character.raw_json
-	return json.loads(raw).get('data', {}).get('attachments', []) if raw else []
+		box = layout.box()
+		header = box.row()
+		header.label(text="Placement on the target part", icon='EMPTY_ARROWS')
+		header.operator('ballistica.attachment_select', text="Select", icon='RESTRICT_SELECT_OFF').segment = -1
+		box.use_property_split = True
+		box.use_property_decorate = False
+		box.prop(attachment, 'translate')
+		box.prop(attachment, 'rotate', text="Rotate (H, P, R)")
 
+		if attachments.is_springy(attachment.kind):
+			box = layout.box()
+			box.label(text="Spring", icon='FORCE_HARMONIC')
+			box.use_property_split = True
+			box.use_property_decorate = False
+			for field in attachments.TUNING:
+				box.prop(attachment, field)
+			if attachments.segment_count(attachment.kind) > 1:
+				box.label(text="Change per segment")
+				for field in attachments.TUNING_CHANGES:
+					box.prop(attachment, field)
 
-def _triangles(collection):
-	total = 0
-	for obj in collection.all_objects:
-		if obj.type == 'MESH' and obj.ballistica_part.role not in ('guide', 'eye', 'NONE'):
-			total += sum(len(p.vertices) - 2 for p in obj.data.polygons)
-	return total
+		layout.label(text="Segments")
+		layout.template_list(
+			'BALLISTICA_UL_segments', '', attachment, 'segments', attachment, 'active_segment_index',
+			rows=1, maxrows=4)
+		j = attachment.active_segment_index
+		if 0 <= j < len(attachment.segments):
+			segment = attachment.segments[j]
+			col = layout.column()
+			col.use_property_split = True
+			col.use_property_decorate = False
+			col.prop(segment, 'mesh')
+			col.prop(segment, 'texture')
+			col.prop(segment, 'mask_texture')
+			row = col.row()
+			row.label(text="Art on the segment")
+			row.operator('ballistica.attachment_select', text="Select", icon='RESTRICT_SELECT_OFF').segment = j
+			col.prop(segment, 'translate')
+			col.prop(segment, 'rotate', text="Rotate (H, P, R)")
+			col.prop(segment, 'scale')
 
 
 classes = (
@@ -189,6 +265,9 @@ classes = (
 	VIEW3D_PT_ballistica_eyes,
 	VIEW3D_PT_ballistica_surface,
 	VIEW3D_PT_ballistica_advanced,
+	BALLISTICA_UL_attachments,
+	BALLISTICA_UL_segments,
+	VIEW3D_PT_ballistica_attachments,
 )
 
 

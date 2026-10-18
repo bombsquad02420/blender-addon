@@ -5,8 +5,8 @@ _modules = []
 
 
 def register():
-	from . import nodegroup, operators, props, ui
-	_modules[:] = [props, operators, ui]
+	from . import attach_ops, nodegroup, operators, props, ui
+	_modules[:] = [props, operators, attach_ops, ui]
 	for module in _modules:
 		module.register()
 	# Lists the bundled "Ballistica Colorize" node group in the Asset

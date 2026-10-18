@@ -89,6 +89,12 @@ PATCH_MARGIN = 0.06  # of a patch, so bleeding at patch edges stays inside
 def cuboid(part):
 	"""The part's box as an ObjMesh (game axes): 12 triangles, UVs, flat normals."""
 	lo, hi = CUBOIDS[part]
+	return box(lo, hi, part)
+
+
+def box(lo, hi, cell='head'):
+	"""A box from `lo` to `hi` (game axes), UV'd into an atlas cell."""
+	part = cell
 	mesh = objfile.ObjMesh()
 	for index, ((axis, sign), (u_axis, v_axis)) in enumerate(FACES):
 		normal = [0.0, 0.0, 0.0]

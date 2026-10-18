@@ -160,6 +160,15 @@ def _segment_changed(self, context):
 		_attachment_rebuild(self)
 
 
+def _placement_changed(self, context):
+	"""A placement number changed in the panel: move its handle to match."""
+	if self.get('_fixing') or self.get('_loading'):
+		return
+	hook = ATTACHMENT_REBUILD_HOOKS.get('push')
+	if hook is not None:
+		hook(self)
+
+
 def _attachment_rebuild(attachment):
 	"""Rebuild the character's attachment objects (set by attach_scene)."""
 	hook = ATTACHMENT_REBUILD_HOOKS.get('rebuild')
@@ -182,10 +191,14 @@ class COLLECTION_PG_ballistica_segment(bpy.types.PropertyGroup):
 	mesh: _ref("Mesh", 'mesh', update=_segment_changed)
 	texture: _ref("Texture", 'texture', 'color', update=_segment_changed)
 	mask_texture: _ref("Mask Texture", 'texture', 'mask', update=_segment_changed)
-	translate: bpy.props.FloatVectorProperty(name="Translate", size=3, subtype='TRANSLATION', options=_options())
+	translate: bpy.props.FloatVectorProperty(
+		name="Translate", size=3, subtype='TRANSLATION', options=_options(), update=_placement_changed,
+		description="Where the segment's art sits on its body, game axes (Y up, Z forward)")
 	rotate: bpy.props.FloatVectorProperty(
-		name="Rotate", size=3, description="Heading, pitch, roll in degrees", options=_options())
-	scale: bpy.props.FloatVectorProperty(name="Scale", size=3, default=(1.0, 1.0, 1.0), options=_options())
+		name="Rotate", size=3, description="Heading, pitch, roll in degrees", options=_options(),
+		update=_placement_changed)
+	scale: bpy.props.FloatVectorProperty(
+		name="Scale", size=3, default=(1.0, 1.0, 1.0), options=_options(), update=_placement_changed)
 
 
 class COLLECTION_PG_ballistica_attachment(bpy.types.PropertyGroup):
@@ -196,9 +209,11 @@ class COLLECTION_PG_ballistica_attachment(bpy.types.PropertyGroup):
 	kind: bpy.props.EnumProperty(name="Kind", items=_kind_items, options=_options(), update=_attachment_changed)
 	translate: bpy.props.FloatVectorProperty(
 		name="Translate", size=3, subtype='TRANSLATION', min=AR['position'][0], max=AR['position'][1],
-		description="Where it sits on the target part, in the part's space", options=_options())
+		description="Where it sits on the target part, in the part's space, game axes (Y up, Z forward)",
+		options=_options(), update=_placement_changed)
 	rotate: bpy.props.FloatVectorProperty(
-		name="Rotate", size=3, description="Heading, pitch, roll in degrees", options=_options())
+		name="Rotate", size=3, description="Heading, pitch, roll in degrees", options=_options(),
+		update=_placement_changed)
 	stiffness: _tuning("Stiffness", 'stiffness')
 	damping: _tuning("Damping", 'damping')
 	drag: _tuning("Drag", 'drag')
@@ -258,15 +273,15 @@ def _set_segments(attachment, segments):
 	while len(attachment.segments) < len(segments):
 		attachment.segments.add()
 	for item, segment in zip(attachment.segments, segments):
-		item['_loading'] = True  # No rebuild per field; the caller rebuilds once.
+		item['_loading'] = True  # No rebuild or handle push per field; the caller handles it.
 		try:
 			for key in attach_rules.SEGMENT_REFS:
 				if getattr(item, key) != segment[key]:
 					setattr(item, key, segment[key])
+			for key in SEGMENT_VALUES:
+				setattr(item, key, segment[key])
 		finally:
 			del item['_loading']
-		for key in SEGMENT_VALUES:
-			setattr(item, key, segment[key])
 	attachment.active_segment_index = min(attachment.active_segment_index, max(len(segments) - 1, 0))
 
 

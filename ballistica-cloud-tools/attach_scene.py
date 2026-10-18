@@ -232,12 +232,14 @@ def clear(collection):
 		bpy.data.objects.remove(obj)
 
 
-def sync_from_handles(collection):
+def sync_from_handles(collection, only=None):
 	"""Write the handles' placement into the attachment settings."""
 	from . import props
 
 	settings = collection.ballistica_character
 	for index, attachment in enumerate(settings.attachments):
+		if only is not None and index != only:
+			continue
 		spot = anchor(collection, index)
 		if spot is None:
 			continue
@@ -278,3 +280,73 @@ def rebuild_for(item):
 from . import props as _props  # noqa: E402  (props must not import scene modules)
 
 _props.ATTACHMENT_REBUILD_HOOKS['rebuild'] = rebuild_for
+
+
+# ---- live sync between panel numbers and handles ----
+
+_syncing = False
+
+
+def push(item):
+	"""props hook: an attachment or segment's numbers changed; move its handle."""
+	if _syncing:
+		return
+	collection = item.id_data
+	settings = collection.ballistica_character
+	for index, attachment in enumerate(settings.attachments):
+		if attachment == item:
+			spot = anchor(collection, index)
+			if spot is not None:
+				_set_transform(spot, item.translate, item.rotate)
+			return
+		for j, segment in enumerate(attachment.segments):
+			if segment == item:
+				grip = handle(collection, index, j)
+				if grip is not None:
+					_set_transform(grip, segment.translate, segment.rotate, segment.scale)
+				return
+
+
+_props.ATTACHMENT_REBUILD_HOOKS['push'] = push
+
+
+def character_of(obj):
+	for collection in bpy.data.collections:
+		if collection.ballistica_character.is_character and collection.all_objects.get(obj.name) == obj:
+			return collection
+	return None
+
+
+@bpy.app.handlers.persistent
+def on_depsgraph_update(scene, depsgraph):
+	"""A handle moved in the viewport: show its numbers in the panel."""
+	global _syncing
+	if _syncing:
+		return
+	moved = {}
+	for update in depsgraph.updates:
+		if not update.is_updated_transform or not isinstance(update.id, bpy.types.Object):
+			continue
+		obj = update.id.original
+		if obj.get(ROLE_KEY) in (ANCHOR, HANDLE) and obj.get(SIDE_KEY) != 'L':
+			moved[obj.name] = obj
+	if not moved:
+		return
+	_syncing = True
+	try:
+		for obj in moved.values():
+			collection = character_of(obj)
+			if collection is not None:
+				sync_from_handles(collection, only=obj[INDEX_KEY])
+	finally:
+		_syncing = False
+
+
+def register():
+	if on_depsgraph_update not in bpy.app.handlers.depsgraph_update_post:
+		bpy.app.handlers.depsgraph_update_post.append(on_depsgraph_update)
+
+
+def unregister():
+	if on_depsgraph_update in bpy.app.handlers.depsgraph_update_post:
+		bpy.app.handlers.depsgraph_update_post.remove(on_depsgraph_update)

@@ -372,6 +372,64 @@ assert zoe.ballistica_character.attachments[2].kind == 'static'
 sides = sorted(o[attach_scene.SIDE_KEY] for o in attach_scene.tagged(zoe, attach_scene.ANCHOR, 2))
 assert sides == ['L', 'R'], sides
 
+# Attachment operators: add, move, remove, select.
+from ballistica_cloud_tools import ui  # noqa: E402
+zoe = bpy.data.collections['zoe']
+settings = zoe.ballistica_character
+for obj in bpy.context.view_layer.objects:
+	obj.select_set(False)
+bpy.context.view_layer.objects.active = next(o for o in zoe.all_objects if o.ballistica_part.role == 'head')
+attach_scene.sync_from_handles(zoe)
+before_ops = props.to_character(settings).data['attachments']
+third = (settings.attachments[2].target, settings.attachments[2].kind)
+assert bpy.ops.ballistica.attachment_add() == {'FINISHED'}
+assert len(settings.attachments) == 4 and settings.active_attachment_index == 3
+added = settings.attachments[3]
+assert (added.target, added.kind, len(added.segments)) == ('head', 'antenna', 1)
+assert added.segments[0].mesh.startswith('meshes/zoe_attachment')
+assert attach_scene.anchor(zoe, 3) is not None
+assert not [p for p in operators.check(zoe) if 'attachments[3]' in p or 'Attachment 4' in p], operators.check(zoe)
+assert bpy.ops.ballistica.attachment_move(direction='UP') == {'FINISHED'}
+assert settings.active_attachment_index == 2
+assert settings.attachments[2].segments[0].mesh.startswith('meshes/zoe_attachment')
+assert (settings.attachments[3].target, settings.attachments[3].kind) == third  # Zoe's third moved down
+assert bpy.ops.ballistica.attachment_select(segment=-1) == {'FINISHED'}
+assert bpy.context.view_layer.objects.active == attach_scene.anchor(zoe, 2)
+bpy.context.view_layer.objects.active = next(o for o in zoe.all_objects if o.ballistica_part.role == 'head')
+assert bpy.ops.ballistica.attachment_remove() == {'FINISHED'}
+assert len(settings.attachments) == 3
+assert sorted({o[attach_scene.INDEX_KEY] for o in attach_scene.tagged(zoe, attach_scene.ANCHOR)}) == [0, 1, 2]
+assert written_attachments(zoe) == before_ops
+
+
+# The Attachments panel draws (against a stand-in layout that checks every
+# property it shows exists).
+class StubLayout:
+	use_property_split = use_property_decorate = False
+
+	def __getattr__(self, name):
+		return lambda *args, **kwargs: StubLayout()
+
+	def prop(self, data, name, **kwargs):
+		assert name in data.bl_rna.properties, name
+
+	def template_list(self, listtype, listid, data, prop, active_data, active_prop, **kwargs):
+		assert prop in data.bl_rna.properties and active_prop in active_data.bl_rna.properties
+
+	def operator(self, idname, **kwargs):
+		category, name = idname.split('.')
+		assert hasattr(getattr(bpy.ops, category), name), idname
+		return StubLayout()
+
+
+class StubPanel:
+	layout = StubLayout()
+
+
+for index in range(len(settings.attachments)):
+	settings.active_attachment_index = index
+	ui.VIEW3D_PT_ballistica_attachments.draw(StubPanel(), bpy.context)
+
 # New Character: a cuboid character, written only on export, then re-imported.
 assert 'cubey' not in bpy.data.collections
 assert bpy.ops.ballistica.new_character(directory=os.path.join(ws, 'characters'), name='cubey') == {'FINISHED'}
@@ -408,6 +466,18 @@ after_export = snapshot()
 bpy.context.view_layer.objects.active = next(o for o in cubey.all_objects if o.ballistica_part.role == 'head')
 assert bpy.ops.ballistica.export_character() == {'FINISHED'}
 assert snapshot() == after_export  # a second export changes nothing
+# Add an attachment to the new character; export writes its placeholder mesh.
+bpy.context.view_layer.objects.active = next(o for o in cubey.all_objects if o.ballistica_part.role == 'head')
+assert bpy.ops.ballistica.attachment_add() == {'FINISHED'}
+cubey.ballistica_character.attachments[0].translate = (0.0, 0.3, 0.0)  # typed in the panel: moves the handle
+assert abs(attach_scene.anchor(cubey, 0).location.z - 0.3) < 1e-6
+assert bpy.ops.ballistica.export_character() == {'FINISHED'}
+assert os.path.isfile(os.path.join(ws, 'meshes', 'cubey_attachment0.obj'))
+written = _bchar.Character.load(os.path.join(ws, 'characters', 'cubey.bchar'))
+assert written.attachments == [{
+	'kind': 'antenna', 'segments': [{'mesh': 'meshes/cubey_attachment0'}], 'target': 'head',
+	'transform': {'rotate': [0.0, 90.0, 0.0], 'translate': [0.0, 0.3, 0.0]},
+}], written.attachments
 assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'cubey.bchar')) == {'FINISHED'}
 assert operators.check(bpy.data.collections['cubey.001']) == []
 
