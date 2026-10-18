@@ -1,3 +1,4 @@
+import json
 import math
 import os
 import tempfile
@@ -9,6 +10,7 @@ pose = load('pose')
 rig = load('rig')
 objfile = load('objfile')
 
+FIXTURE = os.path.join(os.path.dirname(__file__), 'fixtures', 'lucky_preview.json')
 SAMPLE = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'ClassicCharacterAssets')
 
 
@@ -52,10 +54,23 @@ class PoseTest(unittest.TestCase):
 		self.assertLess(out[2], 0)  # behind
 		self.assertAlmostEqual(wing.location[1], self.placements['torso'].location[1])
 
-	def test_torso_sits_back_but_shoulders_stay(self):
-		torso = self.placements['torso']
-		self.assertAlmostEqual(torso.location[2], -pose.TORSO_BACK)  # game -Z is Blender +Y
-		self.assertAlmostEqual(self.joints['shoulder'][2], rig.SHOULDER_ON_TORSO[2])
+	def test_matches_web_ui_preview(self):
+		"""Every part's placement equals the web UI's (Lucky fixture)."""
+		with open(FIXTURE) as f:
+			web = json.load(f)
+		torso = self.placements['torso'].location
+		for part, entry in web['meshes'].items():
+			x = entry['xform']  # column-major 4x4
+			placement = self.placements[part]
+			location = tuple(a - b for a, b in zip(placement.location, torso))
+			for i in range(3):
+				self.assertAlmostEqual(location[i], x[12 + i], places=4, msg=f'{part} location')
+				for j in range(3):
+					self.assertAlmostEqual(placement.rotation[i][j], x[j * 4 + i], places=4, msg=f'{part} rotation')
+		for joint, point in web['pivots'].items():
+			relative = tuple(a - b for a, b in zip(self.joints[joint], torso))
+			for i in range(3):
+				self.assertAlmostEqual(relative[i], point[i], places=4, msg=f'{joint} pivot')
 
 	def test_rotations_are_orthonormal(self):
 		for name, placement in self.placements.items():

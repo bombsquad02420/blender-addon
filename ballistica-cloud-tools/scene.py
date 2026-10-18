@@ -231,8 +231,6 @@ def build_armature(collection, joints):
 	arm.ballistica_part.role = 'NONE'
 
 	points = dict(joints)
-	wrist, elbow = Vector(points['wrist']), Vector(points['elbow'])
-	points['hand_tip'] = tuple(wrist + (wrist - elbow).normalized() * 0.06)
 	points['shoulder_tip'] = tuple(Vector(points['shoulder']) + Vector((0.0, 0.06, 0.0)))  # a short stub up
 	points['eye_tip'] = tuple(Vector(points['head']) + Vector((0.0, 0.0, 0.08)))  # looking forward (+Z)
 
@@ -480,6 +478,10 @@ def _capsule(radius, length):
 
 # ---- eyes ----
 
+# Game rotation about +X by -eyeball_pitch (nose down), in Blender axes.
+EYEBALL_PITCH = (TO_BLENDER @ Matrix.Rotation(math.radians(-rig.EYEBALL_PITCH), 3, 'X') @ TO_GAME).to_4x4()
+
+
 def build_eyes(collection, arm, placements, settings, target):
 	"""The game's eyes (bundled meshes), linked into `target`.
 
@@ -504,7 +506,9 @@ def build_eyes(collection, arm, placements, settings, target):
 	eyes = []
 	for side, field in (('R', 'eye_style_right'), ('L', 'eye_style_left')):
 		eye = _eye_object(f'eye.{side}', ball_mesh, eye_material, side, target)
-		parent_to_bone(eye, arm, f'eye_offset.{side}', Matrix.Translation(game_point(head.location)))
+		# The eyeball rests pitched (rig eyeball_pitch: looking slightly down);
+		# the lid doesn't, so it undoes the pitch below.
+		parent_to_bone(eye, arm, f'eye_offset.{side}', Matrix.Translation(game_point(head.location)) @ EYEBALL_PITCH)
 		for axis in range(3):
 			drive_value(eye, 'scale', axis, collection, 'eye_scale', '-v' if side == 'L' and axis == 0 else 'v')
 		for path in ('hide_viewport', 'hide_render'):
@@ -512,6 +516,7 @@ def build_eyes(collection, arm, placements, settings, target):
 
 		lid = _eye_object(f'eyelid.{side}', lid_mesh, lid_material, side, target)
 		lid.parent = eye
+		lid.matrix_parent_inverse = EYEBALL_PITCH.inverted()
 		# Game rotation about the forward axis (+Z) is Blender's -Y.
 		drive_value(lid, 'rotation_euler', 1, collection, 'eyelid_angle', '-radians(v)')
 		for path in ('hide_viewport', 'hide_render'):
@@ -661,3 +666,32 @@ def setup_offset_drivers(collection, arm):
 				var.targets[0].data_path = f'ballistica_character.{scaled_by}'
 				expression = f's*({expression})'
 			driver.expression = expression
+
+
+# ---- exploded view ----
+
+
+def setup_spread_drivers(collection):
+	"""Drive each bone-parented object's delta location by the Spread slider.
+
+	Offsets are the web UI's per-part spread (pose.SPREAD), mirrored for
+	left-side bones; eyes and head attachments follow the head, and the
+	roller the pelvis (its parent). delta_location is applied in the
+	object's rest frame (its parent inverse), so the world offset is mapped
+	into that frame once here; location stays free for moving parts.
+	"""
+	for obj in collection.all_objects:
+		if obj.parent_type != 'BONE' or not obj.parent_bone:
+			continue
+		part, _, side = obj.parent_bone.partition('.')
+		part = 'head' if part == 'eye_offset' else part
+		offset = pose.SPREAD.get(part)
+		if offset is None or not any(offset):
+			continue
+		if side == 'L':
+			offset = pose.mirror(offset)
+		rest = (obj.matrix_world @ obj.matrix_basis.inverted()).to_3x3()
+		local = rest.inverted() @ game_point(offset)
+		for i in range(3):
+			if abs(local[i]) > 1e-9:
+				drive_value(obj, 'delta_location', i, collection, 'spread', f'{local[i]:.6f}*v')

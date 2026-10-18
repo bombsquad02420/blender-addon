@@ -111,6 +111,9 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	raw_json: bpy.props.StringProperty(
 		name="Raw Definition", description="The full .bchar as last loaded; unmodelled fields are kept from here",
 		options={'HIDDEN'})
+	spread: bpy.props.FloatProperty(
+		name="Spread", description="Pull the parts apart (exploded view), as the web UI's Spread slider",
+		default=0.0, min=0.0, max=1.0, subtype='FACTOR', options=_options(), update=_tag_collection)
 	show_all_assets: bpy.props.BoolProperty(
 		name="Show All Assets", description="List every asset in pickers, not just likely matches",
 		default=False, options=_options())

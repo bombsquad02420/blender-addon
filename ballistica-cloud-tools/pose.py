@@ -1,21 +1,43 @@
-"""The rest pose, from the rig numbers. Game space throughout.
+"""The rest pose: the web UI's character preview pose. Game space.
 
-An estimate of the web UI's pose (standing, arms out and a little down,
-legs straight down), close enough to model against. Bodies start at the
-rig's stand heights; the whole pose is then shifted so the feet (the toes
-balls) rest on the ground at y=0. (In the game the roller ball does the
-walking and the legs dangle a little above its bottom.)
-Each limb segment is placed so its joint anchors meet, using the rig's
-anchor points on each body. Only the right side is computed; the left is
-the mirror in x.
+Matches the web UI's preview data exactly (tests/fixtures/lucky_preview.json):
+arms out and 20 degrees down with palms facing down, elbows bent 20 degrees
+forward, thighs swung 20 degrees forward and shins 20 degrees back, feet
+flat. Each body is placed so the rig's joint anchors meet; parts sit on
+their bodies with no extra offset. The whole pose is then shifted so the
+feet rest on the ground at y=0. Only the right side is computed; the left
+is the mirror in x.
 """
 
 import math
 
 from . import rig
 
-ARM_DROP_DEGREES = 20.0
-TORSO_BACK = 0.04  # game units behind the rig's torso centre (Blender +Y)
+ARM_DROP_DEGREES = 20.0  # arms below horizontal
+ELBOW_BEND_DEGREES = 20.0  # forearm bent forward from the upper arm
+THIGH_SWING_DEGREES = 20.0  # thigh swung forward from straight down
+SHIN_SWING_DEGREES = 20.0  # shin swung back from straight down
+
+# Bone display ends the rig doesn't define, from the web UI's pivots.
+NECK_HEIGHT = 0.2  # above the torso centre
+HAND_TIP = 0.07  # along the hand
+TOE_TIP = 0.0425  # forward of the toes centre
+
+# The web UI's exploded-view ("spread") offset per part, game space, at
+# full spread. Eyes and head attachments follow the head; the roller
+# follows the pelvis.
+SPREAD = {
+	'head': (0.0, 0.4, 0.0),
+	'torso': (0.0, 0.0, 0.0),
+	'pelvis': (0.0, -0.24, 0.0),
+	'upper_arm': (-0.22553, -0.08208, 0.0),
+	'forearm': (-0.45105, -0.16417, 0.0),
+	'hand': (-0.67658, -0.24625, 0.0),
+	'upper_leg': (-0.084, -0.48, 0.0),
+	'lower_leg': (-0.168, -0.72, 0.0),
+	'toes': (-0.252, -0.96, 0.0),
+	'wing': (0.0, 0.0, 0.0),
+}
 
 
 class Placement:
@@ -33,7 +55,7 @@ class Placement:
 IDENTITY = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
 
 
-def compute(shoulder_offset=(0.0, 0.0, 0.0), arm_drop=ARM_DROP_DEGREES):
+def compute(shoulder_offset=(0.0, 0.0, 0.0)):
 	"""Placements for every right-side body part, plus joint positions.
 
 	Returns (placements, joints): placements maps part name to Placement;
@@ -44,38 +66,40 @@ def compute(shoulder_offset=(0.0, 0.0, 0.0), arm_drop=ARM_DROP_DEGREES):
 
 	torso = Placement((0.0, rig.STAND_TORSO_HEIGHT, 0.0), IDENTITY)
 	head = Placement((0.0, rig.STAND_HEAD_HEIGHT, 0.0), IDENTITY)
-	pelvis = Placement((0.0, rig.STAND_PELVIS_HEIGHT, 0.0), IDENTITY)
+	# The pelvis hangs from the torso's spine joint, which sits forward.
+	pelvis = Placement((0.0, rig.STAND_PELVIS_HEIGHT, rig.PELVIS_JOINT_FORWARD), IDENTITY)
 	placements.update(torso=torso, head=head, pelvis=pelvis)
 	joints['head'] = head.location
-	joints['neck'] = torso.point((0.0, rig.SHOULDER_ON_TORSO[1], 0.0))
+	joints['neck'] = torso.point((0.0, NECK_HEIGHT, 0.0))
 	joints['spine'] = torso.point((0.0, -rig.PELVIS_JOINT_DROP, rig.PELVIS_JOINT_FORWARD))
 	joints['pelvis'] = pelvis.location
 
-	# Arm: out to the character's right (-X), dropped a little.
-	drop = math.radians(arm_drop)
-	arm = _aim((-math.cos(drop), -math.sin(drop), 0.0), up=(0.0, 1.0, 0.0))
+	# Arm: out to the character's right (-X) and down, +Y forward so the
+	# palms face down; the elbow bends the forearm forward.
+	drop = math.radians(ARM_DROP_DEGREES)
+	arm = _aim((-math.cos(drop), -math.sin(drop), 0.0), up=(0.0, 0.0, 1.0))
 	shoulder = torso.point(_add(rig.SHOULDER_ON_TORSO, shoulder_offset))
 	upper_arm = _attach(shoulder, arm, rig.SHOULDER_ON_UPPER_ARM)
 	elbow = upper_arm.point(rig.ELBOW_ON_UPPER_ARM)
-	forearm = _attach(elbow, arm, rig.ELBOW_ON_LOWER_ARM)
-	wrist = forearm.point((0.0, 0.0, rig.LOWER_ARM_LENGTH / 2 + rig.LOWER_ARM_RADIUS))
+	forearm_rot = _mul(arm, _rot_x(-math.radians(ELBOW_BEND_DEGREES)))
+	forearm = _attach(elbow, forearm_rot, rig.ELBOW_ON_LOWER_ARM)
 	turn = _rot_y(math.radians(rig.HAND_TURN))
-	hand = Placement(forearm.point((0.0, 0.0, rig.HAND_OFFSET)), _mul(arm, turn))
+	hand = Placement(forearm.point((0.0, 0.0, rig.HAND_OFFSET)), _mul(forearm_rot, turn))
 	placements.update(upper_arm=upper_arm, forearm=forearm, hand=hand)
-	joints.update(shoulder=shoulder, elbow=elbow, wrist=wrist)
+	joints.update(shoulder=shoulder, elbow=elbow, wrist=hand.location, hand_tip=hand.point((0.0, 0.0, HAND_TIP)))
 
-	# Leg: straight down, knee forward axis = +Z.
+	# Leg: from straight down (z down, y forward), the thigh swings forward
+	# and the shin back, bending the knee; the foot stays flat.
 	leg = _aim((0.0, -1.0, 0.0), up=(0.0, 0.0, 1.0))
 	hip = pelvis.point(rig.HIP_ON_PELVIS)
-	upper_leg = _attach(hip, leg, rig.HIP_ON_UPPER_LEG)
+	upper_leg = _attach(hip, _mul(leg, _rot_x(-math.radians(THIGH_SWING_DEGREES))), rig.HIP_ON_UPPER_LEG)
 	knee = upper_leg.point(rig.KNEE_ON_UPPER_LEG)
-	lower_leg = _attach(knee, leg, rig.KNEE_ON_LOWER_LEG)
+	lower_leg = _attach(knee, _mul(leg, _rot_x(math.radians(SHIN_SWING_DEGREES))), rig.KNEE_ON_LOWER_LEG)
 	ankle = lower_leg.point(rig.ANKLE_ON_LOWER_LEG)
-	# The foot shares the leg's frame (z down, y forward), as the engine
-	# draws it; the toes mesh is long along its own y.
+	# The foot shares the straight leg's frame; its mesh is long along y.
 	toes = _attach(ankle, leg, rig.ANKLE_ON_TOES)
 	placements.update(upper_leg=upper_leg, lower_leg=lower_leg, toes=toes)
-	joints.update(hip=hip, knee=knee, ankle=ankle, toe_tip=toes.point((0.0, rig.TOES_RADIUS, 0.0)))
+	joints.update(hip=hip, knee=knee, ankle=ankle, toe_tip=toes.point((0.0, TOE_TIP, 0.0)))
 
 	# Wing: frame at the torso centre, +Z out toward the wing's rest point
 	# (behind and to the side), +Y up (ApplyWingTransform_).
@@ -84,11 +108,6 @@ def compute(shoulder_offset=(0.0, 0.0, 0.0), arm_drop=ARM_DROP_DEGREES):
 	joints['wing_tip'] = wing.point((0.0, 0.0, 0.3))
 	joints['roller'] = (0.0, rig.STAND_ROLLER_HEIGHT, 0.0)
 	joints['torso'] = torso.location
-
-	# The torso art sits a little back from where the rig's joints put it,
-	# matching the web UI's rest pose (estimated by eye). Only the torso
-	# moves; shoulders and head stay on their joints.
-	placements['torso'] = Placement(_add(torso.location, (0.0, 0.0, -TORSO_BACK)), torso.rotation)
 
 	# Stand the feet on the ground.
 	drop = (0.0, toes.location[1] - rig.TOES_RADIUS, 0.0)
@@ -113,6 +132,11 @@ def _aim(forward, up):
 	y = _norm(_sub(up, _scale(z, _dot(up, z))))
 	x = _cross(y, z)
 	return tuple(zip(x, y, z))  # rows of a matrix whose columns are x, y, z
+
+
+def _rot_x(t):
+	c, s = math.cos(t), math.sin(t)
+	return ((1.0, 0.0, 0.0), (0.0, c, -s), (0.0, s, c))
 
 
 def _rot_y(t):

@@ -231,6 +231,29 @@ assert bpy.ops.ballistica.standard_colors() == {'FINISHED'}
 assert ops.uses_standard_colors(bpy.context.scene)
 assert not bpy.ops.ballistica.standard_colors.poll()
 
+# Exploded view: Spread moves each part by the web UI's spread offset.
+from ballistica_cloud_tools import pose  # noqa: E402
+
+forearms = {o.ballistica_part.side: o for o in agent.all_objects if o.ballistica_part.role == 'forearm'}
+before = {k: scene.TO_GAME @ o.matrix_world.translation for k, o in forearms.items()}
+agent.ballistica_character.spread = 1.0
+bpy.context.view_layer.update()
+for side, sign in (('R', 1), ('L', -1)):
+	moved = scene.TO_GAME @ forearms[side].matrix_world.translation - before[side]
+	expect = (sign * pose.SPREAD['forearm'][0], pose.SPREAD['forearm'][1], pose.SPREAD['forearm'][2])
+	assert all(abs(a - b) < 1e-4 for a, b in zip(moved, expect)), (side, tuple(moved), expect)
+agent.ballistica_character.spread = 0.0
+bpy.context.view_layer.update()
+assert all(abs(a - b) < 1e-5 for a, b in zip(scene.TO_GAME @ forearms['R'].matrix_world.translation, before['R']))
+
+# Eyes: the eyeball is pitched 10 degrees down; its lid is not.
+zoe_eye = next(o for o in bpy.data.collections['zoe Eyes'].objects if o.name.startswith('eye.R'))
+zoe_lid = next(o for o in bpy.data.collections['zoe Eyes'].objects if o.name.startswith('eyelid.R'))
+up = (scene.TO_GAME @ zoe_eye.matrix_world.to_3x3() @ scene.TO_BLENDER @ Vector((0, 1, 0))).normalized()
+assert abs(up.z - __import__('math').sin(__import__('math').radians(10))) < 1e-4, tuple(up)
+lid_up = (scene.TO_GAME @ zoe_lid.matrix_world.to_3x3() @ scene.TO_BLENDER @ Vector((0, 1, 0))).normalized()
+assert abs(lid_up.z) < 1e-4, tuple(lid_up)
+
 # A missing assets file must fail the import loudly, building nothing.
 real = nodegroup.ASSETS_BLEND
 nodegroup.ASSETS_BLEND = real + '.missing'

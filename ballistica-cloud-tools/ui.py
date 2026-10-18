@@ -66,6 +66,7 @@ class VIEW3D_PT_ballistica_visibility(_Panel, bpy.types.Panel):
 		from .scene import _layer_collections
 
 		collection = active_character(context)
+		self.layout.prop(collection.ballistica_character, 'spread', slider=True)
 		grid = self.layout.grid_flow(columns=2, even_columns=True, align=True)
 		prefix = collection.name + ' '
 		for child in collection.children:

@@ -68,6 +68,7 @@ def _build(context, root, character_path, character):
 			segment.get('mask_texture') or settings.color_mask_texture))
 	scene.build_guides(collection, arm, placements, joints, settings)
 	scene.setup_offset_drivers(collection, arm)
+	scene.setup_spread_drivers(collection)
 	return collection, missing
 
 
