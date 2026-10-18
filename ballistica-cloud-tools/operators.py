@@ -1,10 +1,12 @@
 """Import, export and check characters in a local workspace folder."""
 
 import json
+import math
 import os
 
 import bpy
 from bpy_extras.io_utils import ImportHelper
+from mathutils import Vector
 
 from . import bchar, objfile, pose, props, rig, scene, workspace
 from .ui import active_character
@@ -159,6 +161,46 @@ def _exportable_parts(collection):
 RESETTABLE_ROLES = (*(p for p, _, _ in rig.PARTS), 'attachment', 'eye')
 
 
+class BALLISTICA_OT_view_character(bpy.types.Operator):
+	"""Frame the active character's rig in the viewport, like View Selected (works while the Rig collection is hidden)"""
+	bl_idname = 'ballistica.view_character'
+	bl_label = "Frame Character"
+
+	@classmethod
+	def poll(cls, context):
+		return active_character(context) is not None and context.region_data is not None
+
+	def execute(self, context):
+		collection = active_character(context)
+		arm = next((o for o in collection.all_objects if o.type == 'ARMATURE'), None)
+		if arm is None:
+			self.report({'ERROR'}, f"{collection.name} has no rig to frame")
+			return {'CANCELLED'}
+		points = [arm.matrix_world @ p for b in arm.pose.bones for p in (b.head, b.tail)]
+		low = Vector(tuple(min(p[i] for p in points) for i in range(3)))
+		high = Vector(tuple(max(p[i] for p in points) for i in range(3)))
+		frame_bounds(context, (low + high) / 2, (high - low).length / 2)
+		return {'FINISHED'}
+
+
+def frame_bounds(context, centre, radius):
+	"""Point the 3D view at a sphere, as View Selected does."""
+	view = context.region_data
+	view.view_location = centre
+	space = context.space_data
+	if view.view_perspective == 'CAMERA':
+		view.view_perspective = 'PERSP'
+	if view.is_perspective:
+		# The viewport fits a 36 mm sensor to the region's longer side; fit
+		# the sphere in the narrower angle, with a little margin.
+		region = context.region
+		aspect = min(region.width, region.height) / max(region.width, region.height) if region else 1.0
+		half_angle = math.atan(18.0 / space.lens * aspect)
+		view.view_distance = radius / math.sin(half_angle) * 1.1
+	else:
+		view.view_distance = radius * 2.2
+
+
 class BALLISTICA_OT_reset_parts(bpy.types.Operator):
 	"""Put the character back in its T-pose: move the rig back onto its root, clear its pose and move body parts, attachments and eyes back onto their bones (only the selected parts if any are selected)"""
 	bl_idname = 'ballistica.reset_parts'
@@ -311,6 +353,7 @@ def menu_import(self, context):
 classes = (
 	BALLISTICA_OT_import_character,
 	BALLISTICA_OT_standard_colors,
+	BALLISTICA_OT_view_character,
 	BALLISTICA_OT_reset_parts,
 	BALLISTICA_OT_check_character,
 	BALLISTICA_OT_export_character,

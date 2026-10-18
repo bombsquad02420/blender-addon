@@ -303,6 +303,20 @@ for o in wings:
 pixel.ballistica_character.spread = 0.0
 bpy.context.view_layer.update()
 
+# Frame Character: centred on the rig, far enough to fit it (stand-in view;
+# headless Blender has no 3D viewport).
+from types import SimpleNamespace  # noqa: E402
+
+view = SimpleNamespace(view_location=None, view_distance=None, view_perspective='PERSP', is_perspective=True)
+fake = SimpleNamespace(region_data=view, space_data=SimpleNamespace(lens=50.0), region=SimpleNamespace(width=1200, height=800))
+points = [arm.matrix_world @ p for b in arm.pose.bones for p in (b.head, b.tail)]
+low = Vector(tuple(min(p[i] for p in points) for i in range(3)))
+high = Vector(tuple(max(p[i] for p in points) for i in range(3)))
+operators.frame_bounds(fake, (low + high) / 2, (high - low).length / 2)
+assert (view.view_location - (low + high) / 2).length < 1e-6
+half = __import__('math').atan(18.0 / 50.0 * 800 / 1200)
+assert view.view_distance * __import__('math').sin(half) >= (high - low).length / 2, view.view_distance
+
 # A missing assets file must fail the import loudly, building nothing.
 real = nodegroup.ASSETS_BLEND
 nodegroup.ASSETS_BLEND = real + '.missing'

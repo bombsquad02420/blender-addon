@@ -48,6 +48,7 @@ class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 		row.label(text=f"{_triangles(collection):,} triangles")
 		row.operator('ballistica.check_character', icon='CHECKMARK')
 		row = layout.row(align=True)
+		row.operator('ballistica.view_character', icon='ZOOM_SELECTED')
 		row.operator('ballistica.reset_parts', icon='LOOP_BACK')
 		row.operator('ballistica.standard_colors', icon='COLOR')
 		layout.prop(settings, 'show_all_assets')
