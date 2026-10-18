@@ -53,6 +53,10 @@ class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 		layout.prop(settings, 'show_all_assets')
 
 
+# Button order in the Visibility grid (first column, then second).
+VISIBILITY_ORDER = ('Head', 'Body', 'Arms', 'Legs', 'Attachments', 'Eyes', 'Rig', 'Guides')
+
+
 class VIEW3D_PT_ballistica_visibility(_Panel, bpy.types.Panel):
 	"""Viewport visibility of the character's child collections."""
 	bl_label = "Visibility"
@@ -67,13 +71,18 @@ class VIEW3D_PT_ballistica_visibility(_Panel, bpy.types.Panel):
 
 		collection = active_character(context)
 		self.layout.prop(collection.ballistica_character, 'spread', slider=True)
-		grid = self.layout.grid_flow(columns=2, even_columns=True, align=True)
+		# Filled column by column: body groups on the left, the rest on the right.
+		grid = self.layout.grid_flow(row_major=False, columns=2, even_columns=True, align=True)
 		prefix = collection.name + ' '
+		buttons = []
 		for child in collection.children:
 			layer = next(_layer_collections(context.view_layer.layer_collection, child), None)
-			if layer is None:
-				continue
-			label = child.name[len(prefix):] if child.name.startswith(prefix) else child.name
+			if layer is not None:
+				label = child.name[len(prefix):] if child.name.startswith(prefix) else child.name
+				buttons.append((label, layer))
+		order = {label: i for i, label in enumerate(VISIBILITY_ORDER)}
+		buttons.sort(key=lambda button: order.get(button[0], len(order)))  # stable: others keep their order
+		for label, layer in buttons:
 			# The button is pressed while the collection is visible.
 			grid.prop(layer, 'hide_viewport', text=label, toggle=True, invert_checkbox=True)
 
