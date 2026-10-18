@@ -8,6 +8,7 @@ import os
 
 import bpy
 
+from . import attachments as attach_rules
 from . import bchar, rig, workspace
 
 R = rig.BASIC_SPAZ_RANGES
@@ -48,11 +49,13 @@ def _asset_search(kind, role=None):
 	"""
 
 	def search(self, context, edit_text):
-		root = self.workspace_root
+		# Attachment and segment settings live inside the character's.
+		settings = self.id_data.ballistica_character
+		root = settings.workspace_root
 		if not root or not os.path.isdir(root):
 			return []
 		items = workspace.list_assets(root, kind)
-		if role and not self.show_all_assets:
+		if role and not settings.show_all_assets:
 			items = [i for i in items if _texture_matches(i, role)]
 		return [i for i in items if edit_text.lower() in i.lower()]
 
@@ -100,6 +103,160 @@ class OBJECT_PG_ballistica_part(bpy.types.PropertyGroup):
 	role: bpy.props.EnumProperty(name="Role", items=[('NONE', 'None', '')] + PART_ITEMS, options=_options())
 	side: bpy.props.EnumProperty(
 		name="Side", items=[('CENTER', 'Center', ''), ('R', 'Right', ''), ('L', 'Left', '')], options=_options())
+
+
+# ---- attachments ----
+
+AR = rig.ATTACHMENT_RANGES
+_ATTACH_TUNING_NAMES = {
+	'stiffness': "Stiffness", 'damping': "Damping", 'drag': "Drag",
+	'curl': "Curl", 'length': "Length", 'radius': "Radius",
+}
+
+
+def _id_items(values):
+	# Fixed ID numbers: the stored value stays the same option whichever
+	# subset a dynamic enum offers.
+	return [(v, v.replace('_', ' ').title(), '', i) for i, v in enumerate(values)]
+
+
+_ALL_SIDES = _id_items(rig.ATTACH_SIDES)
+_ALL_KINDS = _id_items(rig.ATTACH_KINDS)
+# Dynamic enum items must stay referenced from Python, so build each subset once.
+_SIDE_ITEMS = {t: [i for i in _ALL_SIDES if i[0] in attach_rules.allowed_sides(t)] for t in rig.ATTACH_TARGETS}
+_KIND_ITEMS = {t: [i for i in _ALL_KINDS if i[0] in attach_rules.allowed_kinds(t)] for t in rig.ATTACH_TARGETS}
+
+
+def _side_items(self, context):
+	return _SIDE_ITEMS.get(self.target, _ALL_SIDES)
+
+
+def _kind_items(self, context):
+	return _KIND_ITEMS.get(self.target, _ALL_KINDS)
+
+
+def _attachment_changed(self, context):
+	"""Target, side or kind changed: keep the attachment valid, then rebuild it."""
+	if self.get('_fixing'):
+		return
+	self['_fixing'] = True
+	try:
+		record = attachment_record(self)
+		attach_rules.fix(record)
+		if self.side != record['side']:
+			self.side = record['side']
+		if self.kind != record['kind']:
+			self.kind = record['kind']
+		_set_segments(self, record['segments'])
+	finally:
+		del self['_fixing']
+	_attachment_rebuild(self)
+
+
+def _attachment_rebuild(attachment):
+	"""Rebuild the attachment's scene objects (set by the scene module)."""
+	hook = ATTACHMENT_REBUILD_HOOKS.get('rebuild')
+	if hook is not None:
+		hook(attachment)
+
+
+# The scene module registers its rebuild function here, so props doesn't
+# depend on scene (scene imports props).
+ATTACHMENT_REBUILD_HOOKS = {}
+
+
+def _tuning(name, field):
+	lo, hi = AR[field]
+	return bpy.props.FloatProperty(
+		name=name, default=rig.ATTACHMENT_DEFAULTS[field], min=lo, max=hi, options=_options())
+
+
+class COLLECTION_PG_ballistica_segment(bpy.types.PropertyGroup):
+	mesh: _ref("Mesh", 'mesh')
+	texture: _ref("Texture", 'texture', 'color')
+	mask_texture: _ref("Mask Texture", 'texture', 'mask')
+	translate: bpy.props.FloatVectorProperty(name="Translate", size=3, subtype='TRANSLATION', options=_options())
+	rotate: bpy.props.FloatVectorProperty(
+		name="Rotate", size=3, description="Heading, pitch, roll in degrees", options=_options())
+	scale: bpy.props.FloatVectorProperty(name="Scale", size=3, default=(1.0, 1.0, 1.0), options=_options())
+
+
+class COLLECTION_PG_ballistica_attachment(bpy.types.PropertyGroup):
+	target: bpy.props.EnumProperty(
+		name="Target", items=[(t, t.replace('_', ' ').title(), '') for t in rig.ATTACH_TARGETS],
+		options=_options(), update=_attachment_changed)
+	side: bpy.props.EnumProperty(name="Side", items=_side_items, options=_options(), update=_attachment_changed)
+	kind: bpy.props.EnumProperty(name="Kind", items=_kind_items, options=_options(), update=_attachment_changed)
+	translate: bpy.props.FloatVectorProperty(
+		name="Translate", size=3, subtype='TRANSLATION', min=AR['position'][0], max=AR['position'][1],
+		description="Where it sits on the target part, in the part's space", options=_options())
+	rotate: bpy.props.FloatVectorProperty(
+		name="Rotate", size=3, description="Heading, pitch, roll in degrees", options=_options())
+	stiffness: _tuning("Stiffness", 'stiffness')
+	damping: _tuning("Damping", 'damping')
+	drag: _tuning("Drag", 'drag')
+	curl: _tuning("Curl", 'curl')
+	length: _tuning("Length", 'length')
+	radius: _tuning("Radius", 'radius')
+	curl_change: _tuning("Curl Change", 'curl_change')
+	length_change: _tuning("Length Change", 'length_change')
+	radius_change: _tuning("Radius Change", 'radius_change')
+	stiffness_change: _tuning("Stiffness Change", 'stiffness_change')
+	damping_change: _tuning("Damping Change", 'damping_change')
+	segments: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_segment)
+	active_segment_index: bpy.props.IntProperty(name="Active Segment", options=_options())
+	raw_json: bpy.props.StringProperty(
+		name="Raw Attachment", description="This attachment's JSON as loaded; unmodelled keys are kept from here",
+		options={'HIDDEN'})
+
+
+ATTACHMENT_VALUES = ('translate', 'rotate', *attach_rules.TUNING, *attach_rules.TUNING_CHANGES)
+SEGMENT_VALUES = ('translate', 'rotate', 'scale')
+
+
+def attachment_record(attachment):
+	"""An attachments-module record from an attachment's settings."""
+	record = {'target': attachment.target, 'side': attachment.side or 'both', 'kind': attachment.kind or 'static'}
+	for key in ATTACHMENT_VALUES:
+		value = getattr(attachment, key)
+		record[key] = tuple(value) if key in ('translate', 'rotate') else value
+	record['segments'] = [
+		{**{k: getattr(s, k) for k in attach_rules.SEGMENT_REFS}, **{k: tuple(getattr(s, k)) for k in SEGMENT_VALUES}}
+		for s in attachment.segments
+	]
+	return record
+
+
+def set_attachment(attachment, record, raw=None):
+	"""Fill an attachment's settings from a record (and its original JSON)."""
+	import json
+
+	attachment['_fixing'] = True  # Don't fix or rebuild while loading.
+	try:
+		attachment.target = record['target']
+		attachment.side = record['side']
+		attachment.kind = record['kind']
+		for key in ATTACHMENT_VALUES:
+			setattr(attachment, key, record[key])
+		_set_segments(attachment, record['segments'])
+		if raw is not None:
+			attachment.raw_json = json.dumps(raw)
+	finally:
+		del attachment['_fixing']
+
+
+def _set_segments(attachment, segments):
+	while len(attachment.segments) > len(segments):
+		attachment.segments.remove(len(attachment.segments) - 1)
+	while len(attachment.segments) < len(segments):
+		attachment.segments.add()
+	for item, segment in zip(attachment.segments, segments):
+		for key in attach_rules.SEGMENT_REFS:
+			if getattr(item, key) != segment[key]:
+				setattr(item, key, segment[key])
+		for key in SEGMENT_VALUES:
+			setattr(item, key, segment[key])
+	attachment.active_segment_index = min(attachment.active_segment_index, max(len(segments) - 1, 0))
 
 
 class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
@@ -192,6 +349,10 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	left_lower_leg_mesh: _ref("Left Lower Leg Mesh", 'mesh')
 	left_toes_mesh: _ref("Left Toes Mesh", 'mesh')
 
+	# Attachments (not in the web UI form)
+	attachments: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_attachment)
+	active_attachment_index: bpy.props.IntProperty(name="Active Attachment", options=_options())
+
 
 REF_FIELDS = (
 	'icon_texture', 'icon_mask_texture', 'color_texture', 'color_mask_texture',
@@ -223,6 +384,10 @@ def load_into(settings, character):
 			setattr(settings, field, value)
 	for field in rig.SOUND_FIELDS:
 		setattr(settings, field, ', '.join(character.get(field, [])))
+	settings.attachments.clear()
+	for raw in character.attachments:
+		set_attachment(settings.attachments.add(), attach_rules.from_json(raw), raw)
+	settings.active_attachment_index = 0
 
 
 def to_character(settings):
@@ -238,11 +403,21 @@ def to_character(settings):
 	for field in rig.SOUND_FIELDS:
 		sounds = [s.strip() for s in getattr(settings, field).split(',') if s.strip()]
 		character.set(field, sounds)
+	written = [
+		attach_rules.to_json(attachment_record(a), json.loads(a.raw_json) if a.raw_json else None)
+		for a in settings.attachments
+	]
+	if written:
+		character.data['attachments'] = written
+	else:
+		character.data.pop('attachments', None)
 	return character
 
 
 classes = (
 	OBJECT_PG_ballistica_part,
+	COLLECTION_PG_ballistica_segment,
+	COLLECTION_PG_ballistica_attachment,
 	COLLECTION_PG_ballistica_character,
 )
 

@@ -172,9 +172,13 @@ def _vec(v):
 
 
 def _num(value):
+	"""Undo float32 noise from Blender: 7 significant digits is what it holds.
+
+	(48.427 comes back as 48.426998; 6 decimal places wouldn't recover it.)
+	"""
 	if isinstance(value, bool) or not isinstance(value, float):
 		return value
-	rounded = round(value, 6)
+	rounded = float(f'{value:.7g}')
 	return 0.0 if rounded == 0 else rounded
 
 

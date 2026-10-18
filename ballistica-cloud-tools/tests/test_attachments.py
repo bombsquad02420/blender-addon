@@ -41,6 +41,12 @@ class RoundTripTest(unittest.TestCase):
 		self.assertEqual(out['segments'][0]['texture'], 'textures/hair')
 		self.assertEqual(out['future_key'], {'x': 1})
 
+	def test_float32_noise_is_removed(self):
+		import array
+		record = attachments.from_json(ZOE_HAIR)
+		record['rotate'] = tuple(array.array('f', record['rotate']))  # as Blender stores it
+		self.assertEqual(attachments.to_json(record, ZOE_HAIR), ZOE_HAIR)
+
 	def test_new_attachment_writes_only_whats_needed(self):
 		record = attachments.new_attachment(mesh='meshes/x')
 		self.assertEqual(attachments.to_json(record), {'target': 'head', 'kind': 'antenna', 'segments': [{'mesh': 'meshes/x'}]})
