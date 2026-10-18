@@ -96,10 +96,13 @@ def compute(shoulder_offset=(0.0, 0.0, 0.0)):
 	knee = upper_leg.point(rig.KNEE_ON_UPPER_LEG)
 	lower_leg = _attach(knee, _mul(leg, _rot_x(math.radians(SHIN_SWING_DEGREES))), rig.KNEE_ON_LOWER_LEG)
 	ankle = lower_leg.point(rig.ANKLE_ON_LOWER_LEG)
+	# The heel: the shin's far end level with the ankle, the point the game
+	# pins when stretching lower-leg art (spaz_node.cc kHeelOnLowerLeg).
+	heel = lower_leg.point((rig.KNEE_ON_LOWER_LEG[0], rig.KNEE_ON_LOWER_LEG[1], rig.ANKLE_ON_LOWER_LEG[2]))
 	# The foot shares the straight leg's frame; its mesh is long along y.
 	toes = _attach(ankle, leg, rig.ANKLE_ON_TOES)
 	placements.update(upper_leg=upper_leg, lower_leg=lower_leg, toes=toes)
-	joints.update(hip=hip, knee=knee, ankle=ankle, toe_tip=toes.point((0.0, TOE_TIP, 0.0)))
+	joints.update(hip=hip, knee=knee, heel=heel, ankle=ankle, toe_tip=toes.point((0.0, TOE_TIP, 0.0)))
 
 	# Wing: frame at the torso centre, +Z out toward the wing's rest point
 	# (behind and to the side), +Y up (ApplyWingTransform_).

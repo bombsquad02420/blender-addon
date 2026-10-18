@@ -62,8 +62,11 @@ BONES = (
 	('forearm', 'elbow', 'wrist', 'upper_arm'),
 	('hand', 'wrist', 'hand_tip', 'forearm'),
 	('upper_leg', 'hip', 'knee', 'pelvis'),
-	('lower_leg', 'knee', 'ankle', 'upper_leg'),
-	('toes', 'ankle', 'toe_tip', 'lower_leg'),
+	('lower_leg', 'knee', 'heel', 'upper_leg'),
+	# The ankle sits off the shin's axis (ankle_on_lower_leg); this fixed
+	# jog from the heel to it draws the leg like the web UI's pose view.
+	('heel', 'heel', 'ankle', 'lower_leg'),
+	('toes', 'ankle', 'toe_tip', 'heel'),
 	('wing', 'torso', 'wing_tip', 'torso'),
 	('eye_offset', 'head', 'eye_tip', 'head'),
 )
@@ -74,10 +77,12 @@ BONES = (
 OFFSET_BONES = ('shoulder_offset', 'eye_offset')
 # Bones meant to be posed by moving, not just rotating.
 MOVABLE_BONES = ('pelvis',)
+# Bones that are fixed parts of their body: no rotation either.
+RIGID_BONES = ('heel',)
 
 
 # Parts with a bone per side (limbs, plus the wing spots).
-SIDED_BONES = (*rig.PAIRED_PARTS, 'wing', *OFFSET_BONES)
+SIDED_BONES = (*rig.PAIRED_PARTS, 'heel', 'wing', *OFFSET_BONES)
 
 
 def bone_name(part, side):
@@ -254,6 +259,10 @@ def build_armature(collection, joints):
 	for bone in arm.pose.bones:
 		if bone.name not in MOVABLE_BONES:
 			bone.lock_location = (True, True, True)
+		if bone.name.partition('.')[0] in RIGID_BONES:
+			bone.lock_rotation = (True, True, True)
+			bone.lock_rotation_w = True
+			bone.lock_scale = (True, True, True)
 	return arm
 
 

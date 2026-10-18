@@ -96,6 +96,8 @@ from ballistica_cloud_tools import scene  # noqa: E402
 arm = next(o for o in bpy.data.collections['agent_johnson Rig'].objects if o.type == 'ARMATURE')
 bones = arm.data.bones
 assert bones['forearm.R'].use_connect and bones['toes.L'].use_connect and bones['head'].use_connect
+assert bones['heel.R'].use_connect and bones['toes.R'].parent.name == 'heel.R' and bones['heel.R'].parent.name == 'lower_leg.R'
+assert all(arm.pose.bones['heel.L'].lock_rotation)
 assert bones['upper_arm.R'].parent.name == 'shoulder_offset.R'
 assert bones['eye_offset.L'].parent.name == 'head'
 settings = agent.ballistica_character
