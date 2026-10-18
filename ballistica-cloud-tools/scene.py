@@ -450,38 +450,84 @@ def _capsule(radius, length):
 
 # ---- eyes ----
 
-# The stand-in eyeball's size relative to the rig's eye_mesh_scale, to
-# match the game's eye art.
-EYE_STAND_IN_SIZE = 1.78
-
-
 def build_eyes(collection, arm, placements, settings, target):
-	"""Eye stand-ins, linked into `target`; drivers read `collection`."""
-	eyes = []
+	"""The game's eyes (bundled meshes), linked into `target`.
+
+	Per side: an eyeball (ball + iris) on its eye_offset bone, and an
+	eyelid as its child. Drivers read `collection`: eye_scale sizes them,
+	the eye style hides them (eyeball for None, eyelid unless Regular, as
+	DrawEyeLids does at rest) and eyelid_angle turns the lid about the
+	forward axis. The -X (left) eye is the right one mirrored; as the
+	lid's parent it also mirrors the lid, so one rotation driver serves
+	both sides (the engine negates the angle and mirrors the left lid).
+	"""
+	from . import nodegroup
+
+	ball_mesh, lid_mesh = nodegroup.get_data('meshes', nodegroup.EYE_MESHES)
+	texture, mask = nodegroup.get_data('images', nodegroup.EYE_IMAGES)
+	name = collection.name
+	eye_material = build_eye_material(f'{name}_eye', collection, texture, mask, 'eye_color', 'eyeball_color')
+	lid_material = build_eye_material(f'{name}_eyelid', collection, texture, None, None, 'eyelid_color')
 	head = placements['head']
-	mesh = None  # One shared mesh; the right eye mirrors it via its scale.
-	# Both eyes always exist; each is hidden while its style is 'none'.
-	hidden_when = f"v == {rig.EYE_STYLES.index('none')}"
-	for side, field in (('L', 'eye_style_left'), ('R', 'eye_style_right')):
-		if mesh is None:
-			mesh = _sphere(rig.EYE_MESH_SCALE * 0.5 * EYE_STAND_IN_SIZE)
-			mesh.name = 'eye'
-		obj = bpy.data.objects.new(f'eye.{side}', mesh)
-		target.objects.link(obj)
-		obj.ballistica_part.role = 'eye'
-		obj.ballistica_part.side = side
-		obj.color = (*settings.eyeball_color, 1.0)
-		# Placed at the head centre; the eye_offset bone carries it out to
-		# the offset (the bones' rest is zero offset).
-		parent_to_bone(obj, arm, f'eye_offset.{side}', Matrix.Translation(game_point(head.location)))
+	none = rig.EYE_STYLES.index('none')
+	regular = rig.EYE_STYLES.index('regular')
+	eyes = []
+	for side, field in (('R', 'eye_style_right'), ('L', 'eye_style_left')):
+		eye = _eye_object(f'eye.{side}', ball_mesh, eye_material, side, target)
+		parent_to_bone(eye, arm, f'eye_offset.{side}', Matrix.Translation(game_point(head.location)))
 		for axis in range(3):
-			# The left (-x) eye is the right one mirrored: -1 on X.
-			expression = '-v' if side == 'L' and axis == 0 else 'v'
-			drive_value(obj, 'scale', axis, collection, 'eye_scale', expression)
+			drive_value(eye, 'scale', axis, collection, 'eye_scale', '-v' if side == 'L' and axis == 0 else 'v')
 		for path in ('hide_viewport', 'hide_render'):
-			drive_value(obj, path, -1, collection, field, hidden_when)
-		eyes.append(obj)
+			drive_value(eye, path, -1, collection, field, f'v == {none}')
+
+		lid = _eye_object(f'eyelid.{side}', lid_mesh, lid_material, side, target)
+		lid.parent = eye
+		# Game rotation about the forward axis (+Z) is Blender's -Y.
+		drive_value(lid, 'rotation_euler', 1, collection, 'eyelid_angle', '-radians(v)')
+		for path in ('hide_viewport', 'hide_render'):
+			drive_value(lid, path, -1, collection, field, f'v != {regular}')
+		eyes += [eye, lid]
 	return eyes
+
+
+def _eye_object(name, mesh, material, side, target):
+	obj = bpy.data.objects.new(name, mesh)
+	target.objects.link(obj)
+	obj.ballistica_part.role = 'eye'
+	obj.ballistica_part.side = side
+	# The meshes are shared between characters; materials are per object.
+	obj.material_slots[0].link = 'OBJECT'
+	obj.material_slots[0].material = material
+	return obj
+
+
+def build_eye_material(name, collection, texture, mask, iris_field, base_field):
+	"""Eye texture through the bundled "Ballistica Eye" group, colors driven."""
+	from . import nodegroup
+
+	mat = bpy.data.materials.new(name)
+	mat.use_nodes = True
+	nodes, links = mat.node_tree.nodes, mat.node_tree.links
+	nodes.clear()
+	out = nodes.new('ShaderNodeOutputMaterial')
+	out.location = (300, 0)
+	group = nodes.new('ShaderNodeGroup')
+	group.node_tree = nodegroup.get(nodegroup.EYE_GROUP_NAME)
+	group.width = 200
+	links.new(group.outputs['Color'], out.inputs['Surface'])
+	tex = nodes.new('ShaderNodeTexImage')
+	tex.image = texture
+	tex.location = (-350, 150)
+	links.new(tex.outputs['Color'], group.inputs['Color'])
+	if mask is not None:
+		mask_node = nodes.new('ShaderNodeTexImage')
+		mask_node.image = mask
+		mask_node.location = (-350, -150)
+		links.new(mask_node.outputs['Color'], group.inputs['Tint Mask'])
+	if iris_field:
+		drive_color(group.inputs['Iris Color'], collection, f'ballistica_character.{iris_field}')
+	drive_color(group.inputs['Base Color'], collection, f'ballistica_character.{base_field}')
+	return mat
 
 
 # ---- attachments ----

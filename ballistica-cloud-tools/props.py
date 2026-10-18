@@ -171,10 +171,10 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	eye_offset: _vec(
 		"Eye Offset", 'eye_offset', update=_tag_collection,
 		description="Drives the eye_offset bones: the +X eye (Eye Style Right) from the head centre, mirrored for the other; scaled by Eye Scale")
-	eye_color: _vec("Eye Color", 'eye_color', color=True)
-	eyeball_color: _vec("Eyeball Color", 'eyeball_color', color=True)
-	eyelid_color: _vec("Eyelid Color", 'eyelid_color', color=True)
-	eyelid_angle: _float("Eyelid Angle", 'eyelid_angle')
+	eye_color: _vec("Eye Color", 'eye_color', color=True, update=_tag_collection)
+	eyeball_color: _vec("Eyeball Color", 'eyeball_color', color=True, update=_tag_collection)
+	eyelid_color: _vec("Eyelid Color", 'eyelid_color', color=True, update=_tag_collection)
+	eyelid_angle: _float("Eyelid Angle", 'eyelid_angle', update=_tag_collection)
 
 	# Surface
 	reflection_scale: _float("Reflection Scale", 'reflection_scale')

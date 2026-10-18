@@ -102,7 +102,11 @@ class BALLISTICA_OT_import_character(bpy.types.Operator, ImportHelper):
 			self.report({'WARNING'}, f"Unknown character type '{character.type}'; importing as {rig.CHARACTER_TYPE}.")
 		from . import nodegroup
 		try:
-			nodegroup.get()  # Before building anything, so a broken install leaves no half-built scene.
+			# Before building anything, so a broken install leaves no half-built scene.
+			nodegroup.get()
+			nodegroup.get(nodegroup.EYE_GROUP_NAME)
+			nodegroup.get_data('meshes', nodegroup.EYE_MESHES)
+			nodegroup.get_data('images', nodegroup.EYE_IMAGES)
 		except (nodegroup.MissingAssetError, OSError) as exc:
 			self.report({'ERROR'}, str(exc))
 			return {'CANCELLED'}

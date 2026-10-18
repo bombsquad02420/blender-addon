@@ -131,7 +131,7 @@ zoe = bpy.data.collections['zoe']
 zoe.ballistica_character.eye_offset = (0.07, -0.03, 0.2)
 bpy.context.view_layer.update()
 zoe_arm = next(o for o in zoe.all_objects if o.type == 'ARMATURE')
-eye_obj = next(o for o in bpy.data.collections['zoe Eyes'].objects if o.ballistica_part.role == 'eye' and o.ballistica_part.side == 'R')
+eye_obj = next(o for o in bpy.data.collections['zoe Eyes'].objects if o.name.startswith('eye.R'))
 head_centre = scene.TO_GAME @ (zoe_arm.matrix_world @ zoe_arm.pose.bones['head'].tail)
 offset = tuple(round(c, 4) for c in (scene.TO_GAME @ eye_obj.matrix_world.translation) - head_centre)
 zscale = zoe.ballistica_character.eye_scale
@@ -151,9 +151,12 @@ def dims(obj):
 assert dims(guide['guide_torso'])[0] == 0.5, dims(guide['guide_torso'])
 assert dims(guide['guide_upper_leg.R'])[0] == 0.12 and dims(guide['guide_upper_leg.L'])[1] == round(0.12 + 2 * 0.06, 3), dims(guide['guide_upper_leg.L'])
 assert dims(guide['guide_lower_leg.R'])[0] == 0.09 and dims(guide['guide_lower_leg.R'])[1] == 0.26, dims(guide['guide_lower_leg.R'])
-assert dims(eye_obj)[0] == round(0.09 * 1.78 * 1.5, 3), dims(eye_obj)
-eyes = [o for o in bpy.data.collections['zoe Eyes'].objects]
-assert len({o.data.name for o in eyes}) == 1, [o.data.name for o in eyes]  # one shared mesh
+assert dims(eye_obj)[0] == round(0.18 * 1.5, 3), dims(eye_obj)  # the game's eyeball: radius 0.09 x eye_scale
+eyes = [o for o in bpy.data.collections['zoe Eyes'].objects if o.name.startswith('eye.')]
+lids = [o for o in bpy.data.collections['zoe Eyes'].objects if o.name.startswith('eyelid.')]
+assert len(eyes) == 2 and len(lids) == 2
+assert {o.data.name for o in eyes} == {'eye_ball'} and {o.data.name for o in lids} == {'eye_lid'}  # shared meshes
+assert all(lid.parent in eyes for lid in lids)
 left = next(o for o in eyes if o.ballistica_part.side == 'L')
 assert tuple(round(v, 3) for v in left.scale) == (-1.5, 1.5, 1.5), tuple(left.scale)  # the -X eye is the mirrored one
 
@@ -164,13 +167,23 @@ assert saved['shoulder_offset'] == [0.03, -0.02, 0.01], saved.get('shoulder_offs
 assert saved['eye_offset'] == [0.07, -0.03, 0.2], saved.get('eye_offset')
 
 # Eyes: both always exist and hide while their style is 'none'.
-agent_eyes = {o.ballistica_part.side: o for o in bpy.data.collections['agent_johnson Eyes'].objects}
+agent_eyes = {o.ballistica_part.side: o for o in bpy.data.collections['agent_johnson Eyes'].objects if o.name.startswith('eye.')}
+agent_lids = {o.ballistica_part.side: o for o in bpy.data.collections['agent_johnson Eyes'].objects if o.name.startswith('eyelid.')}
 assert set(agent_eyes) == {'L', 'R'}
 assert agent_eyes['L'].hide_viewport and agent_eyes['R'].hide_render  # Agent Johnson's eyes are 'none'
 agent.ballistica_character.eye_style_left = 'regular'
 bpy.context.view_layer.update()
 assert not agent_eyes['L'].hide_viewport and not agent_eyes['L'].hide_render
 assert agent_eyes['R'].hide_viewport  # the right eye is still 'none'
+assert not agent_lids['L'].hide_viewport  # regular: lid shown
+agent.ballistica_character.eye_style_left = 'lidless'
+bpy.context.view_layer.update()
+assert not agent_eyes['L'].hide_viewport and agent_lids['L'].hide_viewport  # lidless: ball, no lid
+agent.ballistica_character.eyelid_angle = 20.0
+bpy.context.view_layer.update()
+import math  # noqa: E402
+assert abs(agent_lids['L'].rotation_euler.y - math.radians(-20.0)) < 1e-6, agent_lids['L'].rotation_euler.y
+agent.ballistica_character.eyelid_angle = 0.0
 agent.ballistica_character.eye_style_left = 'none'
 bpy.context.view_layer.update()
 assert agent_eyes['L'].hide_viewport
