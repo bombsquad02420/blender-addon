@@ -422,13 +422,21 @@ class StubLayout:
 		return StubLayout()
 
 
-class StubPanel:
-	layout = StubLayout()
+def draw_panels():
+	"""Draw every panel of the addon; a draw error would hide the rest of a panel."""
+	for cls in ui.classes:
+		if not issubclass(cls, bpy.types.Panel):
+			continue
+		if hasattr(cls, 'poll') and not cls.poll(bpy.context):
+			continue
+		panel = type('StubPanel', (), {'layout': StubLayout(), 'fields': getattr(cls, 'fields', ())})()
+		cls.draw(panel, bpy.context)
 
 
 for index in range(len(settings.attachments)):
 	settings.active_attachment_index = index
-	ui.VIEW3D_PT_ballistica_attachments.draw(StubPanel(), bpy.context)
+	draw_panels()
+assert ui.active_character(bpy.context) == zoe
 
 # New Character: a cuboid character, written only on export, then re-imported.
 assert 'cubey' not in bpy.data.collections

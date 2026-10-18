@@ -254,6 +254,14 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 			col.prop(segment, 'scale')
 
 
+def _triangles(collection):
+	total = 0
+	for obj in collection.all_objects:
+		if obj.type == 'MESH' and obj.ballistica_part.role not in ('guide', 'eye', 'NONE'):
+			total += sum(len(p.vertices) - 2 for p in obj.data.polygons)
+	return total
+
+
 classes = (
 	VIEW3D_PT_ballistica_character,
 	VIEW3D_PT_ballistica_visibility,
