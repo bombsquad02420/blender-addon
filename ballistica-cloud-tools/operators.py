@@ -7,7 +7,7 @@ import re
 import bpy
 from bpy_extras.io_utils import ImportHelper
 
-from . import bchar, objfile, pose, props, rig, scene, template, workspace
+from . import attach_scene, bchar, objfile, pose, props, rig, scene, template, workspace
 from .ui import active_character
 
 
@@ -72,10 +72,7 @@ def _build(context, root, character_path, character, meshes=None):
 		scene.parent_to_bone(left, arm, scene.bone_name(part, 'L'), scene.MIRROR_X @ world)
 
 	scene.build_eyes(collection, arm, placements, settings, groups['Eyes'])
-	scene.build_attachments(
-		groups['Attachments'], arm, placements, character.attachments, root,
-		lambda segment: material_for(segment.get('texture') or settings.color_texture,
-			segment.get('mask_texture') or settings.color_mask_texture))
+	attach_scene.build(collection, placements, spread=False)
 	scene.build_guides(collection, arm, placements, joints, settings)
 	scene.setup_offset_drivers(collection, arm)
 	scene.setup_spread_drivers(collection)

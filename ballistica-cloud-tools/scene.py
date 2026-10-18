@@ -590,56 +590,6 @@ def build_eye_material(name, collection, texture, mask, iris_field, base_field):
 	return mat
 
 
-# ---- attachments ----
-
-LIMB_TARGETS = ('upper_arm', 'forearm', 'hand', 'upper_leg', 'lower_leg', 'toes', 'wing')
-
-
-def build_attachments(into, arm, placements, attachments, root, material_for):
-	"""Attachment segment meshes, linked into the `into` collection."""
-	"""Place attachment segment meshes on their target parts (rest pose).
-
-	A first segment hangs from the attachment's spot (its transform on the
-	target body); each later one from the segment before, via the kind's
-	joint anchors. A segment's own transform places its art on its body.
-	Static attachments have no bodies: art goes straight on the spot.
-	"""
-	objects = []
-	for index, attachment in enumerate(attachments):
-		target = attachment.get('target', 'head')
-		kind = attachment.get('kind', 'static')
-		side = attachment.get('side', 'both')
-		body_part = target
-		if target in LIMB_TARGETS:
-			sides = [s for s, _ in SIDES if side == 'both' or (side, s) in (('right', 'R'), ('left', 'L'))]
-		else:
-			sides = ['C']
-		spot = placement_matrix(placements[body_part]) @ transform_matrix(attachment.get('transform'))
-		anchors = rig.ATTACHMENT_ANCHORS.get(kind, ())
-		for side_name in sides:
-			body = spot
-			for seg_index, segment in enumerate(attachment.get('segments', [])):
-				if kind != 'static' and seg_index < len(anchors):
-					parent_anchor, child_anchor = anchors[seg_index]
-					if seg_index > 0:
-						body = body @ Matrix.Translation(game_point(parent_anchor))
-					body = body @ Matrix.Translation(-game_point(child_anchor))
-				world = body @ transform_matrix(segment.get('transform'))
-				if side_name == 'L':
-					world = MIRROR_X @ world
-				path = workspace.file_path(root, segment.get('mesh', ''), 'mesh')
-				if path is None:
-					continue
-				name = f"attachment{index}.{seg_index}" + (f".{side_name}" if side_name != 'C' else '')
-				obj = bpy.data.objects.new(name, mesh_from_obj(path, segment['mesh']))
-				into.objects.link(obj)
-				obj.ballistica_part.role = 'attachment'
-				obj.data.materials.append(material_for(segment))
-				parent_to_bone(obj, arm, bone_name(body_part, 'R' if side_name == 'C' else side_name), world)
-				objects.append(obj)
-	return objects
-
-
 # ---- offset drivers ----
 
 # Bone -> (collection setting, mirrored, scaled by). Mirrored bones use the
@@ -696,7 +646,7 @@ def setup_offset_drivers(collection, arm):
 # ---- exploded view ----
 
 
-def setup_spread_drivers(collection):
+def setup_spread_drivers(collection, objects=None):
 	"""Drive each bone-parented object's delta location by the Spread slider.
 
 	Offsets are the web UI's per-part spread (pose.SPREAD), mirrored for
@@ -705,7 +655,7 @@ def setup_spread_drivers(collection):
 	object's rest frame (its parent inverse), so the world offset is mapped
 	into that frame once here; location stays free for moving parts.
 	"""
-	for obj in collection.all_objects:
+	for obj in collection.all_objects if objects is None else objects:
 		if obj.parent_type != 'BONE' or not obj.parent_bone:
 			continue
 		part, _, side = obj.parent_bone.partition('.')

@@ -75,8 +75,9 @@ def _texture_matches(logical, role):
 	return not is_icon and not is_mask
 
 
-def _ref(name, kind, role=None):
-	return bpy.props.StringProperty(name=name, search=_asset_search(kind, role), options=_options())
+def _ref(name, kind, role=None, update=None):
+	kwargs = {'update': update} if update else {}
+	return bpy.props.StringProperty(name=name, search=_asset_search(kind, role), options=_options(), **kwargs)
 
 
 def _sounds(name):
@@ -153,8 +154,14 @@ def _attachment_changed(self, context):
 	_attachment_rebuild(self)
 
 
+def _segment_changed(self, context):
+	"""A segment's mesh or textures changed: rebuild to show it."""
+	if not self.get('_loading'):
+		_attachment_rebuild(self)
+
+
 def _attachment_rebuild(attachment):
-	"""Rebuild the attachment's scene objects (set by the scene module)."""
+	"""Rebuild the character's attachment objects (set by attach_scene)."""
 	hook = ATTACHMENT_REBUILD_HOOKS.get('rebuild')
 	if hook is not None:
 		hook(attachment)
@@ -172,9 +179,9 @@ def _tuning(name, field):
 
 
 class COLLECTION_PG_ballistica_segment(bpy.types.PropertyGroup):
-	mesh: _ref("Mesh", 'mesh')
-	texture: _ref("Texture", 'texture', 'color')
-	mask_texture: _ref("Mask Texture", 'texture', 'mask')
+	mesh: _ref("Mesh", 'mesh', update=_segment_changed)
+	texture: _ref("Texture", 'texture', 'color', update=_segment_changed)
+	mask_texture: _ref("Mask Texture", 'texture', 'mask', update=_segment_changed)
 	translate: bpy.props.FloatVectorProperty(name="Translate", size=3, subtype='TRANSLATION', options=_options())
 	rotate: bpy.props.FloatVectorProperty(
 		name="Rotate", size=3, description="Heading, pitch, roll in degrees", options=_options())
@@ -251,9 +258,13 @@ def _set_segments(attachment, segments):
 	while len(attachment.segments) < len(segments):
 		attachment.segments.add()
 	for item, segment in zip(attachment.segments, segments):
-		for key in attach_rules.SEGMENT_REFS:
-			if getattr(item, key) != segment[key]:
-				setattr(item, key, segment[key])
+		item['_loading'] = True  # No rebuild per field; the caller rebuilds once.
+		try:
+			for key in attach_rules.SEGMENT_REFS:
+				if getattr(item, key) != segment[key]:
+					setattr(item, key, segment[key])
+		finally:
+			del item['_loading']
 		for key in SEGMENT_VALUES:
 			setattr(item, key, segment[key])
 	attachment.active_segment_index = min(attachment.active_segment_index, max(len(segments) - 1, 0))

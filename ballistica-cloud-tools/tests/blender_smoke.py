@@ -335,6 +335,43 @@ except RuntimeError as exc:
 assert len(bpy.data.collections) == count
 nodegroup.ASSETS_BLEND = real
 
+# Attachments: handles hold the placement; meshes move freely.
+import json  # noqa: E402
+from ballistica_cloud_tools import attach_scene, props  # noqa: E402
+zoe = bpy.data.collections['zoe']
+with open(os.path.join(ws, 'characters', 'zoe.bchar')) as infile:
+	zoe_attachments = json.load(infile)['data']['attachments']
+
+
+def written_attachments(collection):
+	attach_scene.sync_from_handles(collection)
+	return props.to_character(collection.ballistica_character).data['attachments']
+
+
+assert len(attach_scene.tagged(zoe, attach_scene.ANCHOR)) == 3
+assert written_attachments(zoe) == zoe_attachments  # untouched: identical
+hair = next(o for o in attach_scene.tagged(zoe, attach_scene.MESH) if o[attach_scene.INDEX_KEY] == 0)
+hair.location.x += 0.5  # moved away to paint it
+assert written_attachments(zoe) == zoe_attachments  # mesh moves aren't placement
+bpy.context.view_layer.objects.active = hair
+assert bpy.ops.ballistica.reset_parts() == {'FINISHED'}
+assert tuple(hair.location) == (0.0, 0.0, 0.0)
+spot = attach_scene.anchor(zoe, 0)
+spot.location.z += 0.01  # Blender +Z is game +Y: up by 0.01
+assert written_attachments(zoe)[0]['transform']['translate'] == [-0.173, 0.134, 0.153]
+spot.location.z -= 0.01
+assert written_attachments(zoe) == zoe_attachments
+
+# Rebuild keeps handle edits and follows kind changes.
+spot.location.z += 0.02
+zoe.ballistica_character.attachments[2].kind = 'antenna_4'  # triggers a rebuild
+assert len([o for o in attach_scene.tagged(zoe, attach_scene.HANDLE) if o[attach_scene.INDEX_KEY] == 2]) == 4
+assert abs(zoe.ballistica_character.attachments[0].translate[1] - (0.124 + 0.02)) < 1e-5
+zoe.ballistica_character.attachments[2].target = 'hand'  # limbs: static only, both sides
+assert zoe.ballistica_character.attachments[2].kind == 'static'
+sides = sorted(o[attach_scene.SIDE_KEY] for o in attach_scene.tagged(zoe, attach_scene.ANCHOR, 2))
+assert sides == ['L', 'R'], sides
+
 # New Character: a cuboid character, written only on export, then re-imported.
 assert 'cubey' not in bpy.data.collections
 assert bpy.ops.ballistica.new_character(directory=os.path.join(ws, 'characters'), name='cubey') == {'FINISHED'}
