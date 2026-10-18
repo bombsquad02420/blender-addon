@@ -28,5 +28,7 @@ paths_exclude_pattern = [
 	"/webui/",
 	"/tests/",
 	"/assets/build_assets.py",
+	"/assets/extract_eye_assets.py",
+	"/assets/source/",
 	"*.blend1",
 ]
