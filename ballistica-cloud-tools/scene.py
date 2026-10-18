@@ -185,6 +185,36 @@ def obj_from_mesh(mesh):
 
 # ---- armature ----
 
+ROOT_SUFFIX = "_root"
+
+
+def build_root(collection, arm):
+	"""A flat circle at the feet, parent of the armature.
+
+	Lives in the character's own collection (not Rig), so the whole
+	character can be moved while the Rig collection is hidden. It's a curve
+	drawn in the ground (XY) plane rather than a circle empty, which Blender
+	draws standing up (XZ): the root needs no rotation, so clearing its
+	transforms (Alt+G/R/S) puts the character back upright at the origin.
+	"""
+	radius = rig.ROLLER_RADIUS * 1.5
+	curve = bpy.data.curves.new(collection.name + ROOT_SUFFIX, 'CURVE')
+	curve.dimensions = '2D'
+	spline = curve.splines.new('POLY')
+	segments = 32
+	spline.points.add(segments - 1)
+	for i, point in enumerate(spline.points):
+		angle = 2 * math.pi * i / segments
+		point.co = (radius * math.cos(angle), radius * math.sin(angle), 0.0, 1.0)
+	spline.use_cyclic_u = True
+	root = bpy.data.objects.new(collection.name + ROOT_SUFFIX, curve)
+	root.hide_render = True
+	root.ballistica_part.role = 'NONE'
+	collection.objects.link(root)
+	arm.parent = root
+	return root
+
+
 def build_armature(collection, joints):
 	"""(`collection` is where the armature object is linked: the Rig group.)"""
 	"""Rest-pose armature, built at zero shoulder and eye offsets.

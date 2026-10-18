@@ -208,6 +208,20 @@ assert tuple(arm.pose.bones['upper_leg.R'].rotation_quaternion) == (1.0, 0.0, 0.
 moved = tuple(round(c, 4) for c in game_head('upper_arm.R') - base['upper_arm.R'])
 assert moved == (0.03, -0.02, 0.01), moved  # driven shoulder offset survives the reset
 
+# Root: a flat circle curve in the character collection, parent of the rig;
+# moving it moves the whole character.
+root = next(o for o in agent.objects if o.name.endswith('_root'))
+assert root.type == 'CURVE' and arm.parent == root
+assert all(abs(p.co.z) < 1e-9 for p in root.data.splines[0].points)  # flat on the ground
+assert tuple(root.rotation_euler) == (0.0, 0.0, 0.0)
+head_obj = next(o for o in agent.all_objects if o.name == 'head')
+before = head_obj.matrix_world.translation.copy()
+root.location = (1.0, 2.0, 0.0)
+bpy.context.view_layer.update()
+assert (head_obj.matrix_world.translation - before - __import__('mathutils').Vector((1.0, 2.0, 0.0))).length < 1e-6
+root.location = (0.0, 0.0, 0.0)
+bpy.context.view_layer.update()
+
 # Standard colors: sets the view transform, then has nothing left to do.
 from ballistica_cloud_tools import operators as ops  # noqa: E402
 assert not ops.uses_standard_colors(bpy.context.scene)  # factory default is AgX

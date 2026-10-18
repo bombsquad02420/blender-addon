@@ -25,6 +25,7 @@ def _build(context, root, character_path, character):
 	# Rest pose at zero offsets; the offset bones' drivers apply them.
 	placements, joints = pose.compute()
 	arm = scene.build_armature(groups['Rig'], joints)
+	scene.build_root(collection, arm)
 
 	materials = {}
 
