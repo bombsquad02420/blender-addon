@@ -110,6 +110,7 @@ settings.shoulder_offset = (0.0, 0.0, 0.0)
 settings.eye_offset = (0.0, 0.0, 0.0)
 bpy.context.view_layer.update()
 base = {b: game_head(b) for b in ('upper_arm.R', 'upper_arm.L', 'eye_offset.L', 'eye_offset.R')}
+scale = agent.ballistica_character.eye_scale
 settings.shoulder_offset = (0.03, -0.02, 0.01)
 settings.eye_offset = (0.07, -0.03, 0.2)
 bpy.context.view_layer.update()
@@ -121,17 +122,20 @@ def moved(bone):
 
 assert moved('upper_arm.R') == (0.03, -0.02, 0.01), moved('upper_arm.R')
 assert moved('upper_arm.L') == (-0.03, -0.02, 0.01), moved('upper_arm.L')
-assert moved('eye_offset.L') == (0.07, -0.03, 0.2), moved('eye_offset.L')
-assert moved('eye_offset.R') == (-0.07, -0.03, 0.2), moved('eye_offset.R')
+# The +X eye is the right one (as the engine draws it); offsets scale with eye_scale.
+expected = tuple(round(c * scale, 4) for c in (0.07, -0.03, 0.2))
+assert moved('eye_offset.R') == expected, (moved('eye_offset.R'), expected)
+assert moved('eye_offset.L') == (-expected[0], expected[1], expected[2]), moved('eye_offset.L')
 # The eye stand-in sits at head centre + eye_offset (Zoe has visible eyes).
 zoe = bpy.data.collections['zoe']
 zoe.ballistica_character.eye_offset = (0.07, -0.03, 0.2)
 bpy.context.view_layer.update()
 zoe_arm = next(o for o in zoe.all_objects if o.type == 'ARMATURE')
-eye_obj = next(o for o in bpy.data.collections['zoe Eyes'].objects if o.ballistica_part.role == 'eye' and o.ballistica_part.side == 'L')
+eye_obj = next(o for o in bpy.data.collections['zoe Eyes'].objects if o.ballistica_part.role == 'eye' and o.ballistica_part.side == 'R')
 head_centre = scene.TO_GAME @ (zoe_arm.matrix_world @ zoe_arm.pose.bones['head'].tail)
 offset = tuple(round(c, 4) for c in (scene.TO_GAME @ eye_obj.matrix_world.translation) - head_centre)
-assert offset == (0.07, -0.03, 0.2), offset
+zscale = zoe.ballistica_character.eye_scale
+assert offset == tuple(round(c * zscale, 4) for c in (0.07, -0.03, 0.2)), (offset, zscale)
 # Sizes: guides and eyes follow the panel's radii and eye scale.
 zs = zoe.ballistica_character
 zs.torso_radius, zs.thigh_radius, zs.ankle_radius, zs.eye_scale = 0.25, 0.06, 0.045, 1.5
@@ -150,8 +154,8 @@ assert dims(guide['guide_lower_leg.R'])[0] == 0.09 and dims(guide['guide_lower_l
 assert dims(eye_obj)[0] == round(0.09 * 1.78 * 1.5, 3), dims(eye_obj)
 eyes = [o for o in bpy.data.collections['zoe Eyes'].objects]
 assert len({o.data.name for o in eyes}) == 1, [o.data.name for o in eyes]  # one shared mesh
-right = next(o for o in eyes if o.ballistica_part.side == 'R')
-assert tuple(round(v, 3) for v in right.scale) == (-1.5, 1.5, 1.5), tuple(right.scale)
+left = next(o for o in eyes if o.ballistica_part.side == 'L')
+assert tuple(round(v, 3) for v in left.scale) == (-1.5, 1.5, 1.5), tuple(left.scale)  # the -X eye is the mirrored one
 
 bpy.ops.ballistica.export_character()
 import json  # noqa: E402

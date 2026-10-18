@@ -475,8 +475,8 @@ def build_eyes(collection, arm, placements, settings, target):
 		# the offset (the bones' rest is zero offset).
 		parent_to_bone(obj, arm, f'eye_offset.{side}', Matrix.Translation(game_point(head.location)))
 		for axis in range(3):
-			# The right eye is the left mirrored: -1 on X.
-			expression = '-v' if side == 'R' and axis == 0 else 'v'
+			# The left (-x) eye is the right one mirrored: -1 on X.
+			expression = '-v' if side == 'L' and axis == 0 else 'v'
 			drive_value(obj, 'scale', axis, collection, 'eye_scale', expression)
 		for path in ('hide_viewport', 'hide_render'):
 			drive_value(obj, path, -1, collection, field, hidden_when)
@@ -536,14 +536,16 @@ def build_attachments(into, arm, placements, attachments, root, material_for):
 
 # ---- offset drivers ----
 
-# Bone -> (collection setting, mirrored). The .R bones use the value with
-# x negated: .bchar eye_offset is the left eye's (+X), and the shoulder
-# value is mirrored for the left arm.
+# Bone -> (collection setting, mirrored, scaled by). Mirrored bones use the
+# value with x negated. The shoulder value is the right arm's (-X). The
+# engine draws the eye at +eye_offset.x with eye_style_right and the one at
+# -x with eye_style_left (spaz_node.cc DrawEyeBalls), and scales the eye
+# offset by eye_scale (it scales about the head centre before moving out).
 OFFSET_DRIVERS = (
-	('shoulder_offset.R', 'shoulder_offset', False),
-	('shoulder_offset.L', 'shoulder_offset', True),
-	('eye_offset.L', 'eye_offset', False),
-	('eye_offset.R', 'eye_offset', True),
+	('shoulder_offset.R', 'shoulder_offset', False, None),
+	('shoulder_offset.L', 'shoulder_offset', True, None),
+	('eye_offset.R', 'eye_offset', False, 'eye_scale'),
+	('eye_offset.L', 'eye_offset', True, 'eye_scale'),
 )
 
 
@@ -554,7 +556,7 @@ def setup_offset_drivers(collection, arm):
 	fixed linear map of the game-space value: simple driver expressions,
 	no Python scripts needed.
 	"""
-	for bone, field, mirrored in OFFSET_DRIVERS:
+	for bone, field, mirrored, scaled_by in OFFSET_DRIVERS:
 		to_local = arm.data.bones[bone].matrix_local.to_3x3().inverted() @ TO_BLENDER
 		if mirrored:
 			to_local = to_local @ Matrix.Diagonal((-1.0, 1.0, 1.0))
@@ -573,4 +575,13 @@ def setup_offset_drivers(collection, arm):
 				var.targets[0].data_path = f'ballistica_character.{field}[{j}]'
 				if abs(to_local[i][j]) > 1e-9:
 					terms.append(f'{to_local[i][j]:.6f}*{var.name}')
-			driver.expression = ' + '.join(terms) or '0'
+			expression = ' + '.join(terms) or '0'
+			if scaled_by:
+				var = driver.variables.new()
+				var.name = 's'
+				var.type = 'SINGLE_PROP'
+				var.targets[0].id_type = 'COLLECTION'
+				var.targets[0].id = collection
+				var.targets[0].data_path = f'ballistica_character.{scaled_by}'
+				expression = f's*({expression})'
+			driver.expression = expression
