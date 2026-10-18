@@ -305,17 +305,22 @@ for o in wings:
 pixel.ballistica_character.spread = 0.0
 bpy.context.view_layer.update()
 
-# Frame Character: the rig is framable while only its Rig toggle hides it,
-# not when hidden any other way (headless Blender can't run View Selected).
+# Frame Character: framable while only its Rig toggle hides it; otherwise a
+# specific problem is reported (headless Blender can't run View Selected).
 ctx = SimpleNamespace(view_layer=bpy.context.view_layer)
-assert operators._framable_rig(ctx, agent) is not None  # Rig collection hidden by its toggle: fine
+assert operators._framable_rig(ctx, agent)[2] is None  # Rig collection hidden by its toggle: fine
 arm.hide_set(True)
-assert operators._framable_rig(ctx, agent) is None
+assert 'unhide it' in operators._framable_rig(ctx, agent)[2]
 arm.hide_set(False)
 agent_layer = next(_layer_collections(bpy.context.view_layer.layer_collection, agent))
 agent_layer.hide_viewport = True
-assert operators._framable_rig(ctx, agent) is None  # a parent collection hidden
+assert operators._framable_rig(ctx, agent)[2] == 'agent_johnson is hidden; show it in the outliner to frame the character.'
 agent_layer.hide_viewport = False
+rig_layer = next(_layer_collections(bpy.context.view_layer.layer_collection, bpy.data.collections['agent_johnson Rig']))
+rig_layer.exclude = True
+assert 'excluded' in operators._framable_rig(ctx, agent)[2]
+rig_layer.exclude = False
+rig_layer.hide_viewport = True  # excluding resets the toggle; keep it hidden as imported
 
 # A missing assets file must fail the import loudly, building nothing.
 real = nodegroup.ASSETS_BLEND

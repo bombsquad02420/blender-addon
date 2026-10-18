@@ -160,19 +160,24 @@ RESETTABLE_ROLES = (*(p for p, _, _ in rig.PARTS), 'attachment', 'eye')
 
 
 class BALLISTICA_OT_view_character(bpy.types.Operator):
-	"""Frame the active character's rig with View Selected (Object Mode; the rig must not be hidden or excluded other than by the Rig visibility toggle)"""
+	"""Frame the active character's rig with View Selected"""
 	bl_idname = 'ballistica.view_character'
 	bl_label = "Frame Character"
 
 	@classmethod
 	def poll(cls, context):
-		if context.mode != 'OBJECT' or context.region_data is None:
+		if context.mode != 'OBJECT':
+			cls.poll_message_set("Only in Object Mode")
 			return False
-		collection = active_character(context)
-		return collection is not None and _framable_rig(context, collection) is not None
+		return context.region_data is not None and active_character(context) is not None
 
 	def execute(self, context):
-		arm, rig_layer = _framable_rig(context, active_character(context))
+		arm, rig_layer, problem = _framable_rig(context, active_character(context))
+		if problem:
+			# View Selected would silently frame nothing (or fail, if the
+			# rig isn't in the view layer), so say what's in the way.
+			self.report({'ERROR'}, problem)
+			return {'CANCELLED'}
 		view_layer = context.view_layer
 		# Show the rig and select only it, run View Selected, then put
 		# everything back. The target view is computed when the operator
@@ -198,25 +203,33 @@ class BALLISTICA_OT_view_character(bpy.types.Operator):
 
 
 def _framable_rig(context, collection):
-	"""(armature, its Rig layer collection) if View Selected can frame it.
+	"""(armature, its Rig layer collection, None), or (None, None, problem).
 
-	The Rig collection's own eye icon is fine (the operator turns it on for
-	the moment); anything else hiding the rig makes it unframable: the
-	armature hidden or disabled, or its collection or a parent excluded,
-	disabled, or hidden.
+	The Rig collection's own eye icon is fine: Frame Character turns it on
+	for the moment. Anything else hiding the rig is reported, since View
+	Selected can't frame it.
 	"""
 	arm = next((o for o in collection.all_objects if o.type == 'ARMATURE'), None)
-	if arm is None or arm.hide_viewport or arm.name not in context.view_layer.objects or arm.hide_get():
-		return None
+	if arm is None:
+		return None, None, f"{collection.name} has no rig."
 	path = _layer_path(context.view_layer.layer_collection, arm.users_collection[0])
 	if path is None:
-		return None
+		return None, None, f"{arm.name} isn't in this view layer."
 	for layer in path:
-		if layer.exclude or layer.collection.hide_viewport:
-			return None
-	if any(layer.hide_viewport for layer in path[:-1]):
-		return None
-	return arm, path[-1]
+		if layer.exclude:
+			return None, None, f"{layer.collection.name} is excluded from the view layer; include it in the outliner to frame the character."
+		if layer.collection.hide_viewport:
+			return None, None, f"{layer.collection.name} is disabled in viewports; enable it in the outliner to frame the character."
+	if arm.name not in context.view_layer.objects:
+		return None, None, f"{arm.name} isn't in this view layer."
+	for layer in path[:-1]:
+		if layer.hide_viewport:
+			return None, None, f"{layer.collection.name} is hidden; show it in the outliner to frame the character."
+	if arm.hide_viewport:
+		return None, None, f"{arm.name} is disabled in viewports; enable it in the outliner to frame the character."
+	if arm.hide_get():
+		return None, None, f"{arm.name} is hidden; unhide it in the outliner (Alt+H) to frame the character."
+	return arm, path[-1], None
 
 
 def _layer_path(layer, collection):
