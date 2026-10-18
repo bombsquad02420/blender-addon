@@ -36,7 +36,8 @@ SPREAD = {
 	'upper_leg': (-0.084, -0.48, 0.0),
 	'lower_leg': (-0.168, -0.72, 0.0),
 	'toes': (-0.252, -0.96, 0.0),
-	'wing': (0.0, 0.0, 0.0),
+	# Half the wing's direction (rig.WING_ATTACH, normalized): along the wing.
+	'wing': (-0.42183, 0.0, -0.26844),
 }
 
 

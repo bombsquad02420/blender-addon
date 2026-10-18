@@ -487,8 +487,9 @@ def _capsule(radius, length):
 
 # ---- eyes ----
 
-# Game rotation about +X by -eyeball_pitch (nose down), in Blender axes.
-EYEBALL_PITCH = (TO_BLENDER @ Matrix.Rotation(math.radians(-rig.EYEBALL_PITCH), 3, 'X') @ TO_GAME).to_4x4()
+# The eyeball's rest turn about game +X by eyeball_pitch (-10 degrees), as
+# the web UI's preview places it; in Blender axes.
+EYEBALL_PITCH = (TO_BLENDER @ Matrix.Rotation(math.radians(rig.EYEBALL_PITCH), 3, 'X') @ TO_GAME).to_4x4()
 
 
 def build_eyes(collection, arm, placements, settings, target):

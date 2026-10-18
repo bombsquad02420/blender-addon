@@ -248,13 +248,60 @@ agent.ballistica_character.spread = 0.0
 bpy.context.view_layer.update()
 assert all(abs(a - b) < 1e-5 for a, b in zip(scene.TO_GAME @ forearms['R'].matrix_world.translation, before['R']))
 
-# Eyes: the eyeball is pitched 10 degrees down; its lid is not.
+# Eyes: the eyeball is turned by eyeball_pitch (its up axis tips back); its lid is not.
 zoe_eye = next(o for o in bpy.data.collections['zoe Eyes'].objects if o.name.startswith('eye.R'))
 zoe_lid = next(o for o in bpy.data.collections['zoe Eyes'].objects if o.name.startswith('eyelid.R'))
 up = (scene.TO_GAME @ zoe_eye.matrix_world.to_3x3() @ scene.TO_BLENDER @ Vector((0, 1, 0))).normalized()
-assert abs(up.z - __import__('math').sin(__import__('math').radians(10))) < 1e-4, tuple(up)
+assert abs(up.z + __import__('math').sin(__import__('math').radians(10))) < 1e-4, tuple(up)
 lid_up = (scene.TO_GAME @ zoe_lid.matrix_world.to_3x3() @ scene.TO_BLENDER @ Vector((0, 1, 0))).normalized()
 assert abs(lid_up.z) < 1e-4, tuple(lid_up)
+
+# Pixel against the web UI's preview data (tests/fixtures/pixel_preview.json).
+pixel = bpy.data.collections['pixel']
+with open(os.path.join(ADDON, 'tests', 'fixtures', 'pixel_preview.json')) as f:
+	web = json.load(f)
+pixel_objects = list(pixel.all_objects)
+torso_obj = next(o for o in pixel_objects if o.ballistica_part.role == 'torso')
+centre = scene.TO_GAME @ torso_obj.matrix_world.translation
+
+
+def game_frame(obj):
+	"""(position relative to the torso, unit axes as columns) in game space."""
+	m = scene.TO_GAME @ obj.matrix_world.to_3x3() @ scene.TO_BLENDER
+	axes = [m.col[i].normalized() for i in range(3)]
+	return scene.TO_GAME @ obj.matrix_world.translation - centre, axes
+
+
+def web_frame(entry):
+	x = entry['xform']
+	cols = [Vector(x[i * 4:i * 4 + 3]).normalized() for i in range(3)]
+	return Vector(x[12:15]), cols
+
+
+def close(a, b, tol=1e-3):
+	return all(abs(p - q) < tol for p, q in zip(a, b))
+
+
+pixel_eye = next(o for o in pixel_objects if o.name.startswith('eye.') and (scene.TO_GAME @ o.matrix_world.translation).x > 0)
+pixel_lid = next(o for o in pixel_objects if o.name.startswith('eyelid.') and (scene.TO_GAME @ o.matrix_world.translation).x > 0)
+for obj, key in ((pixel_eye, 'eye_left'), (pixel_lid, 'eyelid_left')):
+	(pos, axes), (wpos, waxes) = game_frame(obj), web_frame(web[key])
+	assert close(pos, wpos), (key, tuple(pos), tuple(wpos))
+	for a, b in zip(axes, waxes):
+		assert close(a, b), (key, tuple(a), tuple(b))
+guide = {re.sub(r'\.\d{3}$', '', o.name): o for o in bpy.data.collections['pixel Guides'].objects}
+assert dims(guide['guide_upper_leg.R'])[0] == 0.12 and dims(guide['guide_upper_leg.R'])[1] == 0.24, dims(guide['guide_upper_leg.R'])
+assert dims(guide['guide_lower_leg.R'])[0] == 0.09 and dims(guide['guide_lower_leg.R'])[1] == 0.26, dims(guide['guide_lower_leg.R'])
+wings = [o for o in pixel_objects if o.ballistica_part.role == 'attachment']
+before = {o.name: scene.TO_GAME @ o.matrix_world.translation for o in wings}
+pixel.ballistica_character.spread = 1.0
+bpy.context.view_layer.update()
+for o in wings:
+	moved = scene.TO_GAME @ o.matrix_world.translation - before[o.name]
+	side = -1 if moved.x < 0 else 1  # right wing spreads toward -X
+	assert close(moved, (side * 0.42183, 0.0, -0.26844)), (o.name, tuple(moved))
+pixel.ballistica_character.spread = 0.0
+bpy.context.view_layer.update()
 
 # A missing assets file must fail the import loudly, building nothing.
 real = nodegroup.ASSETS_BLEND

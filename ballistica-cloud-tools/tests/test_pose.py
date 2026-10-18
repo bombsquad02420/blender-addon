@@ -56,9 +56,18 @@ class PoseTest(unittest.TestCase):
 
 	def test_matches_web_ui_preview(self):
 		"""Every part's placement equals the web UI's (Lucky and Frosty)."""
-		for name in ('lucky_preview.json', 'frosty_preview.json'):
+		for name in ('lucky_preview.json', 'frosty_preview.json', 'pixel_preview.json'):
 			with self.subTest(fixture=name):
 				self._check_fixture(name)
+
+	def test_spread_matches_web_ui(self):
+		with open(os.path.join(FIXTURES, 'lucky_preview.json')) as f:
+			web = json.load(f)
+		with open(os.path.join(FIXTURES, 'pixel_preview.json')) as f:
+			web['meshes']['wing'] = json.load(f)['meshes']['wing']
+		for part, entry in web['meshes'].items():
+			for a, b in zip(pose.SPREAD[part], entry['spread']):
+				self.assertAlmostEqual(a, b, places=4, msg=part)
 
 	def _check_fixture(self, name):
 		with open(os.path.join(FIXTURES, name)) as f:
