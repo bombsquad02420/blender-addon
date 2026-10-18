@@ -10,7 +10,7 @@ pose = load('pose')
 rig = load('rig')
 objfile = load('objfile')
 
-FIXTURE = os.path.join(os.path.dirname(__file__), 'fixtures', 'lucky_preview.json')
+FIXTURES = os.path.join(os.path.dirname(__file__), 'fixtures')
 SAMPLE = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'ClassicCharacterAssets')
 
 
@@ -55,9 +55,16 @@ class PoseTest(unittest.TestCase):
 		self.assertAlmostEqual(wing.location[1], self.placements['torso'].location[1])
 
 	def test_matches_web_ui_preview(self):
-		"""Every part's placement equals the web UI's (Lucky fixture)."""
-		with open(FIXTURE) as f:
+		"""Every part's placement equals the web UI's (Lucky and Frosty)."""
+		for name in ('lucky_preview.json', 'frosty_preview.json'):
+			with self.subTest(fixture=name):
+				self._check_fixture(name)
+
+	def _check_fixture(self, name):
+		with open(os.path.join(FIXTURES, name)) as f:
 			web = json.load(f)
+		placements, joints = pose.compute(tuple(web.get('shoulder_offset', (0.0, 0.0, 0.0))))
+		self.placements, self.joints = placements, joints
 		torso = self.placements['torso'].location
 		for part, entry in web['meshes'].items():
 			x = entry['xform']  # column-major 4x4
