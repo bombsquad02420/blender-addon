@@ -51,12 +51,22 @@ class CuboidTest(unittest.TestCase):
 	def test_boxes_cover_the_default_spaz(self):
 		# The boxes are the neo_spaz bounding boxes, rounded.
 		for part, field, _ in rig.PARTS:
+			if part == 'head':
+				continue  # The head is sized from the head ball instead.
 			name = {'forearm': 'fore_arm'}.get(part, part)
 			mesh = objfile.read(os.path.join(SAMPLE, 'meshes', f'neo_spaz_{name}.obj'))
 			lo, hi = template.CUBOIDS[part]
 			for axis in range(3):
 				self.assertAlmostEqual(min(p[axis] for p in mesh.positions), lo[axis], delta=0.01, msg=part)
 				self.assertAlmostEqual(max(p[axis] for p in mesh.positions), hi[axis], delta=0.01, msg=part)
+
+
+	def test_head_sits_in_the_head_ball_with_eyes_on_its_face(self):
+		lo, hi = template.CUBOIDS['head']
+		corner = sum(c * c for c in hi) ** 0.5
+		self.assertLess(max(hi), rig.HEAD_RADIUS)  # faces inside the ball
+		self.assertGreater(corner, rig.HEAD_RADIUS)  # corners poke out, cube-like
+		self.assertAlmostEqual(hi[2], rig.DEFAULTS['eye_offset'][2], delta=0.01)  # eyes at the face
 
 
 class TextureTest(unittest.TestCase):

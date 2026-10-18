@@ -1,9 +1,12 @@
 """A from-scratch character: one cuboid per body part, Minecraft style.
 
-Each cuboid is the bounding box of the default Spaz's part (the
+Each body cuboid is the bounding box of the default Spaz's part (the
 `neo_spaz_*` meshes in ClassicCharacterAssets), so the boxes have the
-game's proportions and sit where the game draws each part. Sizes are in
-each part's own space (game axes); arm and leg parts are right-side.
+game's proportions and sit where the game draws each part. The head is
+the exception: Spaz's helmet makes its bounding box far bigger than the
+head, so the head is a cube just inside the rig's head ball, with its
+front face where the eyes sit. Sizes are in each part's own space (game
+axes); arm and leg parts are right-side.
 
 The cuboids share one texture atlas: each part gets a cell, and each face
 of its box a patch inside that cell, so faces can be painted separately.
@@ -14,9 +17,13 @@ Pure Python, testable without Blender.
 
 from . import objfile
 
+# Half-size of the head cube: inside the head ball (radius 0.23), with the
+# front face at the eyes' depth (eye_offset z = 0.205).
+HEAD = 0.21
+
 # Part -> (min corner, max corner), game axes, from the neo_spaz meshes.
 CUBOIDS = {
-	'head': ((-0.31, -0.28, -0.33), (0.31, 0.38, 0.33)),
+	'head': ((-HEAD, -HEAD, -HEAD), (HEAD, HEAD, HEAD)),
 	'torso': ((-0.17, -0.13, -0.14), (0.18, 0.24, 0.18)),
 	'pelvis': ((-0.15, -0.05, -0.12), (0.15, 0.10, 0.11)),
 	'upper_arm': ((-0.13, -0.09, -0.22), (0.10, 0.11, 0.08)),

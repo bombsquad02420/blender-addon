@@ -2,16 +2,23 @@
 
 import json
 import os
+import re
 
 import bpy
 from bpy_extras.io_utils import ImportHelper
 
-from . import bchar, objfile, pose, props, rig, scene, workspace
+from . import bchar, objfile, pose, props, rig, scene, template, workspace
 from .ui import active_character
 
 
-def _build(context, root, character_path, character):
-	"""Create the whole character scene; return its collection."""
+def _build(context, root, character_path, character, meshes=None):
+	"""Create the whole character scene; return its collection.
+
+	`meshes` maps part name to a Blender mesh to use instead of reading the
+	part's OBJ from the workspace (a new character's meshes aren't on disk
+	until export).
+	"""
+	meshes = meshes or {}
 	name = character_path.rsplit('/', 1)[-1]
 	collection = bpy.data.collections.new(name)
 	context.scene.collection.children.link(collection)
@@ -43,11 +50,14 @@ def _build(context, root, character_path, character):
 		logical = getattr(settings, field)
 		if not logical:
 			continue
-		path = workspace.file_path(root, logical, 'mesh')
-		if path is None:
-			missing.append(logical)
-			continue
-		right = _part_object(groups[scene.PART_GROUPS[part]], f'{part}.R' if part in rig.PAIRED_PARTS else part, scene.mesh_from_obj(path, logical), part, body_material)
+		mesh = meshes.get(part)
+		if mesh is None:
+			path = workspace.file_path(root, logical, 'mesh')
+			if path is None:
+				missing.append(logical)
+				continue
+			mesh = scene.mesh_from_obj(path, logical)
+		right = _part_object(groups[scene.PART_GROUPS[part]], f'{part}.R' if part in rig.PAIRED_PARTS else part, mesh, part, body_material)
 		world = scene.placement_matrix(placements[part])
 		scene.parent_to_bone(right, arm, scene.bone_name(part, 'R'), world)
 		if part not in rig.PAIRED_PARTS:
@@ -70,6 +80,25 @@ def _build(context, root, character_path, character):
 	scene.setup_offset_drivers(collection, arm)
 	scene.setup_spread_drivers(collection)
 	return collection, missing
+
+
+def _bundled_assets_ok(operator):
+	"""Load the addon's bundled node groups, eye meshes and images.
+
+	Done before building anything, so a broken install leaves no half-built
+	scene. Reports and returns False on failure.
+	"""
+	from . import nodegroup
+
+	try:
+		nodegroup.get()
+		nodegroup.get(nodegroup.EYE_GROUP_NAME)
+		nodegroup.get_data('meshes', nodegroup.EYE_MESHES)
+		nodegroup.get_data('images', nodegroup.EYE_IMAGES)
+	except (nodegroup.MissingAssetError, OSError) as exc:
+		operator.report({'ERROR'}, str(exc))
+		return False
+	return True
 
 
 def _part_object(collection, name, mesh, part, material):
@@ -102,15 +131,7 @@ class BALLISTICA_OT_import_character(bpy.types.Operator, ImportHelper):
 			return {'CANCELLED'}
 		if character.type != rig.CHARACTER_TYPE:
 			self.report({'WARNING'}, f"Unknown character type '{character.type}'; importing as {rig.CHARACTER_TYPE}.")
-		from . import nodegroup
-		try:
-			# Before building anything, so a broken install leaves no half-built scene.
-			nodegroup.get()
-			nodegroup.get(nodegroup.EYE_GROUP_NAME)
-			nodegroup.get_data('meshes', nodegroup.EYE_MESHES)
-			nodegroup.get_data('images', nodegroup.EYE_IMAGES)
-		except (nodegroup.MissingAssetError, OSError) as exc:
-			self.report({'ERROR'}, str(exc))
+		if not _bundled_assets_ok(self):
 			return {'CANCELLED'}
 		if context.object is not None and context.object.mode != 'OBJECT':
 			bpy.ops.object.mode_set(mode='OBJECT')
@@ -119,6 +140,93 @@ class BALLISTICA_OT_import_character(bpy.types.Operator, ImportHelper):
 			self.report({'WARNING'}, f"Missing meshes: {', '.join(missing)}")
 		else:
 			self.report({'INFO'}, f"Imported {collection.name}")
+		return {'FINISHED'}
+
+
+NAME_PATTERN = re.compile(r'^[a-z][a-z0-9_]*$')
+
+
+def new_character(name):
+	"""A .bchar for a from-scratch character whose files all use `name`."""
+	character = bchar.Character()
+	character.set('name', f'strings/characters/{name}')
+	for field, logical in (
+		('color_texture', f'textures/{name}_color'),
+		('color_mask_texture', f'textures/{name}_color_mask'),
+		('icon_texture', f'textures/{name}_icon'),
+		('icon_mask_texture', f'textures/{name}_icon_color_mask'),
+	):
+		character.set(field, logical)
+	for part, field, _ in rig.PARTS:
+		character.set(field, f'meshes/{name}_{part}')
+	character.set('color', [0.3, 0.5, 0.9])
+	character.set('highlight', [1.0, 0.8, 0.1])
+	return character
+
+
+def _new_image(root, logical, pixels, size, data):
+	"""An in-memory PNG that export writes to the logical path's file."""
+	image = bpy.data.images.new(logical.rsplit('/', 1)[-1], size, size, alpha=True)
+	if data:
+		# Before the pixels: changing a generated image's color space
+		# regenerates it, wiping them.
+		image.colorspace_settings.name = 'Non-Color'
+	image.pixels.foreach_set(pixels)
+	image.filepath_raw = workspace.new_file_path(root, logical, 'texture')
+	image.file_format = 'PNG'
+	return image
+
+
+class BALLISTICA_OT_new_character(bpy.types.Operator):
+	"""Start a character from scratch in a workspace: rig, guides, eyes and a cuboid body in the game's proportions. Nothing is written until you export"""
+	bl_idname = 'ballistica.new_character'
+	bl_label = "New Character"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	directory: bpy.props.StringProperty(
+		name="Workspace", subtype='DIR_PATH',
+		description="A local workspace folder (one with a workspace.json, e.g. from bacloud workspace get)")
+	name: bpy.props.StringProperty(
+		name="Name", default="my_character",
+		description="Lowercase id used for the character's files, e.g. characters/<name>.bchar and meshes/<name>_head.obj")
+
+	def invoke(self, context, event):
+		current = active_character(context)
+		if current is not None and not self.directory:
+			self.directory = current.ballistica_character.workspace_root
+		return context.window_manager.invoke_props_dialog(self, width=420)
+
+	def execute(self, context):
+		root = workspace.find_root(self.directory) if self.directory else None
+		if root is None:
+			self.report({'ERROR'}, "Pick a workspace folder: no workspace.json found there or above it.")
+			return {'CANCELLED'}
+		name = self.name.strip()
+		if not NAME_PATTERN.match(name):
+			self.report({'ERROR'}, "Name must be lowercase letters, digits and underscores, starting with a letter.")
+			return {'CANCELLED'}
+		character_path = f'characters/{name}'
+		character = new_character(name)
+		taken = [logical for _, kind, logical in character.referenced_assets() if workspace.file_path(root, logical, kind)]
+		if workspace.file_path(root, character_path, 'character'):
+			taken.insert(0, character_path)
+		if taken:
+			self.report({'ERROR'}, f"{name} is taken in this workspace ({', '.join(taken[:3])}); pick another name.")
+			return {'CANCELLED'}
+		if not _bundled_assets_ok(self):
+			return {'CANCELLED'}
+		if context.object is not None and context.object.mode != 'OBJECT':
+			bpy.ops.object.mode_set(mode='OBJECT')
+
+		color, mask = template.textures(256)
+		icon, icon_mask = template.icon(64)
+		_new_image(root, character.get('color_texture'), color, 256, data=False)
+		_new_image(root, character.get('color_mask_texture'), mask, 256, data=True)
+		_new_image(root, character.get('icon_texture'), icon, 64, data=False)
+		_new_image(root, character.get('icon_mask_texture'), icon_mask, 64, data=True)
+		meshes = {part: scene.mesh_from_objmesh(template.cuboid(part), f'meshes/{name}_{part}') for part in template.CUBOIDS}
+		collection, _ = _build(context, root, character_path, character, meshes)
+		self.report({'INFO'}, f"Created {collection.name}; Export Character writes it to the workspace")
 		return {'FINISHED'}
 
 
@@ -135,8 +243,11 @@ def check(collection):
 			problems.append(f"{field} is required")
 	exported = {f for p, f, _ in rig.PARTS if any(o.ballistica_part.role == p for o in _exportable_parts(collection))}
 	for field, kind, logical in character.referenced_assets():
-		if field not in exported and workspace.file_path(root, logical, kind) is None:
-			problems.append(f"{field}: {logical} not found in the workspace")
+		if field in exported or workspace.file_path(root, logical, kind) is not None:
+			continue
+		if kind == 'texture' and scene.find_image(workspace.new_file_path(root, logical, kind)) is not None:
+			continue  # Made in Blender; export writes it.
+		problems.append(f"{field}: {logical} not found in the workspace")
 	for field in ('color_mask_texture', 'icon_mask_texture'):
 		path = workspace.file_path(root, character.get(field) or '', 'texture') if character.get(field) else None
 		if path and workspace.texture_role(root, path) != 'data':
@@ -148,11 +259,16 @@ def check(collection):
 
 
 def _exportable_parts(collection):
-	"""Right-side and center part objects (left limbs mirror the right)."""
-	for obj in collection.all_objects:
-		part = obj.ballistica_part
-		if obj.type == 'MESH' and part.role in rig.ATTACH_TARGETS and part.side != 'L':
-			yield obj
+	"""Right-side and center part objects (left limbs mirror the right).
+
+	A list, not a generator: export writes ID properties on the meshes as it
+	goes, which makes Blender rebuild `all_objects` and would cut a live
+	iteration short.
+	"""
+	return [
+		obj for obj in collection.all_objects
+		if obj.type == 'MESH' and obj.ballistica_part.role in rig.ATTACH_TARGETS and obj.ballistica_part.side != 'L'
+	]
 
 
 # Objects Reset Parts puts back: everything placed on the rig except guides.
@@ -357,22 +473,27 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 			obj.data[scene.SIGNATURE_KEY] = signature
 			written.append(os.path.relpath(path, root))
 
-		# Textures: save images edited in Blender back as PNG.
+		# Textures: save images edited in Blender back as PNG, and write ones
+		# made in Blender that aren't on disk yet (a new character's).
 		masks = []
-		for field, data in (('color_texture', False), ('color_mask_texture', True)):
+		for field, data in (
+			('color_texture', False), ('color_mask_texture', True),
+			('icon_texture', False), ('icon_mask_texture', True),
+		):
 			logical = getattr(settings, field)
-			path = workspace.file_path(root, logical, 'texture') if logical else None
-			if path is None:
+			if not logical:
 				continue
-			image = next((i for i in bpy.data.images if i.filepath and os.path.abspath(bpy.path.abspath(i.filepath)) == os.path.abspath(path)), None)
-			if image is not None and image.is_dirty:
+			path = workspace.file_path(root, logical, 'texture') or workspace.new_file_path(root, logical, 'texture')
+			image = scene.find_image(path)
+			exists = os.path.isfile(path)
+			if image is not None and (image.is_dirty or not exists):
+				os.makedirs(os.path.dirname(path), exist_ok=True)
 				image.save()
 				written.append(os.path.relpath(path, root))
+			elif not exists:
+				continue
 			if data:
 				masks.append(path)
-		icon_mask = workspace.file_path(root, settings.icon_mask_texture, 'texture') if settings.icon_mask_texture else None
-		if icon_mask:
-			masks.append(icon_mask)
 		if workspace.mark_data_textures(root, masks):
 			written.append(workspace.WORKSPACE_FILE)
 
@@ -394,6 +515,7 @@ def menu_import(self, context):
 
 classes = (
 	BALLISTICA_OT_import_character,
+	BALLISTICA_OT_new_character,
 	BALLISTICA_OT_standard_colors,
 	BALLISTICA_OT_view_character,
 	BALLISTICA_OT_reset_parts,

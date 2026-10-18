@@ -33,11 +33,12 @@ class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 	def draw(self, context):
 		layout = self.layout
 		row = layout.row(align=True)
+		row.operator('ballistica.new_character', icon='ADD')
 		row.operator('ballistica.import_character', icon='IMPORT')
 		row.operator('ballistica.export_character', icon='EXPORT')
 		collection = active_character(context)
 		if collection is None:
-			layout.label(text="Import a .bchar to get started.", icon='INFO')
+			layout.label(text="Import a .bchar or start a new character.", icon='INFO')
 			return
 		settings = collection.ballistica_character
 		col = layout.column(align=True)

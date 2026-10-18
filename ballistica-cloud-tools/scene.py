@@ -7,6 +7,7 @@ built in the rest pose; posing the armature never changes exported meshes.
 
 import hashlib
 import math
+import os
 from array import array
 
 import bmesh
@@ -115,7 +116,11 @@ def transform_matrix(transform):
 
 def mesh_from_obj(path, name):
 	"""A Blender mesh (Blender axes, part-local) from a workspace OBJ."""
-	obj = objfile.read(path)
+	return mesh_from_objmesh(objfile.read(path), name)
+
+
+def mesh_from_objmesh(obj, name):
+	"""A Blender mesh (Blender axes, part-local) from an in-memory ObjMesh."""
 	mesh = bpy.data.meshes.new(name)
 	positions = [tuple(game_point(p)) for p in obj.positions]
 	mesh.from_pydata(positions, [], [[c[0] for c in face] for face in obj.faces])
@@ -357,13 +362,23 @@ def drive_color(socket, collection, data_path):
 
 
 def _image(root, logical, data):
-	path = workspace.file_path(root, logical, 'texture') if logical else None
-	if path is None:
+	if not logical:
 		return None
+	path = workspace.file_path(root, logical, 'texture')
+	if path is None:
+		# Not on disk yet: an image made in Blender for this path (a new
+		# character's textures), saved there on export.
+		return find_image(workspace.new_file_path(root, logical, 'texture'))
 	image = bpy.data.images.load(path, check_existing=True)
 	if data:
 		image.colorspace_settings.name = 'Non-Color'
 	return image
+
+
+def find_image(path):
+	"""The loaded image whose file is `path`, or None."""
+	path = os.path.abspath(path)
+	return next((i for i in bpy.data.images if i.filepath and os.path.abspath(bpy.path.abspath(i.filepath)) == path), None)
 
 
 # ---- guides ----

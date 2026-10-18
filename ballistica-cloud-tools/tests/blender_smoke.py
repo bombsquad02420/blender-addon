@@ -24,7 +24,7 @@ spec.loader.exec_module(package)
 package.register()
 
 import bpy  # noqa: E402
-from ballistica_cloud_tools import objfile, operators  # noqa: E402
+from ballistica_cloud_tools import objfile, operators, rig  # noqa: E402
 
 ws = os.path.join(tempfile.mkdtemp(), 'ws')
 shutil.copytree(SAMPLE, ws, ignore=shutil.ignore_patterns('.git'))
@@ -334,6 +334,45 @@ except RuntimeError as exc:
 	assert 'Bundled asset file not found' in str(exc), exc
 assert len(bpy.data.collections) == count
 nodegroup.ASSETS_BLEND = real
+
+# New Character: a cuboid character, written only on export, then re-imported.
+assert 'cubey' not in bpy.data.collections
+assert bpy.ops.ballistica.new_character(directory=os.path.join(ws, 'characters'), name='cubey') == {'FINISHED'}
+cubey = bpy.data.collections['cubey']
+assert not os.path.exists(os.path.join(ws, 'characters', 'cubey.bchar'))  # nothing written yet
+parts = {o.name for o in cubey.all_objects if o.ballistica_part.role in [p for p, _, _ in rig.PARTS]}
+assert len(parts) == 15, sorted(parts)  # 3 center parts + 6 paired parts on both sides
+assert operators.check(cubey) == [], operators.check(cubey)
+mask = bpy.data.images['cubey_color_mask']
+torso = ((int(2.5 / 3 * 256)) * 256 + int(1.5 / 3 * 256)) * 4  # centre of the torso's atlas cell
+assert tuple(mask.pixels[torso:torso + 3]) == (1.0, 0.0, 0.0), tuple(mask.pixels[torso:torso + 3])
+for bad_name, message in (('spaz', 'is taken'), ('Bad Name', 'lowercase')):
+	try:
+		bpy.ops.ballistica.new_character(directory=ws, name=bad_name)
+		raise AssertionError(f'new_character should refuse {bad_name!r}')
+	except RuntimeError as exc:
+		assert message in str(exc), exc
+before_cubey = snapshot()
+bpy.context.view_layer.objects.active = next(o for o in cubey.all_objects if o.ballistica_part.role == 'head')
+assert bpy.ops.ballistica.export_character() == {'FINISHED'}
+new_files = sorted(k for k, v in snapshot().items() if before_cubey.get(k) != v)
+expected = sorted(
+	[f'meshes/cubey_{p}.obj' for p, _, _ in rig.PARTS]
+	+ [f'textures/cubey_{t}.png' for t in ('color', 'color_mask', 'icon', 'icon_color_mask')]
+	+ ['characters/cubey.bchar', 'workspace.json'])
+assert new_files == expected, new_files
+from ballistica_cloud_tools import bchar as _bchar, workspace as _workspace  # noqa: E402
+written = _bchar.Character.load(os.path.join(ws, 'characters', 'cubey.bchar'))
+assert written.get('torso_mesh') == 'meshes/cubey_torso' and written.get('name') == 'strings/characters/cubey'
+assert _workspace.texture_role(ws, os.path.join(ws, 'textures', 'cubey_color_mask.png')) == 'data'
+box = objfile.read(os.path.join(ws, 'meshes', 'cubey_head.obj'))
+assert len(box.faces) == 12 and len(box.uvs) > 0
+after_export = snapshot()
+bpy.context.view_layer.objects.active = next(o for o in cubey.all_objects if o.ballistica_part.role == 'head')
+assert bpy.ops.ballistica.export_character() == {'FINISHED'}
+assert snapshot() == after_export  # a second export changes nothing
+assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'cubey.bchar')) == {'FINISHED'}
+assert operators.check(bpy.data.collections['cubey.001']) == []
 
 package.unregister()
 assert nodegroup.LIBRARY_NAME not in [lib.name for lib in bpy.context.preferences.filepaths.asset_libraries]
