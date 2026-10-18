@@ -233,6 +233,8 @@ assert bpy.ops.ballistica.standard_colors() == {'FINISHED'}
 assert ops.uses_standard_colors(bpy.context.scene)
 assert not bpy.ops.ballistica.standard_colors.poll()
 
+from types import SimpleNamespace  # noqa: E402
+
 # Exploded view: Spread moves each part by the web UI's spread offset.
 from ballistica_cloud_tools import pose  # noqa: E402
 
@@ -303,19 +305,17 @@ for o in wings:
 pixel.ballistica_character.spread = 0.0
 bpy.context.view_layer.update()
 
-# Frame Character: centred on the rig, far enough to fit it (stand-in view;
-# headless Blender has no 3D viewport).
-from types import SimpleNamespace  # noqa: E402
-
-view = SimpleNamespace(view_location=None, view_distance=None, view_perspective='PERSP', is_perspective=True)
-fake = SimpleNamespace(region_data=view, space_data=SimpleNamespace(lens=50.0), region=SimpleNamespace(width=1200, height=800))
-points = [arm.matrix_world @ p for b in arm.pose.bones for p in (b.head, b.tail)]
-low = Vector(tuple(min(p[i] for p in points) for i in range(3)))
-high = Vector(tuple(max(p[i] for p in points) for i in range(3)))
-operators.frame_bounds(fake, (low + high) / 2, (high - low).length / 2)
-assert (view.view_location - (low + high) / 2).length < 1e-6
-half = __import__('math').atan(18.0 / 50.0 * 800 / 1200)
-assert view.view_distance * __import__('math').sin(half) >= (high - low).length / 2, view.view_distance
+# Frame Character: the rig is framable while only its Rig toggle hides it,
+# not when hidden any other way (headless Blender can't run View Selected).
+ctx = SimpleNamespace(view_layer=bpy.context.view_layer)
+assert operators._framable_rig(ctx, agent) is not None  # Rig collection hidden by its toggle: fine
+arm.hide_set(True)
+assert operators._framable_rig(ctx, agent) is None
+arm.hide_set(False)
+agent_layer = next(_layer_collections(bpy.context.view_layer.layer_collection, agent))
+agent_layer.hide_viewport = True
+assert operators._framable_rig(ctx, agent) is None  # a parent collection hidden
+agent_layer.hide_viewport = False
 
 # A missing assets file must fail the import loudly, building nothing.
 real = nodegroup.ASSETS_BLEND

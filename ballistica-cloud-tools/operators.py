@@ -1,12 +1,10 @@
 """Import, export and check characters in a local workspace folder."""
 
 import json
-import math
 import os
 
 import bpy
 from bpy_extras.io_utils import ImportHelper
-from mathutils import Vector
 
 from . import bchar, objfile, pose, props, rig, scene, workspace
 from .ui import active_character
@@ -162,43 +160,74 @@ RESETTABLE_ROLES = (*(p for p, _, _ in rig.PARTS), 'attachment', 'eye')
 
 
 class BALLISTICA_OT_view_character(bpy.types.Operator):
-	"""Frame the active character's rig in the viewport, like View Selected (works while the Rig collection is hidden)"""
+	"""Frame the active character's rig with View Selected (Object Mode; the rig must not be hidden or excluded other than by the Rig visibility toggle)"""
 	bl_idname = 'ballistica.view_character'
 	bl_label = "Frame Character"
 
 	@classmethod
 	def poll(cls, context):
-		return active_character(context) is not None and context.region_data is not None
+		if context.mode != 'OBJECT' or context.region_data is None:
+			return False
+		collection = active_character(context)
+		return collection is not None and _framable_rig(context, collection) is not None
 
 	def execute(self, context):
-		collection = active_character(context)
-		arm = next((o for o in collection.all_objects if o.type == 'ARMATURE'), None)
-		if arm is None:
-			self.report({'ERROR'}, f"{collection.name} has no rig to frame")
-			return {'CANCELLED'}
-		points = [arm.matrix_world @ p for b in arm.pose.bones for p in (b.head, b.tail)]
-		low = Vector(tuple(min(p[i] for p in points) for i in range(3)))
-		high = Vector(tuple(max(p[i] for p in points) for i in range(3)))
-		frame_bounds(context, (low + high) / 2, (high - low).length / 2)
+		arm, rig_layer = _framable_rig(context, active_character(context))
+		view_layer = context.view_layer
+		# Show the rig and select only it, run View Selected, then put
+		# everything back. The target view is computed when the operator
+		# runs, so restoring right away doesn't disturb the (smooth) move.
+		was_hidden = rig_layer.hide_viewport
+		selected = [o for o in view_layer.objects if o.select_get()]
+		active = view_layer.objects.active
+		try:
+			rig_layer.hide_viewport = False
+			for obj in selected:
+				obj.select_set(False)
+			arm.select_set(True)
+			view_layer.objects.active = arm
+			view_layer.update()
+			bpy.ops.view3d.view_selected()
+		finally:
+			arm.select_set(False)
+			for obj in selected:
+				obj.select_set(True)
+			view_layer.objects.active = active
+			rig_layer.hide_viewport = was_hidden
 		return {'FINISHED'}
 
 
-def frame_bounds(context, centre, radius):
-	"""Point the 3D view at a sphere, as View Selected does."""
-	view = context.region_data
-	view.view_location = centre
-	space = context.space_data
-	if view.view_perspective == 'CAMERA':
-		view.view_perspective = 'PERSP'
-	if view.is_perspective:
-		# The viewport fits a 36 mm sensor to the region's longer side; fit
-		# the sphere in the narrower angle, with a little margin.
-		region = context.region
-		aspect = min(region.width, region.height) / max(region.width, region.height) if region else 1.0
-		half_angle = math.atan(18.0 / space.lens * aspect)
-		view.view_distance = radius / math.sin(half_angle) * 1.1
-	else:
-		view.view_distance = radius * 2.2
+def _framable_rig(context, collection):
+	"""(armature, its Rig layer collection) if View Selected can frame it.
+
+	The Rig collection's own eye icon is fine (the operator turns it on for
+	the moment); anything else hiding the rig makes it unframable: the
+	armature hidden or disabled, or its collection or a parent excluded,
+	disabled, or hidden.
+	"""
+	arm = next((o for o in collection.all_objects if o.type == 'ARMATURE'), None)
+	if arm is None or arm.hide_viewport or arm.name not in context.view_layer.objects or arm.hide_get():
+		return None
+	path = _layer_path(context.view_layer.layer_collection, arm.users_collection[0])
+	if path is None:
+		return None
+	for layer in path:
+		if layer.exclude or layer.collection.hide_viewport:
+			return None
+	if any(layer.hide_viewport for layer in path[:-1]):
+		return None
+	return arm, path[-1]
+
+
+def _layer_path(layer, collection):
+	"""Layer collections from the view layer root down to `collection`."""
+	if layer.collection == collection:
+		return [layer]
+	for child in layer.children:
+		path = _layer_path(child, collection)
+		if path is not None:
+			return [layer, *path]
+	return None
 
 
 class BALLISTICA_OT_reset_parts(bpy.types.Operator):
