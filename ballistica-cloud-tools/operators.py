@@ -159,7 +159,7 @@ RESETTABLE_ROLES = (*(p for p, _, _ in rig.PARTS), 'attachment', 'eye')
 
 
 class BALLISTICA_OT_reset_parts(bpy.types.Operator):
-	"""Put the character back in its T-pose: clear the armature's pose and move body parts, attachments and eyes back onto their bones (only the selected parts if any are selected)"""
+	"""Put the character back in its T-pose: move the rig back onto its root, clear its pose and move body parts, attachments and eyes back onto their bones (only the selected parts if any are selected)"""
 	bl_idname = 'ballistica.reset_parts'
 	bl_label = "Reset to T-Pose"
 	bl_options = {'REGISTER', 'UNDO'}
@@ -179,6 +179,7 @@ class BALLISTICA_OT_reset_parts(bpy.types.Operator):
 		if not selected:
 			arm = next((o for o in collection.all_objects if o.type == 'ARMATURE'), None)
 			if arm is not None:
+				_clear_transform(arm)  # Back onto the root (the root itself stays put).
 				for bone in arm.pose.bones:
 					_clear_transform(bone)  # Offset bones' location is re-applied by drivers.
 		collection.update_tag()  # Re-run drivers (offsets, eye scale).
