@@ -47,19 +47,34 @@ class CuboidTest(unittest.TestCase):
 			for u, v in template.cuboid(part).uvs:
 				self.assertEqual(template.part_at(u, v), part)
 
+	def test_limbs_span_their_joints_and_are_long(self):
+		spans = {
+			'upper_arm': (rig.SHOULDER_ON_UPPER_ARM[2], rig.ELBOW_ON_UPPER_ARM[2]),
+			'forearm': (rig.ELBOW_ON_LOWER_ARM[2], rig.HAND_OFFSET),
+			'upper_leg': (rig.HIP_ON_UPPER_LEG[2], rig.KNEE_ON_UPPER_LEG[2]),
+			'lower_leg': (rig.KNEE_ON_LOWER_LEG[2], rig.ANKLE_ON_LOWER_LEG[2]),
+		}
+		for part, (start, end) in spans.items():
+			lo, hi = template.CUBOIDS[part]
+			self.assertLess(lo[2], start, part)
+			self.assertGreater(hi[2], end, part)
+			length = hi[2] - lo[2]
+			self.assertGreater(length, 1.8 * (hi[0] - lo[0]), f'{part} should be long and slim')
+
 	@unittest.skipUnless(os.path.isdir(SAMPLE), 'ClassicCharacterAssets not cloned next to the addon repo')
-	def test_boxes_cover_the_default_spaz(self):
-		# The boxes are the neo_spaz bounding boxes, rounded.
-		for part, field, _ in rig.PARTS:
-			if part == 'head':
-				continue  # The head is sized from the head ball instead.
+	def test_limb_lengths_match_the_default_spaz(self):
+		for part in ('upper_arm', 'forearm', 'upper_leg', 'lower_leg'):
 			name = {'forearm': 'fore_arm'}.get(part, part)
 			mesh = objfile.read(os.path.join(SAMPLE, 'meshes', f'neo_spaz_{name}.obj'))
+			zs = [p[2] for p in mesh.positions]
 			lo, hi = template.CUBOIDS[part]
-			for axis in range(3):
-				self.assertAlmostEqual(min(p[axis] for p in mesh.positions), lo[axis], delta=0.01, msg=part)
-				self.assertAlmostEqual(max(p[axis] for p in mesh.positions), hi[axis], delta=0.01, msg=part)
+			self.assertAlmostEqual(hi[2] - lo[2], max(zs) - min(zs), delta=0.06, msg=part)
 
+	def test_parts_are_slimmer_than_the_armoured_spaz(self):
+		# The default Spaz's bounding boxes include armour; the template's
+		# limbs should be thinner than that.
+		self.assertLess(template.CUBOIDS['upper_arm'][1][0] - template.CUBOIDS['upper_arm'][0][0], 0.229)
+		self.assertLess(template.CUBOIDS['lower_leg'][1][0] - template.CUBOIDS['lower_leg'][0][0], 0.168)
 
 	def test_head_sits_in_the_head_ball_with_eyes_on_its_face(self):
 		lo, hi = template.CUBOIDS['head']

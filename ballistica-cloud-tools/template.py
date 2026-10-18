@@ -1,12 +1,14 @@
 """A from-scratch character: one cuboid per body part, Minecraft style.
 
-Each body cuboid is the bounding box of the default Spaz's part (the
-`neo_spaz_*` meshes in ClassicCharacterAssets), so the boxes have the
-game's proportions and sit where the game draws each part. The head is
-the exception: Spaz's helmet makes its bounding box far bigger than the
-head, so the head is a cube just inside the rig's head ball, with its
-front face where the eyes sit. Sizes are in each part's own space (game
-axes); arm and leg parts are right-side.
+Boxes sit where the game draws each part. Each limb box runs along its
+body's +z (the bone) as far as the default Spaz's mesh for that limb does
+(the `neo_spaz_*` meshes in ClassicCharacterAssets), so limbs have the
+game's lengths and overlap at the joints the way the real meshes do; its
+thickness is about the game's collision capsule, not Spaz's armour. The
+torso and pelvis follow the rig's torso radius and pelvis box; the head is
+a cube just inside the head ball with its front face where the eyes sit.
+Sizes are in each part's own space (game axes); arm and leg parts are
+right-side.
 
 The cuboids share one texture atlas: each part gets a cell, and each face
 of its box a patch inside that cell, so faces can be painted separately.
@@ -15,23 +17,40 @@ limbs with the highlight (green); head, hands and feet stay untinted.
 Pure Python, testable without Blender.
 """
 
-from . import objfile
+from . import objfile, rig
 
 # Half-size of the head cube: inside the head ball (radius 0.23), with the
 # front face at the eyes' depth (eye_offset z = 0.205).
 HEAD = 0.21
 
-# Part -> (min corner, max corner), game axes, from the neo_spaz meshes.
+
+
+def _limb(z_extent, half_width, forward=0.0):
+	"""A box along the bone (+z) over `z_extent`, `half_width` thick.
+
+	`forward` shifts it along +y (a shin's front, toward the ankle).
+	"""
+	return ((-half_width, forward - half_width, z_extent[0]), (half_width, forward + half_width, z_extent[1]))
+
+
+_TORSO_R = rig.DEFAULTS['torso_radius']
+_PELVIS_W, _PELVIS_H, _PELVIS_D = rig.PELVIS_SIZE
+
+# Part -> (min corner, max corner), game axes, in the part's own space.
 CUBOIDS = {
 	'head': ((-HEAD, -HEAD, -HEAD), (HEAD, HEAD, HEAD)),
-	'torso': ((-0.17, -0.13, -0.14), (0.18, 0.24, 0.18)),
-	'pelvis': ((-0.15, -0.05, -0.12), (0.15, 0.10, 0.11)),
-	'upper_arm': ((-0.13, -0.09, -0.22), (0.10, 0.11, 0.08)),
-	'forearm': ((-0.10, -0.05, -0.14), (0.04, 0.08, 0.08)),
-	'hand': ((-0.06, -0.07, -0.04), (0.10, 0.09, 0.15)),
-	'upper_leg': ((-0.06, -0.08, -0.13), (0.06, 0.06, 0.11)),
-	'lower_leg': ((-0.08, -0.13, -0.15), (0.08, 0.08, 0.11)),
-	'toes': ((-0.09, -0.05, -0.02), (0.08, 0.13, 0.07)),
+	# Shoulders on top (shoulder joints sit 0.14 up), the spine joint below.
+	'torso': ((-_TORSO_R, -0.12, -0.11), (_TORSO_R, rig.SHOULDER_ON_TORSO[1] + 0.05, 0.12)),
+	'pelvis': ((-_PELVIS_W * 0.42, -_PELVIS_H * 0.5, -0.08), (_PELVIS_W * 0.42, _PELVIS_H * 0.6, 0.08)),
+	# Lengths along the bone from the neo_spaz meshes; widths ~ capsule radii.
+	'upper_arm': _limb((-0.2, 0.075), 0.055),  # capsule radius 0.06
+	'forearm': _limb((-0.13, 0.07), 0.05),  # capsule radius 0.06
+	# A fist, from the wrist forward along the hand.
+	'hand': ((-0.05, -0.045, -0.02), (0.05, 0.055, 0.1)),
+	'upper_leg': _limb((-0.12, 0.1), 0.05),  # thigh radius 0.04
+	'lower_leg': _limb((-0.12, 0.1), 0.05, forward=0.01),  # ankle radius 0.07
+	# A shoe, long along the foot's forward (+y), sole at the bottom.
+	'toes': ((-0.055, -0.04, -0.02), (0.055, 0.12, 0.065)),
 }
 
 # Atlas cell (column, row) per part on a 3x3 grid; row 0 is the bottom.
