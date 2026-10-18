@@ -208,6 +208,13 @@ assert tuple(arm.pose.bones['upper_leg.R'].rotation_quaternion) == (1.0, 0.0, 0.
 moved = tuple(round(c, 4) for c in game_head('upper_arm.R') - base['upper_arm.R'])
 assert moved == (0.03, -0.02, 0.01), moved  # driven shoulder offset survives the reset
 
+# Standard colors: sets the view transform, then has nothing left to do.
+from ballistica_cloud_tools import operators as ops  # noqa: E402
+assert not ops.uses_standard_colors(bpy.context.scene)  # factory default is AgX
+assert bpy.ops.ballistica.standard_colors() == {'FINISHED'}
+assert ops.uses_standard_colors(bpy.context.scene)
+assert not bpy.ops.ballistica.standard_colors.poll()
+
 # A missing assets file must fail the import loudly, building nothing.
 real = nodegroup.ASSETS_BLEND
 nodegroup.ASSETS_BLEND = real + '.missing'

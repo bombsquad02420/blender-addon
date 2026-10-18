@@ -193,6 +193,30 @@ def _clear_transform(item):
 	item.scale = (1.0, 1.0, 1.0)
 
 
+class BALLISTICA_OT_standard_colors(bpy.types.Operator):
+	"""Show colors as the web UI and game do: set this scene's view transform to Standard (no look, exposure 0, gamma 1). Blender's default AgX washes colors out"""
+	bl_idname = 'ballistica.standard_colors'
+	bl_label = "Use Standard Colors"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	@classmethod
+	def poll(cls, context):
+		return not uses_standard_colors(context.scene)
+
+	def execute(self, context):
+		view = context.scene.view_settings
+		view.view_transform = 'Standard'
+		view.look = 'None'
+		view.exposure = 0.0
+		view.gamma = 1.0
+		return {'FINISHED'}
+
+
+def uses_standard_colors(scene):
+	view = scene.view_settings
+	return view.view_transform == 'Standard' and view.look == 'None' and view.exposure == 0.0 and view.gamma == 1.0
+
+
 class BALLISTICA_OT_check_character(bpy.types.Operator):
 	"""Check the active character for problems before uploading"""
 	bl_idname = 'ballistica.check_character'
@@ -283,6 +307,7 @@ def menu_import(self, context):
 
 classes = (
 	BALLISTICA_OT_import_character,
+	BALLISTICA_OT_standard_colors,
 	BALLISTICA_OT_reset_parts,
 	BALLISTICA_OT_check_character,
 	BALLISTICA_OT_export_character,
