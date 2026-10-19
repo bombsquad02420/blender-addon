@@ -35,9 +35,18 @@ def restructure(collection, change):
 	handles are tagged with the old ones), and not again afterwards.
 	"""
 	attach_scene.sync_from_handles(collection)
-	change(collection.ballistica_character)
+	# Don't follow the active row to objects about to be rebuilt; select
+	# the rebuilt ones afterwards instead.
+	attach_scene._following = True
+	try:
+		change(collection.ballistica_character)
+	finally:
+		attach_scene._following = False
 	attach_scene.clear(collection)
 	attach_scene.build(collection)
+	settings = collection.ballistica_character
+	if 0 <= settings.active_attachment_index < len(settings.attachments):
+		attach_scene.select(collection, settings.active_attachment_index, None)
 
 
 class _AttachmentOperator:

@@ -402,6 +402,31 @@ assert sorted({o[attach_scene.INDEX_KEY] for o in attach_scene.tagged(zoe, attac
 assert written_attachments(zoe) == before_ops
 
 
+# Clicking a list row selects its meshes; making a mesh active picks its row.
+def meshes_of(index, segment=None):
+	return {o.name for o in attach_scene.tagged(zoe, attach_scene.MESH, index)
+		if segment is None or o[attach_scene.SEGMENT_KEY] == segment}
+
+
+settings.active_attachment_index = 1
+assert {o.name for o in bpy.context.selected_objects} == meshes_of(1)
+assert bpy.context.view_layer.objects.active.name in meshes_of(1)
+settings.active_attachment_index = 0
+assert {o.name for o in bpy.context.selected_objects} == meshes_of(0)
+settings.attachments[0].active_segment_index = 0
+assert {o.name for o in bpy.context.selected_objects} == meshes_of(0, 0)
+other = next(o for o in attach_scene.tagged(zoe, attach_scene.MESH, 1))
+bpy.context.view_layer.objects.active = other
+attach_scene.on_active_object_changed()  # what the message bus calls in the UI
+assert settings.active_attachment_index == 1
+settings.active_attachment_index = 1  # selects its mesh, then a rebuild replaces it
+settings.attachments[1].kind = 'static'
+assert ui.active_character(bpy.context) == zoe  # still on the character after the rebuild
+assert {o.name for o in bpy.context.selected_objects} == meshes_of(1)
+active_before = bpy.context.view_layer.objects.active
+assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'pixel.bchar')) == {'FINISHED'}
+assert bpy.context.view_layer.objects.active == active_before  # loading doesn't steal the selection
+
 # The Attachments panel draws (against a stand-in layout that checks every
 # property it shows exists).
 class StubLayout:

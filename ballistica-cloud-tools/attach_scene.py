@@ -264,10 +264,22 @@ def _read_transform(obj):
 
 
 def rebuild(collection):
-	"""Keep handle edits, then recreate every attachment's objects."""
+	"""Keep handle edits, then recreate every attachment's objects.
+
+	If an attachment object was active (it's about to be deleted), the
+	active attachment's new meshes are selected instead, so the character
+	stays active in the panel.
+	"""
 	sync_from_handles(collection)
+	view_layer = bpy.context.view_layer
+	active = view_layer.objects.active if view_layer else None
+	was_ours = active is not None and active.get(ROLE_KEY) and active in tagged(collection)
 	clear(collection)
-	return build(collection)
+	created = build(collection)
+	settings = collection.ballistica_character
+	if was_ours and 0 <= settings.active_attachment_index < len(settings.attachments):
+		select(collection, settings.active_attachment_index, None)
+	return created
 
 
 def rebuild_for(item):
@@ -342,11 +354,95 @@ def on_depsgraph_update(scene, depsgraph):
 		_syncing = False
 
 
+# ---- selection follows the list, and the list follows selection ----
+
+_following = False  # True while one side is updating the other.
+
+
+def select(collection, index, segment):
+	"""props hook: select the meshes of attachment `index` (or one segment).
+
+	Only in Object Mode, and only meshes that are visible; handles are left
+	to the Select Anchor / Select Art buttons. The right (or centre) copy
+	becomes active.
+	"""
+	global _following
+	context = bpy.context
+	if _following or context.mode != 'OBJECT' or context.view_layer is None:
+		return
+	view_layer = context.view_layer
+	meshes = [
+		o for o in tagged(collection, MESH, index)
+		if (segment is None or o.get(SEGMENT_KEY) == segment) and o.name in view_layer.objects and o.visible_get()
+	]
+	if not meshes:
+		return
+	_following = True
+	try:
+		for obj in view_layer.objects:
+			if obj.select_get():
+				obj.select_set(False)
+		for obj in meshes:
+			obj.select_set(True)
+		view_layer.objects.active = next((o for o in meshes if o.get(SIDE_KEY) != 'L'), meshes[0])
+	finally:
+		_following = False
+
+
+def on_active_object_changed():
+	"""An attachment mesh became active in the viewport: show it in the list."""
+	global _following
+	if _following:
+		return
+	obj = bpy.context.view_layer.objects.active if bpy.context.view_layer else None
+	if obj is None or obj.get(ROLE_KEY) != MESH:
+		return
+	collection = character_of(obj)
+	if collection is None:
+		return
+	settings = collection.ballistica_character
+	index, segment = obj[INDEX_KEY], obj.get(SEGMENT_KEY, 0)
+	if not 0 <= index < len(settings.attachments):
+		return
+	_following = True
+	try:
+		if settings.active_attachment_index != index:
+			settings.active_attachment_index = index
+		attachment = settings.attachments[index]
+		if attachment.active_segment_index != segment:
+			attachment.active_segment_index = segment
+	finally:
+		_following = False
+
+
+_props.ATTACHMENT_REBUILD_HOOKS['select'] = select
+_MSGBUS_OWNER = object()
+
+
+def _subscribe(*_args):
+	bpy.msgbus.clear_by_owner(_MSGBUS_OWNER)
+	bpy.msgbus.subscribe_rna(
+		key=(bpy.types.LayerObjects, 'active'), owner=_MSGBUS_OWNER, args=(),
+		notify=on_active_object_changed)
+
+
 def register():
 	if on_depsgraph_update not in bpy.app.handlers.depsgraph_update_post:
 		bpy.app.handlers.depsgraph_update_post.append(on_depsgraph_update)
+	_subscribe()
+	# Message bus subscriptions are dropped when a file loads.
+	if _resubscribe not in bpy.app.handlers.load_post:
+		bpy.app.handlers.load_post.append(_resubscribe)
+
+
+@bpy.app.handlers.persistent
+def _resubscribe(*_args):
+	_subscribe()
 
 
 def unregister():
 	if on_depsgraph_update in bpy.app.handlers.depsgraph_update_post:
 		bpy.app.handlers.depsgraph_update_post.remove(on_depsgraph_update)
+	if _resubscribe in bpy.app.handlers.load_post:
+		bpy.app.handlers.load_post.remove(_resubscribe)
+	bpy.msgbus.clear_by_owner(_MSGBUS_OWNER)

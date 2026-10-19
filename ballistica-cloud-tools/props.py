@@ -169,6 +169,29 @@ def _placement_changed(self, context):
 		hook(self)
 
 
+def _active_attachment_changed(self, context):
+	"""A list row was clicked: select that attachment's meshes."""
+	if self.get('_loading'):
+		return
+	hook = ATTACHMENT_REBUILD_HOOKS.get('select')
+	if hook is not None:
+		hook(self.id_data, self.active_attachment_index, None)
+
+
+def _active_segment_changed(self, context):
+	"""A segment row was clicked: select that segment's meshes."""
+	if self.get('_fixing'):
+		return
+	hook = ATTACHMENT_REBUILD_HOOKS.get('select')
+	if hook is None:
+		return
+	settings = self.id_data.ballistica_character
+	for index, attachment in enumerate(settings.attachments):
+		if attachment == self:
+			hook(self.id_data, index, self.active_segment_index)
+			return
+
+
 def _attachment_rebuild(attachment):
 	"""Rebuild the character's attachment objects (set by attach_scene)."""
 	hook = ATTACHMENT_REBUILD_HOOKS.get('rebuild')
@@ -226,7 +249,8 @@ class COLLECTION_PG_ballistica_attachment(bpy.types.PropertyGroup):
 	stiffness_change: _tuning("Stiffness Change", 'stiffness_change')
 	damping_change: _tuning("Damping Change", 'damping_change')
 	segments: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_segment)
-	active_segment_index: bpy.props.IntProperty(name="Active Segment", options=_options())
+	active_segment_index: bpy.props.IntProperty(
+		name="Active Segment", options=_options(), update=_active_segment_changed)
 	raw_json: bpy.props.StringProperty(
 		name="Raw Attachment", description="This attachment's JSON as loaded; unmodelled keys are kept from here",
 		options={'HIDDEN'})
@@ -377,7 +401,8 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 
 	# Attachments (not in the web UI form)
 	attachments: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_attachment)
-	active_attachment_index: bpy.props.IntProperty(name="Active Attachment", options=_options())
+	active_attachment_index: bpy.props.IntProperty(
+		name="Active Attachment", options=_options(), update=_active_attachment_changed)
 
 
 REF_FIELDS = (
@@ -410,10 +435,14 @@ def load_into(settings, character):
 			setattr(settings, field, value)
 	for field in rig.SOUND_FIELDS:
 		setattr(settings, field, ', '.join(character.get(field, [])))
-	settings.attachments.clear()
-	for raw in character.attachments:
-		set_attachment(settings.attachments.add(), attach_rules.from_json(raw), raw)
-	settings.active_attachment_index = 0
+	settings['_loading'] = True  # Loading mustn't change the user's selection.
+	try:
+		settings.attachments.clear()
+		for raw in character.attachments:
+			set_attachment(settings.attachments.add(), attach_rules.from_json(raw), raw)
+		settings.active_attachment_index = 0
+	finally:
+		del settings['_loading']
 
 
 def to_character(settings):
