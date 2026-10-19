@@ -83,8 +83,8 @@ bpy.context.view_layer.update()
 assert abs(body_group.inputs['Reflection Scale'].default_value - 0.7) < 1e-6
 bpy.data.collections['agent_johnson'].ballistica_character.reflection_scale = 0.2
 bpy.context.view_layer.update()
-eye_mats = {m.name: m for m in bpy.data.materials if m.name.startswith('zoe_eye')}
-for name, image, strength in (('zoe_eye', nodegroup.REFLECTION_SHARPEST, 3.0), ('zoe_eyelid', nodegroup.REFLECTION_CHAR, 0.05)):
+eye_mats = {m.name: m for m in bpy.data.materials if m.name.startswith(('zoe_eye', 'zoe_iris'))}
+for name, image, strength in (('zoe_eye', nodegroup.REFLECTION_SHARPEST, 3.0), ('zoe_iris', nodegroup.REFLECTION_SHARPEST, 2.0), ('zoe_eyelid', nodegroup.REFLECTION_CHAR, 0.05)):
 	g = next(n for n in eye_mats[name].node_tree.nodes if n.type == 'GROUP')
 	assert g.inputs['Reflection'].links[0].from_node.image.name == image, name
 	assert abs(g.inputs['Reflection Scale'].default_value - strength) < 1e-6, name
@@ -209,6 +209,7 @@ assert dims(eye_obj)[0] == round(0.18 * 1.5, 3), dims(eye_obj)  # the game's eye
 eyes = [o for o in bpy.data.collections['zoe Eyes'].objects if o.name.startswith('eye.')]
 lids = [o for o in bpy.data.collections['zoe Eyes'].objects if o.name.startswith('eyelid.')]
 assert len(eyes) == 2 and len(lids) == 2
+assert all([s.material.name for s in o.material_slots] == ['zoe_eye', 'zoe_iris'] for o in eyes)  # ball, iris
 assert {o.data.name for o in eyes} == {'eye_ball'} and {o.data.name for o in lids} == {'eye_lid'}  # shared meshes
 assert all(lid.parent in eyes for lid in lids)
 left = next(o for o in eyes if o.ballistica_part.side == 'L')

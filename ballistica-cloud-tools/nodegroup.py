@@ -42,9 +42,9 @@ EYE_IMAGES = ('eye_color', 'eye_color_tint_mask')
 REFLECTION_CHAR = 'reflection_char'
 REFLECTION_SHARPEST = 'reflection_sharpest'
 REFLECTION_IMAGES = (REFLECTION_CHAR, REFLECTION_SHARPEST)
-# Fixed reflection strengths of the eye looks (the web UI's preview data);
-# the eyeball mesh includes the iris, which the game reflects at 2.0.
+# Fixed reflection strengths of the eye looks (the web UI's preview data).
 EYEBALL_REFLECTION = 3.0
+IRIS_REFLECTION = 2.0
 EYELID_REFLECTION = 0.05
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), 'assets')
 ASSETS_BLEND = os.path.join(ASSETS_DIR, 'ballistica_assets.blend')

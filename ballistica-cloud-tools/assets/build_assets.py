@@ -11,7 +11,7 @@ this script.
 
 Eye meshes get the engine's fixed transforms baked in (DrawEyeBalls /
 DrawEyeLids in spaz_node.cc): scale kSpazRigEyeMeshScale, and the
-eyeball (ball + iris, one mesh) pitched kSpazRigEyeballPitch so it looks
+eyeball (ball + iris, one mesh with a material slot each) pitched kSpazRigEyeballPitch so it looks
 slightly down.
 """
 
@@ -67,17 +67,23 @@ for create in (nodegroup.create, nodegroup.create_eye):
 
 
 def mesh(name, sources, transform):
-	"""Join OBJ sources into one Blender mesh with `transform` applied."""
+	"""Join OBJ sources into one Blender mesh with `transform` applied.
+
+	Each source gets its own material slot (faces keep the source's index).
+	"""
 	bm = bmesh.new()
-	for source in sources:
+	for index, source in enumerate(sources):
 		part = scene.mesh_from_obj(os.path.join(SOURCE, f'{source}.obj'), source)
+		for poly in part.polygons:
+			poly.material_index = index
 		bm.from_mesh(part)
 		bpy.data.meshes.remove(part)
 	bm.transform(transform)
 	out = bpy.data.meshes.new(name)
 	bm.to_mesh(out)
 	bm.free()
-	out.materials.append(None)  # one slot; objects assign their own material
+	for _ in sources:
+		out.materials.append(None)  # objects assign their own materials
 	out.use_fake_user = True
 	return out
 

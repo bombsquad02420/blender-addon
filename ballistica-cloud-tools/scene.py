@@ -581,14 +581,15 @@ def build_eyes(collection, arm, placements, settings, target):
 	ball_mesh, lid_mesh = nodegroup.get_data('meshes', nodegroup.EYE_MESHES)
 	texture, mask = nodegroup.get_data('images', nodegroup.EYE_IMAGES)
 	name = collection.name
-	eye_material = build_eye_material(f'{name}_eye', collection, texture, mask, 'eye_color', 'eyeball_color')
-	lid_material = build_eye_material(f'{name}_eyelid', collection, texture, None, None, 'eyelid_color')
+	eye_material = build_eye_material(f'{name}_eye', collection, texture, mask, 'eye_color', 'eyeball_color', nodegroup.EYEBALL_REFLECTION)
+	iris_material = build_eye_material(f'{name}_iris', collection, texture, mask, 'eye_color', 'eyeball_color', nodegroup.IRIS_REFLECTION)
+	lid_material = build_eye_material(f'{name}_eyelid', collection, texture, None, None, 'eyelid_color', nodegroup.EYELID_REFLECTION)
 	head = placements['head']
 	none = rig.EYE_STYLES.index('none')
 	regular = rig.EYE_STYLES.index('regular')
 	eyes = []
 	for side, field in (('R', 'eye_style_right'), ('L', 'eye_style_left')):
-		eye = _eye_object(f'eye.{side}', ball_mesh, eye_material, side, target)
+		eye = _eye_object(f'eye.{side}', ball_mesh, (eye_material, iris_material), side, target)
 		# The eyeball rests pitched (rig eyeball_pitch: looking slightly down);
 		# the lid doesn't, so it undoes the pitch below.
 		parent_to_bone(eye, arm, f'eye_offset.{side}', Matrix.Translation(game_point(head.location)) @ EYEBALL_PITCH)
@@ -597,7 +598,7 @@ def build_eyes(collection, arm, placements, settings, target):
 		for path in ('hide_viewport', 'hide_render'):
 			drive_value(eye, path, -1, collection, field, f'v == {none}')
 
-		lid = _eye_object(f'eyelid.{side}', lid_mesh, lid_material, side, target)
+		lid = _eye_object(f'eyelid.{side}', lid_mesh, (lid_material,), side, target)
 		lid.parent = eye
 		lid.matrix_parent_inverse = EYEBALL_PITCH.inverted()
 		# Game rotation about the forward axis (+Z) is Blender's -Y.
@@ -622,18 +623,23 @@ def assign_material(obj, material):
 	obj.material_slots[0].material = material
 
 
-def _eye_object(name, mesh, material, side, target):
+def _eye_object(name, mesh, materials, side, target):
 	obj = bpy.data.objects.new(name, mesh)
 	target.objects.link(obj)
 	obj.ballistica_part.role = 'eye'
 	obj.ballistica_part.side = side
 	# The meshes are shared between characters; materials are per object.
-	obj.material_slots[0].link = 'OBJECT'
-	obj.material_slots[0].material = material
+	# The eyeball mesh has two slots: ball, then iris.
+	if len(obj.material_slots) != len(materials):
+		from .nodegroup import MissingAssetError
+		raise MissingAssetError(f"{mesh.name} has {len(obj.material_slots)} material slots, expected {len(materials)}; rebuild the addon (make assets)")
+	for slot, material in zip(obj.material_slots, materials):
+		slot.link = 'OBJECT'
+		slot.material = material
 	return obj
 
 
-def build_eye_material(name, collection, texture, mask, iris_field, base_field):
+def build_eye_material(name, collection, texture, mask, iris_field, base_field, reflection):
 	"""Eye texture through the bundled "Ballistica Eye" group, colors driven."""
 	from . import nodegroup
 
@@ -659,10 +665,10 @@ def build_eye_material(name, collection, texture, mask, iris_field, base_field):
 	if iris_field:
 		drive_color(group.inputs['Iris Color'], collection, f'ballistica_character.{iris_field}')
 	drive_color(group.inputs['Base Color'], collection, f'ballistica_character.{base_field}')
-	# The eyeball reflects the sharp environment strongly; the lid barely.
+	# The eyeball and iris reflect the sharp environment strongly; the lid barely.
 	eyeball = base_field == 'eyeball_color'
 	add_reflection(mat, group, nodegroup.REFLECTION_SHARPEST if eyeball else nodegroup.REFLECTION_CHAR)
-	group.inputs['Reflection Scale'].default_value = nodegroup.EYEBALL_REFLECTION if eyeball else nodegroup.EYELID_REFLECTION
+	group.inputs['Reflection Scale'].default_value = reflection
 	return mat
 
 
