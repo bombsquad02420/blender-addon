@@ -167,6 +167,7 @@ class VIEW3D_PT_ballistica_identity(_Section, bpy.types.Panel):
 		('color',),
 		('highlight', 'highlight_name', 'highlight_editing'),
 		('highlight2', 'highlight2_name', 'highlight2_editing'),
+		('reflection_scale',),
 	)
 	fields = tuple(f for group in groups for f in group)
 
@@ -181,6 +182,19 @@ class VIEW3D_PT_ballistica_identity(_Section, bpy.types.Panel):
 			col = layout.column(align=True)
 			for field in group:
 				col.prop(settings, field)
+		_standard_colors_note(layout, context)
+
+
+def _standard_colors_note(layout, context):
+	"""Whether the viewport shows colors as the game does, with the fix."""
+	from .operators import uses_standard_colors
+
+	box = layout.box()
+	if uses_standard_colors(context.scene):
+		box.label(text="Viewport shows colors as the game does.", icon='CHECKMARK')
+	else:
+		box.label(text="Blender's default view transform washes colors out.", icon='INFO')
+		box.operator('ballistica.standard_colors', icon='COLOR')
 
 
 class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
@@ -242,24 +256,6 @@ class VIEW3D_PT_ballistica_eyes(_Section, bpy.types.Panel):
 		'eye_style_left', 'eye_style_right', 'eye_scale', 'eye_offset',
 		'eye_color', 'eyeball_color', 'eyelid_color', 'eyelid_angle',
 	)
-
-
-class VIEW3D_PT_ballistica_surface(_Section, bpy.types.Panel):
-	bl_label = "Surface"
-	header_icon = 'MATERIAL'
-	fields = ('reflection_scale',)
-
-	def draw(self, context):
-		from .operators import uses_standard_colors
-
-		_Section.draw(self, context)
-		box = self.layout.box()
-		if uses_standard_colors(context.scene):
-			box.label(text="Viewport shows colors as the game does.", icon='CHECKMARK')
-		else:
-			box.label(text="Blender's default view transform washes colors out.", icon='INFO')
-			box.operator('ballistica.standard_colors', icon='COLOR')
-
 
 
 class BALLISTICA_UL_attachments(bpy.types.UIList):
@@ -393,7 +389,6 @@ classes = (
 	VIEW3D_PT_ballistica_physique,
 	VIEW3D_PT_ballistica_eyes,
 	VIEW3D_PT_ballistica_attachments,
-	VIEW3D_PT_ballistica_surface,
 	VIEW3D_PT_ballistica_sounds,
 )
 
