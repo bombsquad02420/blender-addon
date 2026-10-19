@@ -5,7 +5,8 @@
 
 Creates the "Ballistica Colorize" and "Ballistica Eye" node groups (marked
 as assets in the "Ballistica" catalog), the eye meshes from source/*.obj
-and the packed eye textures from source/*.png, and saves the file next to
+the packed eye textures from source/*.png and the reflection environments
+(source/cubemaps, resampled to equirectangular), and saves the file next to
 this script.
 
 Eye meshes get the engine's fixed transforms baked in (DrawEyeBalls /
@@ -94,6 +95,69 @@ for name in nodegroup.EYE_IMAGES:
 		image.colorspace_settings.name = 'Non-Color'
 	image.pack()
 	image.use_fake_user = True
+
+
+
+def equirect_from_cubemap(name, width=1024):
+	"""Packed equirectangular image from source/cubemaps/<name>_{px..nz}.png.
+
+	Blender's Environment Texture only takes equirectangular images, so the
+	game's cubemaps are resampled: each output pixel's direction (Cycles'
+	equirectangular mapping, Blender axes) is turned into game axes and
+	looked up with OpenGL's cube-face rules, as the engine's samplerCube
+	does with its reflection vector.
+	"""
+	import numpy as np
+
+	faces = {}
+	for face in ('px', 'nx', 'py', 'ny', 'pz', 'nz'):
+		image = bpy.data.images.load(os.path.join(SOURCE, 'cubemaps', f'{name}_{face}.png'))
+		w, h = image.size
+		pixels = np.empty(w * h * 4, dtype=np.float32)
+		image.pixels.foreach_get(pixels)
+		faces[face] = pixels.reshape(h, w, 4)[::-1]  # Blender stores bottom row first; make row 0 the top
+		bpy.data.images.remove(image)
+	size = faces['px'].shape[0]
+
+	height = width // 2
+	u = (np.arange(width) + 0.5) / width
+	v = (np.arange(height) + 0.5) / height
+	u, v = np.meshgrid(u, v)
+	# Cycles: u = -atan2(y, x) / 2pi + 0.5, v = atan2(z, hypot(x, y)) / pi + 0.5
+	phi = (0.5 - u) * 2 * np.pi
+	theta = (v - 0.5) * np.pi
+	bx, by, bz = np.cos(theta) * np.cos(phi), np.cos(theta) * np.sin(phi), np.sin(theta)
+	# Blender (x, y, z) -> game (x, z, -y)
+	rx, ry, rz = bx, bz, -by
+
+	out = np.zeros((height, width, 4), dtype=np.float32)
+	ax, ay, az = np.abs(rx), np.abs(ry), np.abs(rz)
+	# OpenGL cube map selection: (face, mask, major, sc, tc)
+	choices = (
+		('px', (ax >= ay) & (ax >= az) & (rx > 0), ax, -rz, -ry),
+		('nx', (ax >= ay) & (ax >= az) & (rx <= 0), ax, rz, -ry),
+		('py', (ay > ax) & (ay >= az) & (ry > 0), ay, rx, rz),
+		('ny', (ay > ax) & (ay >= az) & (ry <= 0), ay, rx, -rz),
+		('pz', (az > ax) & (az > ay) & (rz > 0), az, rx, -ry),
+		('nz', (az > ax) & (az > ay) & (rz <= 0), az, -rx, -ry),
+	)
+	for face, mask, major, sc, tc in choices:
+		s_ = (sc[mask] / major[mask] + 1) / 2
+		t_ = (tc[mask] / major[mask] + 1) / 2
+		col = np.clip((s_ * size).astype(int), 0, size - 1)
+		row = np.clip((t_ * size).astype(int), 0, size - 1)  # t = 0 is the top row
+		out[mask] = faces[face][row, col]
+	out[..., 3] = 1.0
+
+	image = bpy.data.images.new(name, width, height)
+	image.pixels.foreach_set(out.ravel())  # row 0 is v = 0, the bottom, as Blender stores it
+	image.pack()
+	image.use_fake_user = True
+	return image
+
+
+for name in nodegroup.REFLECTION_IMAGES:
+	equirect_from_cubemap(name)
 
 with open(os.path.join(HERE, 'blender_assets.cats.txt'), 'w', newline='\n') as outfile:
 	outfile.write(CATALOG_FILE.format(id=CATALOG_ID))

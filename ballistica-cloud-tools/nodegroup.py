@@ -20,6 +20,10 @@ Eye (DrawEyeBalls / SetupEyeLidShading in spaz_node.cc):
 with the eyeColor texture and tint mask; the eyeball uses iris = eye_color
 and base = eyeball_color, the eyelid no mask and base = eyelid_color.
 
+Both then add the reflection, as the engine's object shader does:
+
+	color += reflection_scale * cubemap(reflected view direction)
+
 Everything ships in assets/ballistica_assets.blend (built by
 assets/build_assets.py) and is appended from there; the create functions
 are what that build script runs, never the addon at runtime.
@@ -34,6 +38,14 @@ EYE_GROUP_NAME = "Ballistica Eye"
 # Data the build bakes into the asset file (see build_assets.py).
 EYE_MESHES = ('eye_ball', 'eye_lid')
 EYE_IMAGES = ('eye_color', 'eye_color_tint_mask')
+# The game's reflection cubemaps, as equirectangular environments.
+REFLECTION_CHAR = 'reflection_char'
+REFLECTION_SHARPEST = 'reflection_sharpest'
+REFLECTION_IMAGES = (REFLECTION_CHAR, REFLECTION_SHARPEST)
+# Fixed reflection strengths of the eye looks (the web UI's preview data);
+# the eyeball mesh includes the iris, which the game reflects at 2.0.
+EYEBALL_REFLECTION = 3.0
+EYELID_REFLECTION = 0.05
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), 'assets')
 ASSETS_BLEND = os.path.join(ASSETS_DIR, 'ballistica_assets.blend')
 LIBRARY_NAME = "Ballistica Cloud Tools"
@@ -71,6 +83,7 @@ def create_eye():
 		socket = iface.new_socket(name=name, in_out='INPUT', socket_type='NodeSocketColor')
 		socket.default_value = (0.0, 0.0, 0.0, 1.0) if name == 'Tint Mask' else (1.0, 1.0, 1.0, 1.0)
 		socket.description = description
+	_reflection_inputs(iface)
 	iface.new_socket(name='Color', in_out='OUTPUT', socket_type='NodeSocketColor')
 	nodes, links = group.nodes, group.links
 	group_in = nodes.new('NodeGroupInput')
@@ -90,7 +103,7 @@ def create_eye():
 	_socket(base.inputs, 'Factor_Float').default_value = 1.0
 	links.new(_socket(tint.outputs, 'Result_Color'), _socket(base.inputs, 'A_Color'))
 	links.new(group_in.outputs['Base Color'], _socket(base.inputs, 'B_Color'))
-	links.new(_socket(base.outputs, 'Result_Color'), group_out.inputs['Color'])
+	links.new(_add_reflection(group, group_in, _socket(base.outputs, 'Result_Color'), (250, 100)), group_out.inputs['Color'])
 	return group
 
 
@@ -105,6 +118,7 @@ def create():
 		socket.default_value = DEFAULTS[name]
 		socket.description = description
 		sockets[name] = socket
+	_reflection_inputs(iface)
 	iface.new_socket(name='Color', in_out='OUTPUT', socket_type='NodeSocketColor')
 
 	nodes, links = group.nodes, group.links
@@ -127,8 +141,29 @@ def create():
 		links.new(group_in.outputs[highlight], _socket(mix.inputs, 'B_Color'))
 		color = _socket(mix.outputs, 'Result_Color')
 
-	links.new(color, group_out.inputs['Color'])
+	links.new(_add_reflection(group, group_in, color, (400, 100)), group_out.inputs['Color'])
 	return group
+
+
+def _reflection_inputs(iface):
+	socket = iface.new_socket(name='Reflection', in_out='INPUT', socket_type='NodeSocketColor')
+	socket.default_value = (0.0, 0.0, 0.0, 1.0)
+	socket.description = "The reflection environment, looked up along the reflected view direction"
+	socket = iface.new_socket(name='Reflection Scale', in_out='INPUT', socket_type='NodeSocketFloat')
+	socket.default_value = 0.0
+	socket.min_value = 0.0
+	socket.description = "How much reflection is added (.bchar reflection_scale for the body)"
+
+
+def _add_reflection(group, group_in, color, location):
+	"""color + Reflection Scale * Reflection (unclamped: eyes use 3.0)."""
+	add = group.nodes.new('ShaderNodeMix')
+	add.data_type, add.blend_type, add.location = 'RGBA', 'ADD', location
+	add.clamp_factor = False
+	group.links.new(group_in.outputs['Reflection Scale'], _socket(add.inputs, 'Factor_Float'))
+	group.links.new(color, _socket(add.inputs, 'A_Color'))
+	group.links.new(group_in.outputs['Reflection'], _socket(add.inputs, 'B_Color'))
+	return _socket(add.outputs, 'Result_Color')
 
 
 class MissingAssetError(RuntimeError):

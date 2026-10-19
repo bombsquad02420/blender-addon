@@ -68,7 +68,26 @@ libraries = [lib.name for lib in bpy.context.preferences.filepaths.asset_librari
 assert nodegroup.LIBRARY_NAME in libraries, libraries
 group = bpy.data.node_groups[nodegroup.GROUP_NAME]
 assert group.asset_data is not None, 'node group should stay marked as an asset'
-assert [s.name for s in group.interface.items_tree if s.in_out == 'INPUT'] == [n for n, _ in nodegroup.INPUTS]
+assert [s.name for s in group.interface.items_tree if s.in_out == 'INPUT'] == [n for n, _ in nodegroup.INPUTS] + ['Reflection', 'Reflection Scale']
+
+# Reflections: body and eyes look up the bundled environments; the body's
+# strength follows the panel's reflection_scale.
+body_mat = bpy.data.materials['agent_johnson']
+body_group = next(n for n in body_mat.node_tree.nodes if n.type == 'GROUP')
+env = body_group.inputs['Reflection'].links[0].from_node
+assert env.type == 'TEX_ENVIRONMENT' and env.image.name == nodegroup.REFLECTION_CHAR, env
+assert env.inputs['Vector'].links[0].from_socket.name == 'Reflection'
+assert abs(body_group.inputs['Reflection Scale'].default_value - 0.2) < 1e-6  # agent_johnson.bchar
+bpy.data.collections['agent_johnson'].ballistica_character.reflection_scale = 0.7
+bpy.context.view_layer.update()
+assert abs(body_group.inputs['Reflection Scale'].default_value - 0.7) < 1e-6
+bpy.data.collections['agent_johnson'].ballistica_character.reflection_scale = 0.2
+bpy.context.view_layer.update()
+eye_mats = {m.name: m for m in bpy.data.materials if m.name.startswith('zoe_eye')}
+for name, image, strength in (('zoe_eye', nodegroup.REFLECTION_SHARPEST, 3.0), ('zoe_eyelid', nodegroup.REFLECTION_CHAR, 0.05)):
+	g = next(n for n in eye_mats[name].node_tree.nodes if n.type == 'GROUP')
+	assert g.inputs['Reflection'].links[0].from_node.image.name == image, name
+	assert abs(g.inputs['Reflection Scale'].default_value - strength) < 1e-6, name
 assert [s.name for s in group.interface.items_tree if s.in_out == 'OUTPUT'] == ['Color']
 output = next(n for n in bpy.data.materials['agent_johnson'].node_tree.nodes if n.type == 'OUTPUT_MATERIAL')
 assert output.inputs['Surface'].links[0].from_socket.name == 'Color'

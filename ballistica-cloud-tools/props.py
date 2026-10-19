@@ -428,7 +428,7 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	eyelid_angle: _float("Eyelid Angle", 'eyelid_angle', update=_tag_collection)
 
 	# Surface
-	reflection_scale: _float("Reflection Scale", 'reflection_scale')
+	reflection_scale: _float("Reflection Scale", 'reflection_scale', update=_tag_collection)
 
 	# Advanced (not in the web UI form)
 	flippers: bpy.props.BoolProperty(

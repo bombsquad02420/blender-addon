@@ -373,7 +373,36 @@ def build_material(name, root, texture, mask, collection):
 	links.new(mask_node.outputs['Color'], group.inputs['Color Mask'])
 	for socket_name, field in TINT_DRIVERS:
 		drive_color(group.inputs[socket_name], collection, f'ballistica_character.{field}')
+	add_reflection(mat, group, nodegroup.REFLECTION_CHAR)
+	drive_float(group.inputs['Reflection Scale'], collection, 'ballistica_character.reflection_scale')
 	return mat
+
+
+def add_reflection(mat, group, image_name):
+	"""Feed `group`'s Reflection from a bundled environment, looked up along
+	the reflected view direction (the engine's vReflect, in world space)."""
+	from . import nodegroup
+
+	nodes, links = mat.node_tree.nodes, mat.node_tree.links
+	coords = nodes.new('ShaderNodeTexCoord')
+	coords.location = (-650, -420)
+	env = nodes.new('ShaderNodeTexEnvironment')
+	env.image = nodegroup.get_data('images', [image_name])[0]
+	env.location = (-400, -420)
+	links.new(coords.outputs['Reflection'], env.inputs['Vector'])
+	links.new(env.outputs['Color'], group.inputs['Reflection'])
+
+
+def drive_float(socket, collection, data_path):
+	"""Drive a float socket from a collection's float property."""
+	driver = socket.driver_add('default_value').driver
+	driver.type = 'AVERAGE'
+	var = driver.variables[0] if driver.variables else driver.variables.new()
+	var.name = 'value'
+	var.type = 'SINGLE_PROP'
+	var.targets[0].id_type = 'COLLECTION'
+	var.targets[0].id = collection
+	var.targets[0].data_path = data_path
 
 
 def drive_color(socket, collection, data_path):
@@ -630,6 +659,10 @@ def build_eye_material(name, collection, texture, mask, iris_field, base_field):
 	if iris_field:
 		drive_color(group.inputs['Iris Color'], collection, f'ballistica_character.{iris_field}')
 	drive_color(group.inputs['Base Color'], collection, f'ballistica_character.{base_field}')
+	# The eyeball reflects the sharp environment strongly; the lid barely.
+	eyeball = base_field == 'eyeball_color'
+	add_reflection(mat, group, nodegroup.REFLECTION_SHARPEST if eyeball else nodegroup.REFLECTION_CHAR)
+	group.inputs['Reflection Scale'].default_value = nodegroup.EYEBALL_REFLECTION if eyeball else nodegroup.EYELID_REFLECTION
 	return mat
 
 
