@@ -101,6 +101,27 @@ original = objfile.read(os.path.join(SAMPLE, 'meshes', 'agent_head.obj'))
 written = objfile.read(os.path.join(ws, 'meshes', 'agent_head.obj'))
 assert len(original.faces) == len(written.faces)
 
+# Modifiers are applied on export, and changing one counts as a change.
+head_file = os.path.join(ws, 'meshes', 'agent_head.obj')
+subsurf = head.modifiers.new('Subdivision', 'SUBSURF')
+subsurf.levels = 1
+bpy.ops.ballistica.export_character()
+assert len(objfile.read(head_file).faces) > len(original.faces) * 3, 'subdivided head should be exported'
+with open(head_file, 'rb') as infile:
+	subdivided = infile.read()
+bpy.ops.ballistica.export_character()  # unchanged: not rewritten
+with open(head_file, 'rb') as infile:
+	assert infile.read() == subdivided
+head.modifiers.remove(subsurf)
+bpy.ops.ballistica.export_character()
+assert len(objfile.read(head_file).faces) == len(original.faces), 'removing the modifier should export the base mesh'
+# Moving the object never changes the export.
+head.location.x += 1.0
+before_move = snapshot()
+bpy.ops.ballistica.export_character()
+assert snapshot() == before_move
+head.location.x -= 1.0
+
 # Bones: chains are connected; panel offsets drive the offset bones.
 from mathutils import Vector  # noqa: E402
 from ballistica_cloud_tools import scene  # noqa: E402

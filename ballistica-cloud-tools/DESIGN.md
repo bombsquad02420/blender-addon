@@ -379,7 +379,8 @@ pose (`pose.py`). Bones: `pelvis`, `torso`, `head`, `.R`/`.L` pairs for
 - Body parts are **bone-parented** with their rest placement in the parent
   inverse, so their own transform is identity. Moving a part aside to work
   on it is never exported, and **Reset to T-Pose** puts it back. Export
-  writes mesh data, which stays in the part's own space.
+  writes each part's mesh with its **modifiers applied** (as shown in the
+  viewport), still in the part's own space.
 - `shoulder_offset` and `eye_offset` are panel values that drive their
   offset bones.
 - Rig dimensions (body sizes, joint anchors, start heights) are fixed by
@@ -519,8 +520,9 @@ Loading doesn't change your selection.
 
 1. Read the attachment handles into the settings.
 2. Write each part's mesh, and each attachment segment mesh, that is new or
-   changed since import or the last export (part-local, triangulated, UVs
-   and normals; Blender axes → game). Unchanged meshes aren't rewritten.
+   changed since import or the last export (modifiers applied, part-local,
+   triangulated, UVs and normals; Blender axes → game). Unchanged meshes
+   aren't rewritten; the check covers modifier changes too.
 3. Save textures edited or made in Blender as PNG.
 4. Mark mask textures `texture_role: data` in `workspace.json`, leaving
    everything else in it as it was.

@@ -473,12 +473,13 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 			field = dict((p, f) for p, f, _ in rig.PARTS)[part]
 			logical = getattr(settings, field) or f'meshes/{collection.name}_{part}'
 			setattr(settings, field, logical)
-			_write_mesh(root, logical, obj.data, written)
+			_write_mesh(root, logical, obj, written)
 		# Attachment segment meshes made or edited in Blender.
 		for logical in _attachment_refs(settings, ('mesh',)):
 			mesh = _loaded_attachment_mesh(root, logical)
-			if mesh is not None:
-				_write_mesh(root, logical, mesh, written)
+			obj = next((o for o in collection.all_objects if o.data == mesh), None) if mesh is not None else None
+			if obj is not None:
+				_write_mesh(root, logical, obj, written)
 
 		# Textures: save images edited in Blender back as PNG, and write ones
 		# made in Blender that aren't on disk yet (a new character's).
@@ -509,16 +510,22 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 		return {'FINISHED'}
 
 
-def _write_mesh(root, logical, mesh, written):
-	"""Write a mesh to its logical path unless it's unchanged on disk."""
+def _write_mesh(root, logical, obj, written):
+	"""Write an object's mesh, modifiers applied, unless unchanged on disk.
+
+	The fingerprint of what was last written is kept on the object's own
+	mesh data, so a mesh is skipped while neither it nor its modifiers
+	have changed.
+	"""
 	path = workspace.file_path(root, logical, 'mesh')
-	signature = scene.mesh_signature(mesh)
-	if path is not None and mesh.get(scene.SIGNATURE_KEY) == signature:
-		return  # Unchanged since import or last export.
-	path = path or workspace.new_file_path(root, logical, 'mesh')
-	os.makedirs(os.path.dirname(path), exist_ok=True)
-	objfile.write(path, scene.obj_from_mesh(mesh))
-	mesh[scene.SIGNATURE_KEY] = signature
+	with scene.evaluated_mesh(obj) as mesh:
+		signature = scene.mesh_signature(mesh)
+		if path is not None and obj.data.get(scene.SIGNATURE_KEY) == signature:
+			return  # Unchanged since import or last export.
+		path = path or workspace.new_file_path(root, logical, 'mesh')
+		os.makedirs(os.path.dirname(path), exist_ok=True)
+		objfile.write(path, scene.obj_from_mesh(mesh))
+	obj.data[scene.SIGNATURE_KEY] = signature
 	written.append(os.path.relpath(path, root))
 
 

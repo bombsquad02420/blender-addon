@@ -147,7 +147,11 @@ SIGNATURE_KEY = 'bct_signature'
 
 
 def mesh_signature(mesh):
-	"""Fingerprint of what export writes (positions, UVs, normals, faces)."""
+	"""Fingerprint of what export writes (positions, UVs, normals, faces).
+
+	Taken of the evaluated mesh (modifiers applied), so changing a modifier
+	counts as a change.
+	"""
 	digest = hashlib.sha1()
 	for collection, attr, size in (
 		(mesh.vertices, 'co', 3),
@@ -163,6 +167,31 @@ def mesh_signature(mesh):
 		uv_layer.data.foreach_get('uv', values)
 		digest.update(values.tobytes())
 	return digest.hexdigest()
+
+
+class evaluated_mesh:
+	"""The mesh an object exports: its modifiers applied, in its local space.
+
+	Object transforms, bone parents and the armature pose never affect it
+	(parts are bone-parented, not armature-deformed). Without modifiers it's
+	the object's own mesh; otherwise a temporary mesh removed on exit.
+	"""
+
+	def __init__(self, obj):
+		self.obj = obj
+		self.temporary = None
+
+	def __enter__(self):
+		if not any(m.show_viewport for m in self.obj.modifiers):
+			return self.obj.data
+		depsgraph = bpy.context.evaluated_depsgraph_get()
+		self.temporary = bpy.data.meshes.new_from_object(
+			self.obj.evaluated_get(depsgraph), preserve_all_data_layers=True, depsgraph=depsgraph)
+		return self.temporary
+
+	def __exit__(self, *exc):
+		if self.temporary is not None:
+			bpy.data.meshes.remove(self.temporary)
 
 
 def obj_from_mesh(mesh):
