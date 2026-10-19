@@ -171,8 +171,7 @@ def _build_one(collection, settings, arm, placements, index, attachment):
 			obj.parent = grip
 			obj.ballistica_part.role = 'attachment'
 			obj.ballistica_part.side = {'C': 'CENTER'}.get(side, side)
-			if not mesh.materials:
-				mesh.materials.append(_material(collection, settings, attachment.segments[j]))
+			scene.assign_material(obj, _material(collection, settings, attachment.segments[j]))
 			_tag(obj, MESH, index, side, j)
 			created.append(obj)
 	return created

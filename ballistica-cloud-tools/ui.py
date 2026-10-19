@@ -70,9 +70,11 @@ class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 
 	def draw(self, context):
 		layout = self.layout
-		layout.template_list(
+		row = layout.row()
+		row.template_list(
 			'BALLISTICA_UL_characters', '', bpy.data, 'collections', context.scene, 'ballistica_character_index',
 			rows=2, maxrows=5)
+		row.column(align=True).operator('ballistica.remove_character', icon='REMOVE', text="")
 		row = layout.row(align=True)
 		row.operator('ballistica.new_character', icon='ADD')
 		row.operator('ballistica.import_character', icon='IMPORT')

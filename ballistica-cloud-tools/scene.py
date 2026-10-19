@@ -579,6 +579,20 @@ def build_eyes(collection, arm, placements, settings, target):
 	return eyes
 
 
+def assign_material(obj, material):
+	"""Give `obj` its character's material on the object, not the mesh.
+
+	Meshes are shared by file path, between parts and between characters
+	using the same files, so a material on the mesh would make one
+	character's tints show on another. The mesh keeps a slot (with a
+	fallback material) for the object-linked one to fill.
+	"""
+	if not obj.data.materials:
+		obj.data.materials.append(material)
+	obj.material_slots[0].link = 'OBJECT'
+	obj.material_slots[0].material = material
+
+
 def _eye_object(name, mesh, material, side, target):
 	obj = bpy.data.objects.new(name, mesh)
 	target.objects.link(obj)

@@ -37,7 +37,6 @@ def update_part(collection, part):
 	if mesh is None:
 		print(f"Ballistica: {logical} not found in the workspace; {part} keeps its mesh.")
 		return
-	_give_material(collection, mesh)
 	placements, _ = pose.compute()
 	created = []
 	side = 'R' if part in rig.PAIRED_PARTS else 'CENTER'
@@ -45,23 +44,18 @@ def update_part(collection, part):
 	if part in rig.PAIRED_PARTS:
 		left_logical = getattr(settings, f'left_{part}_mesh')
 		left_mesh = attach_scene.mesh_for(root, left_logical) if left_logical else None
-		if left_mesh is not None:
-			_give_material(collection, left_mesh)
 		created += _show(collection, part, 'L', left_mesh or mesh, left, placements)
 	if created:
 		scene.setup_spread_drivers(collection, created)
 
 
-def _give_material(collection, mesh):
-	material = _body_material(collection)
-	if material is not None and not mesh.materials:
-		mesh.materials.append(material)
-
-
 def _show(collection, part, side, mesh, existing, placements):
 	"""Point existing objects at `mesh`, or create the part's object."""
+	material = _body_material(collection)
 	for obj in existing:
 		obj.data = mesh
+		if material is not None:
+			scene.assign_material(obj, material)
 	if existing:
 		return []
 	arm = next((o for o in collection.all_objects if o.type == 'ARMATURE'), None)
@@ -71,6 +65,8 @@ def _show(collection, part, side, mesh, existing, placements):
 	name = f'{part}.{side}' if part in rig.PAIRED_PARTS else part
 	obj = bpy.data.objects.new(name, mesh)
 	group.objects.link(obj)
+	if material is not None:
+		scene.assign_material(obj, material)
 	obj.ballistica_part.role = part
 	obj.ballistica_part.side = side
 	world = scene.placement_matrix(placements[part])

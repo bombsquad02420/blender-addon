@@ -104,8 +104,7 @@ def _part_object(collection, name, mesh, part, material):
 	obj = bpy.data.objects.new(name, mesh)
 	collection.objects.link(obj)
 	obj.ballistica_part.role = part
-	if not mesh.materials:
-		mesh.materials.append(material)
+	scene.assign_material(obj, material)
 	return obj
 
 
@@ -565,12 +564,73 @@ def _loaded_attachment_mesh(root, logical):
 		None)
 
 
+def remove_character(collection):
+	"""Delete a character and the data only it used.
+
+	Objects and collections go first; then the meshes, armatures,
+	materials and images they used, each only if nothing else still uses
+	it (characters can share images; the bundled node groups are never
+	touched). Deleting just the collection would leave the materials'
+	tint drivers pointing at nothing.
+	"""
+	objects = list(collection.all_objects)
+	data = {o.data for o in objects if o.data is not None}
+	materials = {s.material for o in objects for s in o.material_slots if s.material is not None}
+	images = {
+		n.image for m in materials if m.node_tree
+		for n in m.node_tree.nodes if n.type == 'TEX_IMAGE' and n.image is not None
+	}
+	for obj in objects:
+		bpy.data.objects.remove(obj)
+	for child in list(collection.children_recursive):
+		bpy.data.collections.remove(child)
+	bpy.data.collections.remove(collection)
+	for block in data:
+		if block.users == 0:
+			if isinstance(block, bpy.types.Mesh):
+				bpy.data.meshes.remove(block)
+			elif isinstance(block, bpy.types.Armature):
+				bpy.data.armatures.remove(block)
+	for material in materials:
+		if material.users == 0:
+			bpy.data.materials.remove(material)
+	for image in images:
+		if image.users == 0:
+			bpy.data.images.remove(image)
+
+
+class BALLISTICA_OT_remove_character(bpy.types.Operator):
+	"""Delete the active character from this scene, with its objects, meshes and materials (files in the workspace are left alone)"""
+	bl_idname = 'ballistica.remove_character'
+	bl_label = "Remove Character"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	@classmethod
+	def poll(cls, context):
+		return context.mode == 'OBJECT' and active_character(context) is not None
+
+	def invoke(self, context, event):
+		return context.window_manager.invoke_confirm(
+			self, event, title=f"Remove {active_character(context).name}?",
+			message="Unsaved edits to its meshes and textures in Blender are lost. Workspace files stay.",
+			confirm_text="Remove")
+
+	def execute(self, context):
+		collection = active_character(context)
+		name = collection.name
+		remove_character(collection)
+		context.scene.ballistica_active_character = None
+		self.report({'INFO'}, f"Removed {name}")
+		return {'FINISHED'}
+
+
 def menu_import(self, context):
 	self.layout.operator(BALLISTICA_OT_import_character.bl_idname, text="Ballistica Character (.bchar)")
 
 
 classes = (
 	BALLISTICA_OT_import_character,
+	BALLISTICA_OT_remove_character,
 	BALLISTICA_OT_new_character,
 	BALLISTICA_OT_standard_colors,
 	BALLISTICA_OT_view_character,
