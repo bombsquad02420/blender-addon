@@ -44,8 +44,8 @@ def _vec(name, field, color=False, default=None, span=None, update=None, descrip
 def _asset_search(kind, role=None):
 	"""Search callback listing workspace assets, like the web UI dropdowns.
 
-	`role` narrows textures to 'color', 'mask' or 'icon' (by name and
-	workspace.json role) unless "Show All Assets" is on.
+	Every asset is listed; for textures, the ones that look like the field's
+	role ('color', 'mask', 'icon', 'icon_mask', by name) come first.
 	"""
 
 	def search(self, context, edit_text):
@@ -54,10 +54,10 @@ def _asset_search(kind, role=None):
 		root = settings.workspace_root
 		if not root or not os.path.isdir(root):
 			return []
-		items = workspace.list_assets(root, kind)
-		if role and not settings.show_all_assets:
-			items = [i for i in items if _texture_matches(i, role)]
-		return [i for i in items if edit_text.lower() in i.lower()]
+		items = [i for i in workspace.list_assets(root, kind) if edit_text.lower() in i.lower()]
+		if role:
+			items.sort(key=lambda i: not _texture_matches(i, role))  # stable: matches first
+		return items
 
 	return search
 
@@ -334,9 +334,6 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	spread: bpy.props.FloatProperty(
 		name="Spread", description="Pull the parts apart (exploded view), as the web UI's Spread slider",
 		default=0.0, min=0.0, max=1.0, subtype='FACTOR', options=_options(), update=_tag_collection)
-	show_all_assets: bpy.props.BoolProperty(
-		name="Show All Assets", description="List every asset in pickers, not just likely matches",
-		default=False, options=_options())
 
 	# Identity
 	name: bpy.props.StringProperty(
@@ -346,11 +343,27 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	icon_mask_texture: _ref("Icon Mask Texture", 'texture', 'icon_mask')
 	color: _vec("Color", 'color', color=True, default=(0.5, 0.5, 0.5), update=_tag_collection)
 	highlight: _vec("Highlight", 'highlight', color=True, default=(0.5, 0.5, 0.5), update=_tag_collection)
-	highlight_name: bpy.props.StringProperty(name="Highlight Name", description="Translation key", options=_options())
-	highlight_editing: bpy.props.BoolProperty(name="Highlight Editing", default=D['highlight_editing'], options=_options())
+	highlight_name: bpy.props.StringProperty(
+		name="Highlight Label",
+		description="What the profile editor calls this color, as a translation key "
+		"(e.g. strings/characters/hat_color). Empty: \"Highlight\"",
+		options=_options())
+	highlight_editing: bpy.props.BoolProperty(
+		name="Players Can Change",
+		description="Players can pick their own color for this highlight in the profile editor. "
+		"Off: it always uses the color above",
+		default=D['highlight_editing'], options=_options())
 	highlight2: _vec("Highlight 2", 'highlight2', color=True, span=(0.0, 1.0), update=_tag_collection)
-	highlight2_name: bpy.props.StringProperty(name="Highlight 2 Name", description="Translation key", options=_options())
-	highlight2_editing: bpy.props.BoolProperty(name="Highlight 2 Editing", default=D['highlight2_editing'], options=_options())
+	highlight2_name: bpy.props.StringProperty(
+		name="Highlight 2 Label",
+		description="What the profile editor calls the second highlight, as a translation key. "
+		"Empty: \"Highlight 2\"",
+		options=_options())
+	highlight2_editing: bpy.props.BoolProperty(
+		name="Players Can Change",
+		description="Players can pick their own color for the second highlight in the profile editor. "
+		"Off: it always uses the color above",
+		default=D['highlight2_editing'], options=_options())
 
 	# Textures
 	color_texture: _ref("Color Texture", 'texture', 'color')

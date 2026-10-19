@@ -517,7 +517,13 @@ def draw_panels():
 			continue
 		if hasattr(cls, 'poll') and not cls.poll(bpy.context):
 			continue
-		panel = type('StubPanel', (), {'layout': StubLayout(), 'fields': getattr(cls, 'fields', ())})()
+		panel = type('StubPanel', (), {
+			'layout': StubLayout(),
+			# Class attributes (fields, groups, header_icon) come from the panel.
+			'__getattr__': lambda self, name, cls=cls: getattr(cls, name),
+		})()
+		if hasattr(cls, 'draw_header'):
+			cls.draw_header(panel, bpy.context)
 		cls.draw(panel, bpy.context)
 
 

@@ -89,11 +89,6 @@ class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 		row = layout.row(align=True)
 		row.label(text=f"{_triangles(collection):,} triangles")
 		row.operator('ballistica.check_character', icon='CHECKMARK')
-		row = layout.row(align=True)
-		row.operator('ballistica.view_character', icon='ZOOM_SELECTED')
-		row.operator('ballistica.reset_parts', icon='LOOP_BACK')
-		row.operator('ballistica.standard_colors', icon='COLOR')
-		layout.prop(settings, 'show_all_assets')
 
 
 # Button order in the Visibility grid (first column, then second).
@@ -104,15 +99,22 @@ class VIEW3D_PT_ballistica_visibility(_Panel, bpy.types.Panel):
 	"""Viewport visibility of the character's child collections."""
 	bl_label = "Visibility"
 	bl_parent_id = 'VIEW3D_PT_ballistica_character'
+	header_icon = 'RESTRICT_VIEW_OFF'
 
 	@classmethod
 	def poll(cls, context):
 		return active_character(context) is not None
 
+	def draw_header(self, context):
+		self.layout.label(icon=self.header_icon)
+
 	def draw(self, context):
 		from .scene import _layer_collections
 
 		collection = active_character(context)
+		row = self.layout.row(align=True)
+		row.operator('ballistica.view_character', icon='ZOOM_SELECTED')
+		row.operator('ballistica.reset_parts', icon='LOOP_BACK')
 		self.layout.prop(collection.ballistica_character, 'spread', slider=True)
 		# Filled column by column: body groups on the left, the rest on the right.
 		grid = self.layout.grid_flow(row_major=False, columns=2, even_columns=True, align=True)
@@ -126,14 +128,20 @@ class VIEW3D_PT_ballistica_visibility(_Panel, bpy.types.Panel):
 		order = {label: i for i, label in enumerate(VISIBILITY_ORDER)}
 		buttons.sort(key=lambda button: order.get(button[0], len(order)))  # stable: others keep their order
 		for label, layer in buttons:
-			# The button is pressed while the collection is visible.
-			grid.prop(layer, 'hide_viewport', text=label, toggle=True, invert_checkbox=True)
+			# Pressed, with an open eye, while the collection is visible (as
+			# in the outliner); the property's own icon wouldn't invert.
+			icon = 'HIDE_ON' if layer.hide_viewport else 'HIDE_OFF'
+			grid.prop(layer, 'hide_viewport', text=label, toggle=True, invert_checkbox=True, icon=icon)
 
 
 class _Section(_Panel):
 	bl_parent_id = 'VIEW3D_PT_ballistica_character'
 	bl_options = {'DEFAULT_CLOSED'}
 	fields = ()
+	header_icon = 'NONE'
+
+	def draw_header(self, context):
+		self.layout.label(icon=self.header_icon)
 
 	@classmethod
 	def poll(cls, context):
@@ -151,19 +159,39 @@ class _Section(_Panel):
 class VIEW3D_PT_ballistica_identity(_Section, bpy.types.Panel):
 	bl_label = "Identity"
 	bl_options = set()
-	fields = (
-		'name', 'icon_texture', 'icon_mask_texture', 'color', 'highlight',
-		'highlight_name', 'highlight_editing', 'highlight2', 'highlight2_name', 'highlight2_editing',
+	header_icon = 'USER'
+	# Grouped: who it is, its default color, then each highlight with its
+	# label and whether players may change it.
+	groups = (
+		('name', 'icon_texture', 'icon_mask_texture'),
+		('color',),
+		('highlight', 'highlight_name', 'highlight_editing'),
+		('highlight2', 'highlight2_name', 'highlight2_editing'),
 	)
+	fields = tuple(f for group in groups for f in group)
+
+	def draw(self, context):
+		settings = active_character(context).ballistica_character
+		layout = self.layout
+		layout.use_property_split = True
+		layout.use_property_decorate = False
+		for i, group in enumerate(self.groups):
+			if i:
+				layout.separator()
+			col = layout.column(align=True)
+			for field in group:
+				col.prop(settings, field)
 
 
 class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 	bl_label = "Textures"
+	header_icon = 'TEXTURE'
 	fields = ('color_texture', 'color_mask_texture')
 
 
 class VIEW3D_PT_ballistica_meshes(_Section, bpy.types.Panel):
 	bl_label = "Meshes"
+	header_icon = 'MESH_DATA'
 	# Flippers sits with the arm meshes it describes.
 	fields = tuple(
 		name for _, field, _ in rig.PARTS
@@ -194,11 +222,13 @@ class VIEW3D_PT_ballistica_meshes(_Section, bpy.types.Panel):
 
 class VIEW3D_PT_ballistica_sounds(_Section, bpy.types.Panel):
 	bl_label = "Sounds"
+	header_icon = 'SOUND'
 	fields = rig.SOUND_FIELDS
 
 
 class VIEW3D_PT_ballistica_physique(_Section, bpy.types.Panel):
 	bl_label = "Physique"
+	header_icon = 'MOD_PHYSICS'
 	fields = (
 		'torso_radius', 'shoulder_offset', 'thigh_radius', 'ankle_radius',
 		'step_separation', 'idle_arm_stiffness', 'arm_swing', 'idle_sway',
@@ -207,6 +237,7 @@ class VIEW3D_PT_ballistica_physique(_Section, bpy.types.Panel):
 
 class VIEW3D_PT_ballistica_eyes(_Section, bpy.types.Panel):
 	bl_label = "Eyes"
+	header_icon = 'MATSPHERE'
 	fields = (
 		'eye_style_left', 'eye_style_right', 'eye_scale', 'eye_offset',
 		'eye_color', 'eyeball_color', 'eyelid_color', 'eyelid_angle',
@@ -215,7 +246,19 @@ class VIEW3D_PT_ballistica_eyes(_Section, bpy.types.Panel):
 
 class VIEW3D_PT_ballistica_surface(_Section, bpy.types.Panel):
 	bl_label = "Surface"
+	header_icon = 'MATERIAL'
 	fields = ('reflection_scale',)
+
+	def draw(self, context):
+		from .operators import uses_standard_colors
+
+		_Section.draw(self, context)
+		box = self.layout.box()
+		if uses_standard_colors(context.scene):
+			box.label(text="Viewport shows colors as the game does.", icon='CHECKMARK')
+		else:
+			box.label(text="Blender's default view transform washes colors out.", icon='INFO')
+			box.operator('ballistica.standard_colors', icon='COLOR')
 
 
 
@@ -242,6 +285,7 @@ def _record(attachment):
 
 class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 	bl_label = "Attachments"
+	header_icon = 'LINKED'
 
 	def draw(self, context):
 		from . import attachments
@@ -338,18 +382,19 @@ def _triangles(collection):
 
 classes = (
 	BALLISTICA_UL_characters,
-	VIEW3D_PT_ballistica_character,
-	VIEW3D_PT_ballistica_visibility,
-	VIEW3D_PT_ballistica_identity,
-	VIEW3D_PT_ballistica_textures,
-	VIEW3D_PT_ballistica_meshes,
-	VIEW3D_PT_ballistica_sounds,
-	VIEW3D_PT_ballistica_physique,
-	VIEW3D_PT_ballistica_eyes,
-	VIEW3D_PT_ballistica_surface,
 	BALLISTICA_UL_attachments,
 	BALLISTICA_UL_segments,
+	VIEW3D_PT_ballistica_character,
+	# Sections appear in registration order.
+	VIEW3D_PT_ballistica_visibility,
+	VIEW3D_PT_ballistica_identity,
+	VIEW3D_PT_ballistica_meshes,
+	VIEW3D_PT_ballistica_textures,
+	VIEW3D_PT_ballistica_physique,
+	VIEW3D_PT_ballistica_eyes,
 	VIEW3D_PT_ballistica_attachments,
+	VIEW3D_PT_ballistica_surface,
+	VIEW3D_PT_ballistica_sounds,
 )
 
 
