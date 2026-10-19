@@ -513,6 +513,16 @@ scene.ballistica_character_index = list(bpy.data.collections).index(bpy.data.col
 assert ui.active_character(bpy.context).name == 'agent_johnson'  # non-characters can't be picked
 scene.ballistica_active_character = zoe
 
+# Visibility buttons toggle a group's viewport visibility.
+from ballistica_cloud_tools.scene import _layer_collections  # noqa: E402
+eyes_group = bpy.data.collections['zoe Eyes']
+eyes_layer = next(_layer_collections(bpy.context.view_layer.layer_collection, eyes_group))
+was_hidden = eyes_layer.hide_viewport
+assert bpy.ops.ballistica.toggle_group(collection=eyes_group.name) == {'FINISHED'}
+assert eyes_layer.hide_viewport == (not was_hidden)
+bpy.ops.ballistica.toggle_group(collection=eyes_group.name)
+assert eyes_layer.hide_viewport == was_hidden
+
 # The Attachments panel draws (against a stand-in layout that checks every
 # property it shows exists).
 class StubLayout:

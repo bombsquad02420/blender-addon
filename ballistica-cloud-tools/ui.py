@@ -131,10 +131,14 @@ class VIEW3D_PT_ballistica_visibility(_Panel, bpy.types.Panel):
 		order = {label: i for i, label in enumerate(VISIBILITY_ORDER)}
 		buttons.sort(key=lambda button: order.get(button[0], len(order)))  # stable: others keep their order
 		for label, layer in buttons:
-			# Pressed, with an open eye, while the collection is visible (as
-			# in the outliner); the property's own icon wouldn't invert.
-			icon = 'HIDE_ON' if layer.hide_viewport else 'HIDE_OFF'
-			grid.prop(layer, 'hide_viewport', text=label, toggle=True, invert_checkbox=True, icon=icon)
+			# Pressed, with an open eye, while the collection is visible (as in
+			# the outliner). An operator button, because a property toggle
+			# shows the next icon while on, so it can't be pressed and show
+			# an open eye at the same time.
+			visible = not layer.hide_viewport
+			op = grid.operator(
+				'ballistica.toggle_group', text=label, icon='HIDE_OFF' if visible else 'HIDE_ON', depress=visible)
+			op.collection = layer.collection.name
 
 
 class _Section(_Panel):

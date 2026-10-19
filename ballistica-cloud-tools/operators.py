@@ -624,11 +624,31 @@ class BALLISTICA_OT_remove_character(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+class BALLISTICA_OT_toggle_group(bpy.types.Operator):
+	"""Show or hide this part of the character in the viewport"""
+	bl_idname = 'ballistica.toggle_group'
+	bl_label = "Toggle Visibility"
+	bl_options = {'INTERNAL'}
+
+	collection: bpy.props.StringProperty(options={'HIDDEN'})
+
+	def execute(self, context):
+		from .scene import _layer_collections
+
+		collection = bpy.data.collections.get(self.collection)
+		layer = next(_layer_collections(context.view_layer.layer_collection, collection), None) if collection else None
+		if layer is None:
+			return {'CANCELLED'}
+		layer.hide_viewport = not layer.hide_viewport
+		return {'FINISHED'}
+
+
 def menu_import(self, context):
 	self.layout.operator(BALLISTICA_OT_import_character.bl_idname, text="Ballistica Character (.bchar)")
 
 
 classes = (
+	BALLISTICA_OT_toggle_group,
 	BALLISTICA_OT_import_character,
 	BALLISTICA_OT_remove_character,
 	BALLISTICA_OT_new_character,
