@@ -358,7 +358,11 @@ rig_layer.hide_viewport = True  # excluding resets the toggle; keep it hidden as
 # A missing assets file must fail the import loudly, building nothing.
 real = nodegroup.ASSETS_BLEND
 nodegroup.ASSETS_BLEND = real + '.missing'
-bpy.data.node_groups.remove(bpy.data.node_groups[nodegroup.GROUP_NAME])
+# Hide the loaded group by renaming it, rather than deleting it: deleting
+# would strip the inputs every existing material's tint drivers point at
+# (36 "Invalid driver" warnings for the rest of the run).
+loaded = bpy.data.node_groups[nodegroup.GROUP_NAME]
+loaded.name = nodegroup.GROUP_NAME + ' (hidden by test)'
 count = len(bpy.data.collections)
 try:
 	bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'spaz.bchar'))
@@ -367,6 +371,7 @@ except RuntimeError as exc:
 	assert 'Bundled asset file not found' in str(exc), exc
 assert len(bpy.data.collections) == count
 nodegroup.ASSETS_BLEND = real
+loaded.name = nodegroup.GROUP_NAME
 
 # Attachments: handles hold the placement; meshes move freely.
 import json  # noqa: E402
@@ -562,11 +567,18 @@ settings.flippers = False
 # Deleting the active character falls back to another one.
 doomed = bpy.data.collections['pixel.001']
 scene.ballistica_active_character = doomed
-for obj in list(doomed.all_objects):
-	bpy.data.objects.remove(obj)
-for child in list(doomed.children_recursive):
-	bpy.data.collections.remove(child)
-bpy.data.collections.remove(doomed)
+# Two characters using the same mesh files share meshes but not materials.
+first_torso = next(o for o in bpy.data.collections['pixel'].all_objects if o.ballistica_part.role == 'torso')
+second_torso = next(o for o in doomed.all_objects if o.ballistica_part.role == 'torso')
+assert first_torso.data == second_torso.data
+assert first_torso.active_material != second_torso.active_material
+doomed_materials = {s.material.name for o in doomed.all_objects for s in o.material_slots if s.material}
+assert bpy.ops.ballistica.remove_character() == {'FINISHED'}
+assert 'pixel.001' not in bpy.data.collections
+assert not doomed_materials & set(bpy.data.materials.keys())  # no tint drivers left pointing at nothing
+for material in bpy.data.materials:
+	drivers = material.node_tree.animation_data.drivers if material.node_tree and material.node_tree.animation_data else []
+	assert all(v.targets[0].id is not None for d in drivers for v in d.driver.variables), material.name
 assert ui.active_character(bpy.context) is not None and ui.active_character(bpy.context).name != 'pixel.001'
 scene.ballistica_active_character = zoe
 

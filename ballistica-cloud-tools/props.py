@@ -144,9 +144,9 @@ def _attachment_changed(self, context):
 	try:
 		record = attachment_record(self)
 		attach_rules.fix(record)
-		if self.side != record['side']:
+		if _stored(self, 'side', _ALL_SIDES, _SIDE_ITEMS[self.target][0][0]) != record['side']:
 			self.side = record['side']
-		if self.kind != record['kind']:
+		if _stored(self, 'kind', _ALL_KINDS, _KIND_ITEMS[self.target][0][0]) != record['kind']:
 			self.kind = record['kind']
 		_set_segments(self, record['segments'])
 	finally:
@@ -273,9 +273,24 @@ ATTACHMENT_VALUES = ('translate', 'rotate', *attach_rules.TUNING, *attach_rules.
 SEGMENT_VALUES = ('translate', 'rotate', 'scale')
 
 
+def _stored(item, prop, items, default):
+	"""A dynamic enum's value by its stored ID number."""
+	number = item.get(prop)
+	if number is None:
+		return default  # never set: Blender shows the first offered option
+	return next((identifier for identifier, _, _, n in items if n == number), default)
+
+
 def attachment_record(attachment):
 	"""An attachments-module record from an attachment's settings."""
-	record = {'target': attachment.target, 'side': attachment.side or 'both', 'kind': attachment.kind or 'static'}
+	# Side and kind are read by their stored ID, not the enum: right after a
+	# target change they can hold a value the new target doesn't offer
+	# (fixed just after), and reading that through the enum warns.
+	record = {
+		'target': attachment.target,
+		'side': _stored(attachment, 'side', _ALL_SIDES, _SIDE_ITEMS[attachment.target][0][0]),
+		'kind': _stored(attachment, 'kind', _ALL_KINDS, _KIND_ITEMS[attachment.target][0][0]),
+	}
 	for key in ATTACHMENT_VALUES:
 		value = getattr(attachment, key)
 		record[key] = tuple(value) if key in ('translate', 'rotate') else value
