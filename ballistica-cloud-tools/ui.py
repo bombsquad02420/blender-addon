@@ -164,7 +164,23 @@ class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 
 class VIEW3D_PT_ballistica_meshes(_Section, bpy.types.Panel):
 	bl_label = "Meshes"
-	fields = tuple(field for _, field, _ in rig.PARTS)
+	# Flippers sits with the arm meshes it describes.
+	fields = tuple(
+		name for _, field, _ in rig.PARTS
+		for name in ((field, 'flippers') if field == 'upper_arm_mesh' else (field,))
+	)
+
+	def draw(self, context):
+		_Section.draw(self, context)
+		settings = active_character(context).ballistica_character
+		header, body = self.layout.panel('BALLISTICA_meshes_left', default_closed=True)
+		header.label(text="Left Side")
+		if body is not None:
+			body.use_property_split = True
+			body.use_property_decorate = False
+			body.label(text="Own meshes for the left limbs (still authored as right-side parts).")
+			for part in rig.PAIRED_PARTS:
+				body.prop(settings, f'left_{part}_mesh')
 
 
 class VIEW3D_PT_ballistica_sounds(_Section, bpy.types.Panel):
@@ -191,11 +207,6 @@ class VIEW3D_PT_ballistica_eyes(_Section, bpy.types.Panel):
 class VIEW3D_PT_ballistica_surface(_Section, bpy.types.Panel):
 	bl_label = "Surface"
 	fields = ('reflection_scale',)
-
-
-class VIEW3D_PT_ballistica_advanced(_Section, bpy.types.Panel):
-	bl_label = "Advanced"
-	fields = ('flippers', *(f'left_{p}_mesh' for p in rig.PAIRED_PARTS))
 
 
 
@@ -327,7 +338,6 @@ classes = (
 	VIEW3D_PT_ballistica_physique,
 	VIEW3D_PT_ballistica_eyes,
 	VIEW3D_PT_ballistica_surface,
-	VIEW3D_PT_ballistica_advanced,
 	BALLISTICA_UL_attachments,
 	BALLISTICA_UL_segments,
 	VIEW3D_PT_ballistica_attachments,
