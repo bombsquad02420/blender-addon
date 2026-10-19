@@ -465,6 +465,11 @@ agent_settings.head_mesh = 'meshes/no_such_mesh'  # missing file: keeps its mesh
 assert head_obj.data.get('bct_logical') == 'meshes/agent_head'
 agent_settings.head_mesh = 'meshes/agent_head'
 
+agent_settings.flippers = True  # with forearm and hand meshes still set
+assert any('Flippers is on' in p for p in operators.check(agent))
+agent_settings.flippers = False
+assert not any('Flippers' in p for p in operators.check(agent))
+
 # The character list: the scene's active character, independent of selection.
 scene = bpy.context.scene
 assert [c.name for c in ui.characters(scene)][:3] == ['agent_johnson', 'zoe', 'pixel']
@@ -522,6 +527,10 @@ for index in range(len(settings.attachments)):
 assert ui.active_character(bpy.context) == zoe
 bpy.context.view_layer.objects.active = None
 draw_panels()  # nothing selected: the panel still shows the chosen character
+settings.flippers = True  # Zoe has forearm and hand meshes: the Meshes note draws
+assert rig.flippers_hint(settings.flippers, settings.forearm_mesh, settings.hand_mesh)
+draw_panels()
+settings.flippers = False
 
 # Deleting the active character falls back to another one.
 doomed = bpy.data.collections['pixel.001']

@@ -242,6 +242,9 @@ def check(collection):
 	for field in rig.REQUIRED_REFS:
 		if not character.get(field):
 			problems.append(f"{field} is required")
+	hint = rig.flippers_hint(settings.flippers, settings.forearm_mesh, settings.hand_mesh)
+	if hint:
+		problems.append(hint)
 	exported = {f for p, f, _ in rig.PARTS if any(o.ballistica_part.role == p for o in _exportable_parts(collection))}
 	from . import attachments as attach_rules
 	for index, attachment in enumerate(settings.attachments):

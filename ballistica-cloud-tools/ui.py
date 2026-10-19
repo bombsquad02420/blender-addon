@@ -171,8 +171,17 @@ class VIEW3D_PT_ballistica_meshes(_Section, bpy.types.Panel):
 	)
 
 	def draw(self, context):
-		_Section.draw(self, context)
 		settings = active_character(context).ballistica_character
+		layout = self.layout
+		layout.use_property_split = True
+		layout.use_property_decorate = False
+		hint = rig.flippers_hint(settings.flippers, settings.forearm_mesh, settings.hand_mesh)
+		for field in self.fields:
+			layout.prop(settings, field)
+			if field == 'flippers' and hint:
+				box = layout.box()
+				box.label(text="Forearm or hand mesh set with Flippers on", icon='INFO')
+				box.label(text="They'll still be drawn; clear them for flipper arms.")
 		header, body = self.layout.panel('BALLISTICA_meshes_left', default_closed=True)
 		header.label(text="Left Side")
 		if body is not None:

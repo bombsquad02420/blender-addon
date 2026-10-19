@@ -211,5 +211,19 @@ ATTACHMENT_DEFAULTS = {
 }
 
 
+def flippers_hint(flippers, forearm_mesh, hand_mesh):
+	"""A hint when Flippers is on but forearms or hands would still draw.
+
+	Not an error: the engine draws whatever forearm and hand meshes are set
+	(flippers only shortens the upper arm under boxing gloves), but a
+	flipper character's upper arm is meant to be the whole limb.
+	"""
+	if not flippers or not (forearm_mesh or hand_mesh):
+		return None
+	parts = ' and '.join(n for n, v in (('forearm', forearm_mesh), ('hand', hand_mesh)) if v)
+	return (f"Flippers is on but a {parts} mesh is set, so they'll still be drawn; "
+		"clear them for flipper arms, or turn Flippers off")
+
+
 def clamp(value, span):
 	return min(max(value, span[0]), span[1])

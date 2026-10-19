@@ -100,6 +100,14 @@ class PoseTest(unittest.TestCase):
 		self.assertAlmostEqual(joints['shoulder'][0] - self.joints['shoulder'][0], 0.03)
 
 
+class FlippersHintTest(unittest.TestCase):
+	def test_hint_only_for_flippers_with_lower_arm_meshes(self):
+		self.assertIsNone(rig.flippers_hint(False, 'meshes/f', 'meshes/h'))
+		self.assertIsNone(rig.flippers_hint(True, '', ''))
+		self.assertIn('forearm and hand', rig.flippers_hint(True, 'meshes/f', 'meshes/h'))
+		self.assertIn('a hand mesh', rig.flippers_hint(True, '', 'meshes/h'))
+
+
 class ObjTest(unittest.TestCase):
 	@unittest.skipUnless(os.path.isdir(SAMPLE), 'ClassicCharacterAssets not cloned next to the addon repo')
 	def test_round_trip_keeps_geometry(self):
