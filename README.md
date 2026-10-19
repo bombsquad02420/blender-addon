@@ -1,6 +1,12 @@
 # blender-addon
 
-Import-Export BombSquad's bob and cob files
+Blender addons for BombSquad / Ballistica:
+
+- **[`bombsquad-tools`](bombsquad-tools)**: import and export BombSquad's
+  `.bob` and `.cob` files (the classic, pre-1.8 asset pipeline).
+- **[`ballistica-cloud-tools`](ballistica-cloud-tools)**: create and edit
+  characters for Ballistica cloud workspaces (BombSquad 1.8+). See
+  [Ballistica Cloud Tools](#ballistica-cloud-tools) below.
 
 ## Installation
 
@@ -16,6 +22,33 @@ Import-Export BombSquad's bob and cob files
 > If you have had success or issues, please update the version ranges here.
 
 ## Usage
+
+## Ballistica Cloud Tools
+
+Since BombSquad 1.8, mods are cloud **workspaces**: folders of `.bchar`,
+`.obj`, `.png` and `.wav` files that the cloud builds into game assets. This
+addon edits characters in a local copy of a workspace; syncing with the cloud
+happens outside Blender (`bacloud workspace get` / `put`, or `bacloud-ts`).
+
+Requires Blender 5.2+. In the 3D viewport, open **N panel → Ballistica**:
+
+- **New Character** starts a cuboid character in a workspace folder;
+  **Import Character** opens a `.bchar`; **Export Character** writes meshes,
+  textures and the `.bchar` back (only what changed).
+- The characters list picks which character the panel edits. Sections follow
+  the web UI's form (Identity, Textures, Meshes, Sounds, Physique, Eyes,
+  Surface), plus **Attachments** for hair, antennas, wings and the like.
+- **Check** reports problems before you upload.
+
+Build and install:
+
+```bash
+make cloud-build BLENDER=/path/to/blender
+blender --command extension install-file -r user_default --enable ballistica_cloud_tools-0.1.0.zip
+```
+
+Design notes: [`DESIGN.md`](ballistica-cloud-tools/DESIGN.md); the
+character format: [`BCHAR_FORMAT.md`](ballistica-cloud-tools/BCHAR_FORMAT.md).
 
 ## Contributing
 

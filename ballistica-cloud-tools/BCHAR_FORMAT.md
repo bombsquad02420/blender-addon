@@ -137,7 +137,10 @@ are clamped.
 
 - `reflection_scale`: glossiness. Default 0.1, range 0–2.
 - `flippers`: set to `true` when one long upper-arm mesh is the whole arm. The
-  arms are then drawn shorter while the character wears boxing gloves.
+  arms are then drawn shorter while the character wears boxing gloves. That's
+  all it changes: forearms and hands are still drawn if `forearm_mesh` and
+  `hand_mesh` are set, so leave those out for a flipper character (as
+  Pascal does). (`spaz_node.cc`: `arm_squash`.)
 - `color` and `highlight` components: 0–1.
 
 ### Attachments
@@ -168,6 +171,22 @@ affect gameplay.
 - `*_change` values (−1 to 1): how much each tuning value changes from one
   segment to the next. Available for `curl`, `length`, `radius`, `stiffness`
   and `damping`.
+
+### Fields the engine reads beyond `characterbuilder.py`
+
+The engine's definition (`src/ballistica/base/support/character_def.h`) is
+ahead of the builder in this checkout; the schema's real home is the
+master server (`bamaster baserver/character.py`), which isn't public:
+
+- `highlight_team_coloring_strength`, `highlight2_team_coloring_strength`:
+  how strongly team colours tone each highlight (0–1; unset = the standard
+  strength). `characterranges.py` has the span as `team_coloring_strength`.
+- Per-part looks: a part's own texture and tint mask (standing in for the
+  character's on that part alone), and for paired parts a left mesh,
+  left texture and left tint mask, plus per-part tints.
+
+The web form doesn't show these. Tools should keep them when rewriting a
+`.bchar`.
 
 ### Transforms and coordinates
 

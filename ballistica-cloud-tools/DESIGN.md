@@ -1,6 +1,7 @@
 # Ballistica Cloud Tools for Blender — Design
 
-Status: draft, updated 2026-10-17 with the game-code findings in
+Status: updated 2026-10-19 to match the implemented addon (characters
+list, attachments, New Character); game-code findings in
 [`BCHAR_FORMAT.md`](BCHAR_FORMAT.md). Working name `ballistica-cloud-tools`; sits next to
 `bombsquad-tools` in this repo.
 
@@ -322,174 +323,238 @@ Final check: `workspace put`, then the web UI preview and the game.
 
 ## Blender interface
 
+Everything lives in **View3D → N panel → Ballistica**.
+
+### Characters list
+
+The top of the panel lists the scene's characters. The selected row is the
+**active character**: every section below, plus Export, Check and Reset to
+T-Pose, acts on it. It's stored on the scene as a pointer to the character's
+collection (`scene.ballistica_active_character`), so it doesn't depend on
+what's selected:
+
+- Clicking a row makes that character active.
+- Clicking any object of a character in the viewport (body part, eye,
+  attachment) makes it active.
+- New Character and Import make the new character active.
+- With no choice yet (older files) or after the chosen character is
+  deleted, the panel falls back to the active object's character, then the
+  scene's first.
+
+Below the list: **New Character · Import Character · Export Character**,
+the character's workspace folder and `.bchar` path, its triangle count and
+**Check**, then **Frame Character · Reset to T-Pose · Use Standard Colors**
+and **Show All Assets**.
+
 ### Scene layout
 
-One character is one **collection**, holding:
+One character is one **collection**, with a child collection per group:
 
 ```
-Character: zoe                     (collection; .bchar settings live here)
-├── zoe_rig                        (armature: pose source)
-├── head, torso, pelvis            (part meshes, parented to their bones)
-├── upper_arm.R, forearm.R, hand.R … toes.R
-├── upper_arm.L … toes.L           (mirrored instances of the .R meshes,
-│                                   or their own mesh if a left_* is set)
-├── eye.L, eye.R                   (preview-only eye art)
-├── attachment: hair_tuft1 …       (attachment segments, parented to bones)
-└── Guides                         (child collection, never exported)
-    ├── head ball, torso, pelvis box, limb capsules, toes, roller
+zoe                         (collection; .bchar settings live here)
+├── zoe_root                (flat circle: move the whole character)
+├── zoe Rig                 (hidden on import)
+│   ├── zoe_rig             (armature, web UI preview pose)
+│   └── attach0, attach0.0… (attachment anchors and segment handles)
+├── zoe Head                (head)
+├── zoe Body                (torso, pelvis)
+├── zoe Arms                (upper_arm.R/.L, forearm.R/.L, hand.R/.L)
+├── zoe Legs                (upper_leg.R/.L, lower_leg.R/.L, toes.R/.L)
+├── zoe Attachments         (attachment segment meshes)
+├── zoe Eyes                (the game's eyeball, iris and eyelid; hidden on import)
+└── zoe Guides              (physics bodies; never exported)
 ```
+
+**Visibility** (a sub-section) toggles these groups and has the **Spread**
+slider (exploded view, as the web UI's S view).
 
 ### Armature: pose and placement
 
-An armature built from the vendored rig numbers, in the web UI's arms-out
-rest pose. Bones: `pelvis`, `torso`, `head`, and `.R`/`.L` pairs for
-`upper_arm`, `forearm`, `hand`, `upper_leg`, `lower_leg`, `toes`, plus
-`wing` and one bone (or chain) per attachment.
+An armature built from the vendored rig numbers, in the web UI's preview
+pose (`pose.py`). Bones: `pelvis`, `torso`, `head`, `.R`/`.L` pairs for
+`upper_arm`, `forearm`, `hand`, `upper_leg`, `lower_leg`, `toes` (and
+`heel`), `wing`, and the offset bones `shoulder_offset.*` and
+`eye_offset.*`.
 
-- Part meshes are **bone-parented**, so their mesh data stays in the part's
-  own local space. Export writes mesh data as-is; posing the armature never
-  changes what's exported.
-- Placement values in the `.bchar` come **from the armature**, so editing
-  them is a viewport action, not typing numbers:
-
-  | `.bchar` field | Armature source |
-  | --- | --- |
-  | `shoulder_offset` | shoulder bone head, relative to the rig's shoulder-on-torso point |
-  | `eye_offset` | `eye.R` bone (mirrored to `eye.L`) |
-  | attachment `transform` | attachment root bone, relative to its target bone |
-  | segment `transform` | each segment bone relative to the previous one |
-
-  Values are converted game↔Blender axes and clamped to
-  `characterranges.py` spans on export, with a warning when clamping
-  changes something.
-- Everything else in the rig (body sizes, joint anchors, start heights) is
-  fixed by the game, so those bones are locked. Changing per-character radii
-  (`torso_radius`, `thigh_radius`, `ankle_radius`) updates the guides, not
-  the bones.
+- Body parts are **bone-parented** with their rest placement in the parent
+  inverse, so their own transform is identity. Moving a part aside to work
+  on it is never exported, and **Reset to T-Pose** puts it back. Export
+  writes mesh data, which stays in the part's own space.
+- `shoulder_offset` and `eye_offset` are panel values that drive their
+  offset bones.
+- Rig dimensions (body sizes, joint anchors, start heights) are fixed by
+  the game. Per-character radii (`torso_radius`, `thigh_radius`,
+  `ankle_radius`) resize the guides.
 
 ### Collection properties: the form
 
-All other `.bchar` settings are stored on the character collection as a
-registered property group (`collection.ballistica_character`), so they are
-typed, saved in the `.blend`, and get min/max from `characterranges.py`. A
-sidebar panel (**N panel → Ballistica**) shows them in the same order and
-groups as the web UI form, with the same defaults filled in:
+All `.bchar` settings are stored on the character collection as a
+registered property group (`collection.ballistica_character`): typed,
+saved in the `.blend`, with min/max from `characterranges.py`. The panel
+shows them in the web UI form's order, with the same defaults:
 
 | Section | Fields |
 | --- | --- |
 | Identity | `name` (translation key), `icon_texture`, `icon_mask_texture`, `color`, `highlight`, `highlight_name`, `highlight_editing`, `highlight2`, `highlight2_name`, `highlight2_editing` |
 | Textures | `color_texture`, `color_mask_texture` |
-| Meshes | `head_mesh`, `torso_mesh`, `pelvis_mesh`, `upper_arm_mesh`, `forearm_mesh`, `hand_mesh`, `upper_leg_mesh`, `lower_leg_mesh`, `toes_mesh` (the part objects, filled from the scene; optional ones can be empty) |
-| Sounds | the six sound lists (`jump`, `attack`, `impact`, `death`, `pickup`, `fall`), each a plain string list of audio paths (one per line, as in the web UI) |
-| Physique | `torso_radius`, `shoulder_offset` (shown, but placed with the shoulder bone), `thigh_radius`, `ankle_radius`, `step_separation`, `idle_arm_stiffness`, `arm_swing`, `idle_sway` |
-| Eyes | `eye_style_left/right`, `eye_scale`, `eye_offset` (shown, but placed with the eye bone), `eye_color`, `eyeball_color`, `eyelid_color`, `eyelid_angle` |
+| Meshes | `head_mesh`, `torso_mesh`, `pelvis_mesh`, `upper_arm_mesh`, `flippers`, `forearm_mesh`, `hand_mesh`, `upper_leg_mesh`, `lower_leg_mesh`, `toes_mesh`; a collapsible **Left Side** with the `left_*_mesh` overrides |
+| Sounds | the six sound lists, each a comma-separated list of audio paths |
+| Physique | `torso_radius`, `shoulder_offset`, `thigh_radius`, `ankle_radius`, `step_separation`, `idle_arm_stiffness`, `arm_swing`, `idle_sway` |
+| Eyes | `eye_style_left/right`, `eye_scale`, `eye_offset`, `eye_color`, `eyeball_color`, `eyelid_color`, `eyelid_angle` |
 | Surface | `reflection_scale` |
-| Advanced *(beyond the web UI)* | `left_*` mesh overrides, `flippers` |
-| Attachments *(beyond the web UI)* | list (UIList): `target`, `side`, `kind`, spring values and their `*_change`, segments with optional texture and mask |
+| Attachments | see below |
 
-The first eight sections match the web UI form one-to-one. The last two
-cover what the web form leaves out; Blender is the friendlier place to edit
-them anyway, since attachments need placing in 3D.
+`flippers`, the `left_*` overrides and attachments aren't in the web UI
+form (they're JSON-only there).
 
-Unlike the web UI, pickers can be **filtered by role** (color textures vs
-masks vs icons, body-part meshes vs attachment meshes), using names and
-`workspace.json` roles as a hint, with an option to show everything.
+- **Reference fields** are pickers over the workspace's own files, like the
+  web UI's dropdowns, filtered by role (colour textures, masks, icons)
+  unless Show All Assets is on.
+- **Mesh fields update the scene.** Changing a part's mesh swaps the mesh on
+  its objects (both sides, unless a `left_*` override applies); clearing an
+  optional part (pelvis, forearm, hand) removes its objects, setting it
+  again creates them. Meshes are shared by path: parts using the same file
+  share one Blender mesh. A path that doesn't exist leaves the part as it
+  was.
+- **Flippers** only shortens the upper arm under boxing gloves; the engine
+  still draws any forearm and hand meshes that are set. If both are set,
+  the Meshes section and Check show a hint (not an error).
+- **Unknown fields** (a newer format, e.g. per-part looks and team coloring
+  strengths the engine already reads) are kept from the stored raw JSON and
+  written back unchanged; untouched characters round-trip byte for byte.
 
-Reference fields are pickers over the workspace's own files, like the web
-UI's dropdowns. The panel header shows the icon texture and the character's
-triangle count, as the web UI does.
+### Attachments
 
-Fields the addon doesn't know (a newer format) are kept as raw JSON on the
-collection and written back unchanged.
+An **Attachments** section with a list (**+** add, **−** remove, up/down
+reorder), like Material Slots. Each row reads *target · kind · side*, with
+a warning icon if the attachment breaks a rule. Below the list, the
+selected attachment:
+
+- **Target, Side, Kind.** Only valid choices are offered: head, torso and
+  pelvis take side `both` only; limbs and `wing` take kind `static` only.
+  The segment count follows the kind (`antenna_3` has 3 segments, …).
+  Changing any of these rebuilds the attachment.
+- **Placement** (open by default): the attachment's `transform`, where it
+  hangs on the target part, in game axes (Y up, Z forward); rotation as
+  heading, pitch, roll in degrees. **Select Anchor** selects its handle.
+- **Spring** (closed; springy kinds only): stiffness, damping, drag, curl,
+  length, radius, and their per-segment `*_change` when there's more than
+  one segment.
+- **Segments** (open): the segment list, and the selected segment's mesh,
+  texture and mask. **Art Offset** (closed) holds the segment's own
+  `transform`: where its mesh sits on its physics segment. For a
+  single-segment static attachment it moves the mesh just like Placement;
+  for springy kinds Placement moves the pivot and Art Offset moves the mesh
+  on its swinging segment. **Select Art** selects its handle.
+
+**Placement handles.** Each attachment has an anchor empty, bone-parented
+to its target (its own location/rotation, in `YXZ` mode, are exactly the
+`.bchar` translate/rotate), and a handle per segment under it (the kind's
+joint chain in its parent inverse, the segment transform as its own). The
+handles are the saved placement and live in the Rig collection. Meshes hang
+from the handles with an identity transform, so moving a mesh aside to
+paint it is never saved, and Reset to T-Pose puts it back. Left copies of
+`both`-sided limb attachments follow the right side by drivers. Panel
+numbers and handles stay in sync both ways.
+
+**Selection.** Clicking an attachment or segment row selects its meshes (in
+Object Mode); clicking an attachment mesh in the viewport selects its row.
+Add, remove, reorder and kind/target/side changes rebuild the attachment
+objects and then select the active attachment's new meshes.
+
+New attachments are an `antenna` on top of the head with a placeholder box
+segment (`meshes/<character>_attachment<n>`, written on export).
 
 ### Preview and guides
 
-Panel toggles that match the web UI's views:
-
-- **Color swatches:** the player `color` and `highlight`, as in the web UI's
-  left column, for quickly trying tints.
-- **Preview:** material preview with the colorize node group, driven live by
-  `color`, `highlight` and `highlight2` from the form; `reflection_scale`
-  maps to roughness/specular as a rough approximation.
-- **Bodies:** the guides collection, matching the web UI's B view: head
-  and torso balls, pelvis box, arm-segment and leg capsules, toes balls and
-  the translucent roller, sized from the rig numbers and the character's
-  radii and updated when the physique values change. No hand body.
-- **Pose:** the armature drawn over the model, with the same joints as the
-  web UI's P view (stick display).
-- **Rotate:** not needed; Blender's viewport already orbits freely.
-- **Spread:** the exploded layout from `bombsquad-tools` stands in for the
-  web UI's Spread slider; that's enough for now. Stretch is not mirrored.
-- **Visibility:** not a panel feature. Blender's outliner already hides and
-  shows objects, so the scene is organised to make that easy: one object per
-  part with `.L`/`.R` names, attachments and eyes as their own objects, and
-  guides in a child collection.
-
-Eye art isn't in the workspace (the game draws shared eye meshes), so the
-addon ships a simple stand-in eye, scaled by `eye_scale` and the rig's
-`eye_mesh_scale`, so eye placement can be judged.
+- **Material:** the bundled "Ballistica Colorize" node group, with
+  `color`, `highlight` and `highlight2` driven by the panel. **Use Standard
+  Colors** sets the scene's view transform to Standard so colours match the
+  web UI (Blender's default AgX washes them out).
+- **Guides:** head and torso balls, pelvis box, arm-segment and leg
+  capsules, toes balls and the roller, sized from the rig and the
+  character's radii (the web UI's B view).
+- **Eyes:** the game's own eyeball, iris and eyelid meshes and textures,
+  bundled with the addon, placed and coloured from the Eyes settings.
+- **Pose:** the armature in the Rig collection (the web UI's P view).
+- **Spread:** the Visibility section's slider (the web UI's S view).
+- **Frame Character** frames the rig in the viewport.
 
 ### Pre-upload checks
 
-A **Check** button (also run on export): required fields set; every
-referenced file exists in the workspace; meshes triangulated with UVs and
-normals; masks marked `texture_role: data`; values in range. There are no known
+**Check** (also run on export) reports: required fields; referenced files
+missing from the workspace (meshes and textures made in Blender count, since
+export writes them); masks not marked `texture_role: data`; meshes without
+UVs; attachment rule problems; and the Flippers hint. There are no known
 server limits on vertex counts or texture sizes, so the checks don't invent
-any; the panel just shows the triangle count, like the web UI.
+any.
 
 ## Character workflow
 
 ### Import character
 
-From a workspace folder, pick a `.bchar`:
+**Import Character** (or File → Import → Ballistica Character), then pick a
+`.bchar` inside a workspace folder (one with a `workspace.json` above it):
 
-1. Create the collection and fill its properties from the `.bchar`.
-2. Build the armature in the rest pose; apply `shoulder_offset`,
-   `eye_offset` and attachment transforms to their bones.
-3. Import each part OBJ (game axes → Blender) and bone-parent it. Create the
-   left limbs as mirrored instances, or from the `left_*` meshes.
-4. Load the textures and build the material.
-5. Import attachment segments onto their bones.
-6. Build the guides.
+1. Create the collection and its groups, and fill its settings.
+2. Build the armature in the preview pose, and the root.
+3. Load each part's OBJ (game axes → Blender) and bone-parent it; left
+   limbs share the right side's mesh, or use their `left_*` mesh.
+4. Build the material, eyes, attachments (with handles) and guides.
+5. Make it the active character.
+
+Loading doesn't change your selection.
 
 ### Edit
 
 - Model, UV-map and texture-paint the parts. Limbs are edited on the `.R`
-  side and shown mirrored.
-- Move the shoulder, eye and attachment bones to place them.
-- Edit everything else in the panel; the preview updates live.
+  side; the `.L` side shares the mesh.
+- Edit settings in the panel; the preview follows live.
+- Place attachments with their handles or the Placement numbers.
 
 ### Export character
 
-1. Write each part OBJ from its mesh data (part-local, triangulated, UVs and
-   normals; Blender axes → game). Limbs are written as right-side parts.
-2. Save modified images as PNG into the workspace.
-3. Write the `.bchar` from the collection properties and the armature,
-   keeping unknown fields. **Blender's copy wins:** export overwrites the
-   local files. Edits made in the web UI since import are lost unless you
-   `workspace get` and re-import first.
-4. Update `workspace.json` only for files the addon creates (e.g. mark new
-   masks `texture_role: data`), preserving everything else.
-5. Run the checks, then `bacloud-ts workspace put` and look at the result in
-   the web UI.
+**Export Character** writes into the character's workspace folder
+(overwriting local files):
+
+1. Read the attachment handles into the settings.
+2. Write each part's mesh, and each attachment segment mesh, that is new or
+   changed since import or the last export (part-local, triangulated, UVs
+   and normals; Blender axes → game). Unchanged meshes aren't rewritten.
+3. Save textures edited or made in Blender as PNG.
+4. Mark mask textures `texture_role: data` in `workspace.json`, leaving
+   everything else in it as it was.
+5. Write the `.bchar`, keeping unknown fields.
+
+**Blender's copy wins:** edits made in the web UI since import are lost
+unless you `workspace get` and re-import first. Then sync with
+`bacloud-ts workspace put` and check the result in the web UI.
 
 ### New character
 
-**New character** creates the collection, armature, guides and a stand-in
-body from a template shipped in the addon (the addon can't read the game's
-files), with required fields filled and Spaz defaults elsewhere. Classic
-characters can be started from by copying their files into the workspace
-(e.g. from `ClassicCharacterAssets`) and importing.
+**New Character** asks for a workspace folder and a lowercase name, then
+creates the collection, rig, guides, eyes and a cuboid body: one box per
+part, with limbs as long as the default Spaz's and about as thick as the
+game's collision capsules, the head a cube inside the head ball. A generated
+atlas, colour mask (body takes the player colour, forearms and shins the
+highlight) and icon go with it. All files are named after the character
+(`characters/<name>.bchar`, `meshes/<name>_<part>.obj`,
+`textures/<name>_color.png`, …). It refuses names already used in the
+workspace. **Nothing is written until Export**; the display name's `.bstr`
+isn't created (the addon ignores `strings/`).
 
 ## Self-contained
 
 The addon never reads game or ballistica files at runtime. Everything it
-needs is shipped inside it:
+needs ships inside it:
 
 - the rig numbers (`characterrig.py`) and ranges (`characterranges.py`),
-  copied in with a note of the ballistica version they came from;
+  copied into `rig.py` with a note of the ballistica version they came from;
 - the `.bchar` field list and defaults (`characterbuilder.py`);
-- the colorize node group, stand-in eye mesh and new-character template.
+- the "Ballistica Colorize" node group and the game's eye meshes and
+  textures, in `assets/ballistica_assets.blend` (generated at build time by
+  `make cloud-build`);
+- the new-character template (`template.py`).
 
 When ballistica changes these, the addon needs a new release.
 
@@ -540,11 +605,14 @@ Answered 2026-10-17:
   developed and tested on 5.2.2. The bundled asset `.blend` is generated at
   build time, so build releases with the minimum supported Blender.
 - ~~Attachments, `left_*`, `flippers`~~: JSON-only in the web UI; the addon
-  edits them in its Advanced and Attachments sections.
-- ~~`team_coloring_strength`~~: meaning unclear, but preserved on import and
-  export along with every other unmodelled field.
+  edits them in its Meshes and Attachments sections.
+- ~~`team_coloring_strength`~~: how strongly team colours tone a highlight;
+  the engine reads it per highlight (`highlight_team_coloring_strength`,
+  `highlight2_team_coloring_strength`). Not in the form; preserved on
+  import and export along with every other unmodelled field.
 
 Still open:
 
-1. **Rotation signs.** Confirm the derived `YXZ` / `(−p, −r, −h)`
-   conversion by importing Zoe and Pixel and comparing with the web UI.
+1. **Rotation signs.** The derived `YXZ` / `(−p, −r, −h)` conversion puts
+   Zoe's hair and Pixel's wings where the web UI shows them by eye; it
+   hasn't been checked number for number against the server's conversion.
