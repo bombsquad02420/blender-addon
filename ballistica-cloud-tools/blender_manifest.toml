@@ -27,6 +27,8 @@ paths_exclude_pattern = [
 	"/BCHAR_FORMAT.md",
 	"/webui/",
 	"/tests/",
+	"/Makefile",
+	"/CHANGELOG.md",
 	"/assets/build_assets.py",
 	"/assets/extract_eye_assets.py",
 	"/assets/source/",

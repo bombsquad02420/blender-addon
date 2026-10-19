@@ -553,7 +553,7 @@ needs ships inside it:
 - the `.bchar` field list and defaults (`characterbuilder.py`);
 - the "Ballistica Colorize" node group and the game's eye meshes and
   textures, in `assets/ballistica_assets.blend` (generated at build time by
-  `make cloud-build`);
+  `make build` in this folder);
 - the new-character template (`template.py`).
 
 When ballistica changes these, the addon needs a new release.

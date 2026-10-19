@@ -1,6 +1,6 @@
 """Rebuild assets/ballistica_assets.blend (the bundled asset library).
 
-	make cloud-assets
+	make assets   (in ballistica-cloud-tools)
 	# or: blender -b --factory-startup --python assets/build_assets.py
 
 Creates the "Ballistica Colorize" and "Ballistica Eye" node groups (marked

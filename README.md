@@ -43,9 +43,11 @@ Requires Blender 5.2+. In the 3D viewport, open **N panel → Ballistica**:
 Build and install:
 
 ```bash
-make cloud-build BLENDER=/path/to/blender
-blender --command extension install-file -r user_default --enable ballistica_cloud_tools-0.1.0.zip
+cd ballistica-cloud-tools
+make install BLENDER=/path/to/blender   # build and install + enable in Blender
 ```
+
+See [SETUP.md](SETUP.md) for the other targets.
 
 Design notes: [`DESIGN.md`](ballistica-cloud-tools/DESIGN.md); the
 character format: [`BCHAR_FORMAT.md`](ballistica-cloud-tools/BCHAR_FORMAT.md).

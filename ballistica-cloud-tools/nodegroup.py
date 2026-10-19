@@ -139,7 +139,7 @@ def get(name=GROUP_NAME):
 	"""A bundled node group, appended from the asset .blend if needed.
 
 	Raises MissingAssetError rather than building a substitute: a missing
-	or unreadable assets file is a broken build (run `make cloud-build`).
+	or unreadable assets file is a broken build (run `make build` in ballistica-cloud-tools).
 	"""
 	group = bpy.data.node_groups.get(name)
 	if group is not None and group.library is None:
@@ -159,11 +159,11 @@ def get_data(kind, names):
 
 def _append(kind, names):
 	if not os.path.isfile(ASSETS_BLEND):
-		raise MissingAssetError(f"Bundled asset file not found: {ASSETS_BLEND}. Rebuild the addon (make cloud-build).")
+		raise MissingAssetError(f"Bundled asset file not found: {ASSETS_BLEND}. Rebuild the addon (make build in ballistica-cloud-tools).")
 	with bpy.data.libraries.load(ASSETS_BLEND, link=False) as (src, dst):
 		absent = [n for n in names if n not in getattr(src, kind)]
 		if absent:
-			raise MissingAssetError(f"{', '.join(absent)} not found in {ASSETS_BLEND}. Rebuild the addon (make cloud-build).")
+			raise MissingAssetError(f"{', '.join(absent)} not found in {ASSETS_BLEND}. Rebuild the addon (make build in ballistica-cloud-tools).")
 		setattr(dst, kind, list(names))
 
 
