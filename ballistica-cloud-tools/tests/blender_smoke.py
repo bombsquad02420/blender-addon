@@ -480,9 +480,13 @@ settings.active_attachment_index = 1  # selects its mesh, then a rebuild replace
 settings.attachments[1].kind = 'static'
 assert ui.active_character(bpy.context) == zoe  # still on the character after the rebuild
 assert {o.name for o in bpy.context.selected_objects} == meshes_of(1)
-active_before = bpy.context.view_layer.objects.active
+bpy.context.scene.cursor.location = (2.0, -1.0, 0.5)
 assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'pixel.bchar')) == {'FINISHED'}
-assert bpy.context.view_layer.objects.active == active_before  # loading doesn't steal the selection
+bpy.context.scene.cursor.location = (0.0, 0.0, 0.0)
+new_root = bpy.context.view_layer.objects.active  # import selects the new character's root
+assert new_root.name == 'pixel.001_root' and new_root.select_get(), new_root
+assert tuple(new_root.location) == (2.0, -1.0, 0.5), tuple(new_root.location)  # placed at the 3D cursor
+assert [o.name for o in bpy.context.selected_objects] == ['pixel.001_root']
 
 # Meshes fields: changing one swaps the part's mesh in the scene.
 from ballistica_cloud_tools import part_scene  # noqa: E402

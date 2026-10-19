@@ -134,12 +134,29 @@ class BALLISTICA_OT_import_character(bpy.types.Operator, ImportHelper):
 		if context.object is not None and context.object.mode != 'OBJECT':
 			bpy.ops.object.mode_set(mode='OBJECT')
 		collection, missing = _build(context, root, workspace.logical_path(root, self.filepath), character)
-		context.scene.ballistica_active_character = collection
+		_place_and_activate(context, collection)
 		if missing:
 			self.report({'WARNING'}, f"Missing meshes: {', '.join(missing)}")
 		else:
 			self.report({'INFO'}, f"Imported {collection.name}")
 		return {'FINISHED'}
+
+
+def _place_and_activate(context, collection):
+	"""Put a new character at the 3D cursor and make it the active one.
+
+	Selects its root as the active object too, so the active-object
+	handler (which picks the character of whatever is clicked) agrees.
+	"""
+	root = collection.objects[collection.name + scene.ROOT_SUFFIX]
+	root.location = context.scene.cursor.location
+	for obj in context.view_layer.objects.selected:
+		obj.select_set(False)
+	root.select_set(True)
+	context.view_layer.objects.active = root
+	context.scene.ballistica_active_character = collection
+	for area in context.screen.areas if context.screen else ():
+		area.tag_redraw()
 
 
 NAME_PATTERN = re.compile(r'^[a-z][a-z0-9_]*$')
@@ -225,7 +242,7 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 		_new_image(root, character.get('icon_mask_texture'), icon_mask, 64, data=True)
 		meshes = {part: scene.mesh_from_objmesh(template.cuboid(part), f'meshes/{name}_{part}') for part in template.CUBOIDS}
 		collection, _ = _build(context, root, character_path, character, meshes)
-		context.scene.ballistica_active_character = collection
+		_place_and_activate(context, collection)
 		self.report({'INFO'}, f"Created {collection.name}; Export Character writes it to the workspace")
 		return {'FINISHED'}
 
