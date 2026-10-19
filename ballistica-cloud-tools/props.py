@@ -477,14 +477,48 @@ classes = (
 )
 
 
+# ---- the scene's active character ----
+
+def _is_character(self, collection):
+	return collection.ballistica_character.is_character
+
+
+def _character_index_get(self):
+	"""Row of the active character in bpy.data.collections (the list's index).
+
+	Derived from the pointer, so adding or renaming collections (which
+	re-sorts bpy.data.collections) never changes which character is active.
+	"""
+	active = self.ballistica_active_character
+	if active is not None:
+		for i, collection in enumerate(bpy.data.collections):
+			if collection == active:
+				return i
+	return -1
+
+
+def _character_index_set(self, value):
+	if 0 <= value < len(bpy.data.collections):
+		collection = bpy.data.collections[value]
+		if collection.ballistica_character.is_character:
+			self.ballistica_active_character = collection
+
+
 def register():
 	for cls in classes:
 		bpy.utils.register_class(cls)
 	bpy.types.Collection.ballistica_character = bpy.props.PointerProperty(type=COLLECTION_PG_ballistica_character)
 	bpy.types.Object.ballistica_part = bpy.props.PointerProperty(type=OBJECT_PG_ballistica_part)
+	bpy.types.Scene.ballistica_active_character = bpy.props.PointerProperty(
+		type=bpy.types.Collection, poll=_is_character, name="Active Character",
+		description="The character the Ballistica panel shows and acts on", options=_options())
+	bpy.types.Scene.ballistica_character_index = bpy.props.IntProperty(
+		name="Active Character", get=_character_index_get, set=_character_index_set, options=_options())
 
 
 def unregister():
+	del bpy.types.Scene.ballistica_character_index
+	del bpy.types.Scene.ballistica_active_character
 	del bpy.types.Object.ballistica_part
 	del bpy.types.Collection.ballistica_character
 	for cls in reversed(classes):

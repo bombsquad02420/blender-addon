@@ -390,15 +390,25 @@ def select(collection, index, segment):
 
 
 def on_active_object_changed():
-	"""An attachment mesh became active in the viewport: show it in the list."""
+	"""An object became active in the viewport: follow it in the lists.
+
+	Any object of a character makes that character active in the
+	character list; an attachment mesh also picks its attachment row.
+	"""
 	global _following
 	if _following:
 		return
-	obj = bpy.context.view_layer.objects.active if bpy.context.view_layer else None
-	if obj is None or obj.get(ROLE_KEY) != MESH:
+	context = bpy.context
+	obj = context.view_layer.objects.active if context.view_layer else None
+	if obj is None:
 		return
 	collection = character_of(obj)
 	if collection is None:
+		return
+	scene = context.scene
+	if getattr(scene, 'ballistica_active_character', None) != collection:
+		scene.ballistica_active_character = collection
+	if obj.get(ROLE_KEY) != MESH:
 		return
 	settings = collection.ballistica_character
 	index, segment = obj[INDEX_KEY], obj.get(SEGMENT_KEY, 0)

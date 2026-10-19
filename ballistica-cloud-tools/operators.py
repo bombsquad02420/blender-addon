@@ -133,6 +133,7 @@ class BALLISTICA_OT_import_character(bpy.types.Operator, ImportHelper):
 		if context.object is not None and context.object.mode != 'OBJECT':
 			bpy.ops.object.mode_set(mode='OBJECT')
 		collection, missing = _build(context, root, workspace.logical_path(root, self.filepath), character)
+		context.scene.ballistica_active_character = collection
 		if missing:
 			self.report({'WARNING'}, f"Missing meshes: {', '.join(missing)}")
 		else:
@@ -223,6 +224,7 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 		_new_image(root, character.get('icon_mask_texture'), icon_mask, 64, data=True)
 		meshes = {part: scene.mesh_from_objmesh(template.cuboid(part), f'meshes/{name}_{part}') for part in template.CUBOIDS}
 		collection, _ = _build(context, root, character_path, character, meshes)
+		context.scene.ballistica_active_character = collection
 		self.report({'INFO'}, f"Created {collection.name}; Export Character writes it to the workspace")
 		return {'FINISHED'}
 

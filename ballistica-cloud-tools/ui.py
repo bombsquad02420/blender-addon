@@ -5,7 +5,29 @@ import bpy
 from . import rig
 
 
+def characters(scene):
+	"""Character collections in this scene, in outliner order."""
+	return [c for c in scene.collection.children_recursive if c.ballistica_character.is_character]
+
+
 def active_character(context):
+	"""The character the panel shows and acts on.
+
+	The scene's chosen character (the list at the top of the panel), else
+	the character of the active object or collection (files from before
+	the list), else the scene's first character.
+	"""
+	scene = context.scene
+	chosen = getattr(scene, 'ballistica_active_character', None)
+	if chosen is not None and chosen.ballistica_character.is_character and chosen in characters(scene):
+		return chosen
+	found = _character_from_selection(context)
+	if found is not None:
+		return found
+	return next(iter(characters(scene)), None)
+
+
+def _character_from_selection(context):
 	"""The character collection for the active object or collection."""
 	obj = context.active_object
 	if obj is not None:
@@ -27,11 +49,30 @@ class _Panel:
 	bl_category = "Ballistica"
 
 
+class BALLISTICA_UL_characters(bpy.types.UIList):
+	"""The scene's characters (character collections from bpy.data)."""
+
+	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
+		layout.label(text=item.name, icon='OUTLINER_COLLECTION')
+
+	def filter_items(self, context, data, property):
+		in_scene = set(characters(context.scene))
+		items = getattr(data, property)
+		flags = [self.bitflag_filter_item if c in in_scene else 0 for c in items]
+		if self.filter_name:
+			needle = self.filter_name.lower()
+			flags = [f if needle in c.name.lower() else 0 for f, c in zip(flags, items)]
+		return flags, []
+
+
 class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 	bl_label = "Ballistica Character"
 
 	def draw(self, context):
 		layout = self.layout
+		layout.template_list(
+			'BALLISTICA_UL_characters', '', bpy.data, 'collections', context.scene, 'ballistica_character_index',
+			rows=2, maxrows=5)
 		row = layout.row(align=True)
 		row.operator('ballistica.new_character', icon='ADD')
 		row.operator('ballistica.import_character', icon='IMPORT')
@@ -276,6 +317,7 @@ def _triangles(collection):
 
 
 classes = (
+	BALLISTICA_UL_characters,
 	VIEW3D_PT_ballistica_character,
 	VIEW3D_PT_ballistica_visibility,
 	VIEW3D_PT_ballistica_identity,

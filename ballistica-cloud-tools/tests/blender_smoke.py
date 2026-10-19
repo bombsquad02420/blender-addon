@@ -26,6 +26,18 @@ package.register()
 import bpy  # noqa: E402
 from ballistica_cloud_tools import objfile, operators, rig  # noqa: E402
 
+
+def make_active(obj):
+	"""Make `obj` active, as a click would in the UI.
+
+	The UI's message bus notifies the addon when the active object changes;
+	background mode has no UI, so call that handler directly.
+	"""
+	from ballistica_cloud_tools import attach_scene
+
+	bpy.context.view_layer.objects.active = obj
+	attach_scene.on_active_object_changed()
+
 ws = os.path.join(tempfile.mkdtemp(), 'ws')
 shutil.copytree(SAMPLE, ws, ignore=shutil.ignore_patterns('.git'))
 
@@ -76,7 +88,7 @@ hidden = {c.name for c in agent.children if next(_layer_collections(bpy.context.
 assert hidden == {'agent_johnson Rig', 'agent_johnson Eyes', 'agent_johnson Guides'}, hidden
 assert [c.name for c in agent.children] == [f'agent_johnson {g}' for g in ('Rig', 'Head', 'Body', 'Arms', 'Legs', 'Attachments', 'Eyes', 'Guides')]
 head = next(o for o in agent.all_objects if o.name == 'head')
-bpy.context.view_layer.objects.active = head
+make_active(head)
 assert bpy.ops.ballistica.export_character() == {'FINISHED'}
 changed = sorted(k for k, v in snapshot().items() if before.get(k) != v)
 assert changed == [], changed
@@ -201,7 +213,7 @@ arm.pose.bones['upper_leg.R'].rotation_quaternion = (0.7, 0.7, 0.0, 0.0)  # pose
 arm.location = (0.3, 0.0, 0.2)  # and move the rig off its root
 for o in bpy.context.view_layer.objects:
 	o.select_set(False)
-bpy.context.view_layer.objects.active = legs[0]
+make_active(legs[0])
 bpy.context.view_layer.update()
 assert bpy.ops.ballistica.reset_parts() == {'FINISHED'}
 bpy.context.view_layer.update()
@@ -353,7 +365,7 @@ assert written_attachments(zoe) == zoe_attachments  # untouched: identical
 hair = next(o for o in attach_scene.tagged(zoe, attach_scene.MESH) if o[attach_scene.INDEX_KEY] == 0)
 hair.location.x += 0.5  # moved away to paint it
 assert written_attachments(zoe) == zoe_attachments  # mesh moves aren't placement
-bpy.context.view_layer.objects.active = hair
+make_active(hair)
 assert bpy.ops.ballistica.reset_parts() == {'FINISHED'}
 assert tuple(hair.location) == (0.0, 0.0, 0.0)
 spot = attach_scene.anchor(zoe, 0)
@@ -378,7 +390,7 @@ zoe = bpy.data.collections['zoe']
 settings = zoe.ballistica_character
 for obj in bpy.context.view_layer.objects:
 	obj.select_set(False)
-bpy.context.view_layer.objects.active = next(o for o in zoe.all_objects if o.ballistica_part.role == 'head')
+make_active(next(o for o in zoe.all_objects if o.ballistica_part.role == 'head'))
 attach_scene.sync_from_handles(zoe)
 before_ops = props.to_character(settings).data['attachments']
 third = (settings.attachments[2].target, settings.attachments[2].kind)
@@ -395,7 +407,7 @@ assert settings.attachments[2].segments[0].mesh.startswith('meshes/zoe_attachmen
 assert (settings.attachments[3].target, settings.attachments[3].kind) == third  # Zoe's third moved down
 assert bpy.ops.ballistica.attachment_select(segment=-1) == {'FINISHED'}
 assert bpy.context.view_layer.objects.active == attach_scene.anchor(zoe, 2)
-bpy.context.view_layer.objects.active = next(o for o in zoe.all_objects if o.ballistica_part.role == 'head')
+make_active(next(o for o in zoe.all_objects if o.ballistica_part.role == 'head'))
 assert bpy.ops.ballistica.attachment_remove() == {'FINISHED'}
 assert len(settings.attachments) == 3
 assert sorted({o[attach_scene.INDEX_KEY] for o in attach_scene.tagged(zoe, attach_scene.ANCHOR)}) == [0, 1, 2]
@@ -416,8 +428,7 @@ assert {o.name for o in bpy.context.selected_objects} == meshes_of(0)
 settings.attachments[0].active_segment_index = 0
 assert {o.name for o in bpy.context.selected_objects} == meshes_of(0, 0)
 other = next(o for o in attach_scene.tagged(zoe, attach_scene.MESH, 1))
-bpy.context.view_layer.objects.active = other
-attach_scene.on_active_object_changed()  # what the message bus calls in the UI
+make_active(other)
 assert settings.active_attachment_index == 1
 settings.active_attachment_index = 1  # selects its mesh, then a rebuild replaces it
 settings.attachments[1].kind = 'static'
@@ -426,6 +437,23 @@ assert {o.name for o in bpy.context.selected_objects} == meshes_of(1)
 active_before = bpy.context.view_layer.objects.active
 assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'pixel.bchar')) == {'FINISHED'}
 assert bpy.context.view_layer.objects.active == active_before  # loading doesn't steal the selection
+
+# The character list: the scene's active character, independent of selection.
+scene = bpy.context.scene
+assert [c.name for c in ui.characters(scene)][:3] == ['agent_johnson', 'zoe', 'pixel']
+assert scene.ballistica_active_character == bpy.data.collections['pixel.001']  # import made it active
+make_active(next(o for o in zoe.all_objects if o.ballistica_part.role == 'torso'))
+assert scene.ballistica_active_character == zoe  # clicking any part of a character picks it
+scene.ballistica_character_index = list(bpy.data.collections).index(bpy.data.collections['agent_johnson'])
+assert ui.active_character(bpy.context).name == 'agent_johnson'  # clicking its row
+bpy.context.view_layer.objects.active = None
+assert ui.active_character(bpy.context).name == 'agent_johnson'  # nothing selected: still shown
+bpy.data.collections.new('zzz_not_a_character')  # re-sorts bpy.data.collections
+assert ui.active_character(bpy.context).name == 'agent_johnson'
+assert bpy.data.collections[scene.ballistica_character_index].name == 'agent_johnson'
+scene.ballistica_character_index = list(bpy.data.collections).index(bpy.data.collections['zzz_not_a_character'])
+assert ui.active_character(bpy.context).name == 'agent_johnson'  # non-characters can't be picked
+scene.ballistica_active_character = zoe
 
 # The Attachments panel draws (against a stand-in layout that checks every
 # property it shows exists).
@@ -465,6 +493,19 @@ for index in range(len(settings.attachments)):
 	settings.active_attachment_index = index
 	draw_panels()
 assert ui.active_character(bpy.context) == zoe
+bpy.context.view_layer.objects.active = None
+draw_panels()  # nothing selected: the panel still shows the chosen character
+
+# Deleting the active character falls back to another one.
+doomed = bpy.data.collections['pixel.001']
+scene.ballistica_active_character = doomed
+for obj in list(doomed.all_objects):
+	bpy.data.objects.remove(obj)
+for child in list(doomed.children_recursive):
+	bpy.data.collections.remove(child)
+bpy.data.collections.remove(doomed)
+assert ui.active_character(bpy.context) is not None and ui.active_character(bpy.context).name != 'pixel.001'
+scene.ballistica_active_character = zoe
 
 # New Character: a cuboid character, written only on export, then re-imported.
 assert 'cubey' not in bpy.data.collections
@@ -484,7 +525,7 @@ for bad_name, message in (('spaz', 'is taken'), ('Bad Name', 'lowercase')):
 	except RuntimeError as exc:
 		assert message in str(exc), exc
 before_cubey = snapshot()
-bpy.context.view_layer.objects.active = next(o for o in cubey.all_objects if o.ballistica_part.role == 'head')
+make_active(next(o for o in cubey.all_objects if o.ballistica_part.role == 'head'))
 assert bpy.ops.ballistica.export_character() == {'FINISHED'}
 new_files = sorted(k for k, v in snapshot().items() if before_cubey.get(k) != v)
 expected = sorted(
@@ -499,11 +540,11 @@ assert _workspace.texture_role(ws, os.path.join(ws, 'textures', 'cubey_color_mas
 box = objfile.read(os.path.join(ws, 'meshes', 'cubey_head.obj'))
 assert len(box.faces) == 12 and len(box.uvs) > 0
 after_export = snapshot()
-bpy.context.view_layer.objects.active = next(o for o in cubey.all_objects if o.ballistica_part.role == 'head')
+make_active(next(o for o in cubey.all_objects if o.ballistica_part.role == 'head'))
 assert bpy.ops.ballistica.export_character() == {'FINISHED'}
 assert snapshot() == after_export  # a second export changes nothing
 # Add an attachment to the new character; export writes its placeholder mesh.
-bpy.context.view_layer.objects.active = next(o for o in cubey.all_objects if o.ballistica_part.role == 'head')
+make_active(next(o for o in cubey.all_objects if o.ballistica_part.role == 'head'))
 assert bpy.ops.ballistica.attachment_add() == {'FINISHED'}
 cubey.ballistica_character.attachments[0].translate = (0.0, 0.3, 0.0)  # typed in the panel: moves the handle
 assert abs(attach_scene.anchor(cubey, 0).location.z - 0.3) < 1e-6
