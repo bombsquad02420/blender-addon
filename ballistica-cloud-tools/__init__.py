@@ -5,7 +5,7 @@ _modules = []
 
 
 def register():
-	from . import attach_ops, nodegroup, operators, props, ui
+	from . import attach_ops, nodegroup, operators, part_scene, props, ui  # noqa: F401 (part_scene registers a hook)
 	_modules[:] = [props, operators, attach_ops, ui]
 	for module in _modules:
 		module.register()

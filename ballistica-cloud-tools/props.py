@@ -192,6 +192,19 @@ def _active_segment_changed(self, context):
 			return
 
 
+def _part_mesh_update(field):
+	"""Update callback: a Meshes field changed; show the new mesh."""
+
+	def update(self, context):
+		if self.get('_loading'):
+			return
+		hook = ATTACHMENT_REBUILD_HOOKS.get('part')
+		if hook is not None:
+			hook(self, field)
+
+	return update
+
+
 def _attachment_rebuild(attachment):
 	"""Rebuild the character's attachment objects (set by attach_scene)."""
 	hook = ATTACHMENT_REBUILD_HOOKS.get('rebuild')
@@ -344,15 +357,15 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	color_mask_texture: _ref("Color Mask Texture", 'texture', 'mask')
 
 	# Meshes
-	head_mesh: _ref("Head Mesh", 'mesh')
-	torso_mesh: _ref("Torso Mesh", 'mesh')
-	pelvis_mesh: _ref("Pelvis Mesh", 'mesh')
-	upper_arm_mesh: _ref("Upper Arm Mesh", 'mesh')
-	forearm_mesh: _ref("Forearm Mesh", 'mesh')
-	hand_mesh: _ref("Hand Mesh", 'mesh')
-	upper_leg_mesh: _ref("Upper Leg Mesh", 'mesh')
-	lower_leg_mesh: _ref("Lower Leg Mesh", 'mesh')
-	toes_mesh: _ref("Toes Mesh", 'mesh')
+	head_mesh: _ref("Head Mesh", 'mesh', update=_part_mesh_update('head_mesh'))
+	torso_mesh: _ref("Torso Mesh", 'mesh', update=_part_mesh_update('torso_mesh'))
+	pelvis_mesh: _ref("Pelvis Mesh", 'mesh', update=_part_mesh_update('pelvis_mesh'))
+	upper_arm_mesh: _ref("Upper Arm Mesh", 'mesh', update=_part_mesh_update('upper_arm_mesh'))
+	forearm_mesh: _ref("Forearm Mesh", 'mesh', update=_part_mesh_update('forearm_mesh'))
+	hand_mesh: _ref("Hand Mesh", 'mesh', update=_part_mesh_update('hand_mesh'))
+	upper_leg_mesh: _ref("Upper Leg Mesh", 'mesh', update=_part_mesh_update('upper_leg_mesh'))
+	lower_leg_mesh: _ref("Lower Leg Mesh", 'mesh', update=_part_mesh_update('lower_leg_mesh'))
+	toes_mesh: _ref("Toes Mesh", 'mesh', update=_part_mesh_update('toes_mesh'))
 
 	# Sounds
 	jump_sounds: _sounds("Jump Sounds")
@@ -392,12 +405,12 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	# Advanced (not in the web UI form)
 	flippers: bpy.props.BoolProperty(
 		name="Flippers", description="One long upper-arm mesh is the whole arm", default=False, options=_options())
-	left_upper_arm_mesh: _ref("Left Upper Arm Mesh", 'mesh')
-	left_forearm_mesh: _ref("Left Forearm Mesh", 'mesh')
-	left_hand_mesh: _ref("Left Hand Mesh", 'mesh')
-	left_upper_leg_mesh: _ref("Left Upper Leg Mesh", 'mesh')
-	left_lower_leg_mesh: _ref("Left Lower Leg Mesh", 'mesh')
-	left_toes_mesh: _ref("Left Toes Mesh", 'mesh')
+	left_upper_arm_mesh: _ref("Left Upper Arm Mesh", 'mesh', update=_part_mesh_update('left_upper_arm_mesh'))
+	left_forearm_mesh: _ref("Left Forearm Mesh", 'mesh', update=_part_mesh_update('left_forearm_mesh'))
+	left_hand_mesh: _ref("Left Hand Mesh", 'mesh', update=_part_mesh_update('left_hand_mesh'))
+	left_upper_leg_mesh: _ref("Left Upper Leg Mesh", 'mesh', update=_part_mesh_update('left_upper_leg_mesh'))
+	left_lower_leg_mesh: _ref("Left Lower Leg Mesh", 'mesh', update=_part_mesh_update('left_lower_leg_mesh'))
+	left_toes_mesh: _ref("Left Toes Mesh", 'mesh', update=_part_mesh_update('left_toes_mesh'))
 
 	# Attachments (not in the web UI form)
 	attachments: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_attachment)
@@ -422,6 +435,14 @@ VALUE_FIELDS = (
 
 def load_into(settings, character):
 	"""Fill collection settings from a bchar.Character."""
+	settings['_loading'] = True  # Field updates mustn't act while loading.
+	try:
+		_load_into(settings, character)
+	finally:
+		del settings['_loading']
+
+
+def _load_into(settings, character):
 	import json
 
 	settings.raw_json = json.dumps(character.raw)
@@ -435,14 +456,10 @@ def load_into(settings, character):
 			setattr(settings, field, value)
 	for field in rig.SOUND_FIELDS:
 		setattr(settings, field, ', '.join(character.get(field, [])))
-	settings['_loading'] = True  # Loading mustn't change the user's selection.
-	try:
-		settings.attachments.clear()
-		for raw in character.attachments:
-			set_attachment(settings.attachments.add(), attach_rules.from_json(raw), raw)
-		settings.active_attachment_index = 0
-	finally:
-		del settings['_loading']
+	settings.attachments.clear()
+	for raw in character.attachments:
+		set_attachment(settings.attachments.add(), attach_rules.from_json(raw), raw)
+	settings.active_attachment_index = 0
 
 
 def to_character(settings):

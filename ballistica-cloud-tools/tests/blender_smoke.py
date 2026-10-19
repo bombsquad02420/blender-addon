@@ -438,6 +438,33 @@ active_before = bpy.context.view_layer.objects.active
 assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'pixel.bchar')) == {'FINISHED'}
 assert bpy.context.view_layer.objects.active == active_before  # loading doesn't steal the selection
 
+# Meshes fields: changing one swaps the part's mesh in the scene.
+from ballistica_cloud_tools import part_scene  # noqa: E402
+agent = bpy.data.collections['agent_johnson']
+agent_settings = agent.ballistica_character
+head_obj = next(o for o in agent.all_objects if o.ballistica_part.role == 'head')
+torso_obj = next(o for o in agent.all_objects if o.ballistica_part.role == 'torso')
+agent_settings.head_mesh = agent_settings.torso_mesh
+assert head_obj.data == torso_obj.data  # same file, same mesh
+agent_settings.head_mesh = 'meshes/agent_head'
+assert head_obj.data != torso_obj.data and head_obj.data.get('bct_logical') == 'meshes/agent_head'
+hands = [o for o in agent.all_objects if o.ballistica_part.role == 'hand']
+assert len(hands) == 2
+agent_settings.hand_mesh = ''  # optional part cleared: objects removed
+assert not [o for o in agent.all_objects if o.ballistica_part.role == 'hand']
+agent_settings.hand_mesh = 'meshes/agent_hand'  # set again: created on both sides
+hands = [o for o in agent.all_objects if o.ballistica_part.role == 'hand']
+assert sorted(o.ballistica_part.side for o in hands) == ['L', 'R'] and all(o.parent_bone for o in hands)
+right_toes = next(o for o in agent.all_objects if o.ballistica_part.role == 'toes' and o.ballistica_part.side == 'R')
+left_toes = next(o for o in agent.all_objects if o.ballistica_part.role == 'toes' and o.ballistica_part.side == 'L')
+agent_settings.left_toes_mesh = 'meshes/neo_spaz_toes'  # left override
+assert left_toes.data.get('bct_logical') == 'meshes/neo_spaz_toes' and right_toes.data.get('bct_logical') == 'meshes/agent_toes'
+agent_settings.left_toes_mesh = ''  # cleared: back to the right side's mesh
+assert left_toes.data == right_toes.data
+agent_settings.head_mesh = 'meshes/no_such_mesh'  # missing file: keeps its mesh
+assert head_obj.data.get('bct_logical') == 'meshes/agent_head'
+agent_settings.head_mesh = 'meshes/agent_head'
+
 # The character list: the scene's active character, independent of selection.
 scene = bpy.context.scene
 assert [c.name for c in ui.characters(scene)][:3] == ['agent_johnson', 'zoe', 'pixel']

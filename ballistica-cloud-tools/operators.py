@@ -51,12 +51,14 @@ def _build(context, root, character_path, character, meshes=None):
 		if not logical:
 			continue
 		mesh = meshes.get(part)
+		if mesh is not None:
+			attach_scene.tag_mesh(mesh, root, logical)  # in memory until export
 		if mesh is None:
 			path = workspace.file_path(root, logical, 'mesh')
 			if path is None:
 				missing.append(logical)
 				continue
-			mesh = scene.mesh_from_obj(path, logical)
+			mesh = attach_scene.mesh_for(root, logical)  # shared by path, tagged
 		right = _part_object(groups[scene.PART_GROUPS[part]], f'{part}.R' if part in rig.PAIRED_PARTS else part, mesh, part, body_material)
 		world = scene.placement_matrix(placements[part])
 		scene.parent_to_bone(right, arm, scene.bone_name(part, 'R'), world)
@@ -66,7 +68,7 @@ def _build(context, root, character_path, character, meshes=None):
 		right.ballistica_part.side = 'R'
 		left_logical = getattr(settings, f'left_{part}_mesh')
 		left_path = workspace.file_path(root, left_logical, 'mesh') if left_logical else None
-		mesh = scene.mesh_from_obj(left_path, left_logical) if left_path else right.data
+		mesh = attach_scene.mesh_for(root, left_logical) if left_path else right.data
 		left = _part_object(groups[scene.PART_GROUPS[part]], f'{part}.L', mesh, part, body_material)
 		left.ballistica_part.side = 'L'
 		scene.parent_to_bone(left, arm, scene.bone_name(part, 'L'), scene.MIRROR_X @ world)
