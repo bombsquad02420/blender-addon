@@ -74,14 +74,15 @@ class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 		row.template_list(
 			'BALLISTICA_UL_characters', '', bpy.data, 'collections', context.scene, 'ballistica_character_index',
 			rows=2, maxrows=5)
-		row.column(align=True).operator('ballistica.remove_character', icon='REMOVE', text="")
+		col = row.column(align=True)
+		col.operator('ballistica.new_character', icon='ADD', text="")
+		col.operator('ballistica.remove_character', icon='REMOVE', text="")
 		row = layout.row(align=True)
-		row.operator('ballistica.new_character', icon='ADD')
 		row.operator('ballistica.import_character', icon='IMPORT')
 		row.operator('ballistica.export_character', icon='EXPORT')
 		collection = active_character(context)
 		if collection is None:
-			layout.label(text="Import a .bchar or start a new character.", icon='INFO')
+			layout.label(text="Import a .bchar, or + to start a new character.", icon='INFO')
 			return
 		settings = collection.ballistica_character
 		col = layout.column(align=True)
