@@ -30,6 +30,7 @@ paths_exclude_pattern = [
 	"/Makefile",
 	"/CHANGELOG.md",
 	"/assets/build_assets.py",
+	"/assets/build_template.py",
 	"/assets/extract_eye_assets.py",
 	"/assets/source/",
 	"*.blend1",

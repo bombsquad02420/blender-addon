@@ -180,6 +180,19 @@ def new_character(name):
 	return character
 
 
+def _template_image(root, logical, texture):
+	"""A bundled template PNG as a new in-memory image for `logical`."""
+	source = bpy.data.images.load(template.texture_path(texture))
+	try:
+		source.colorspace_settings.name = 'Non-Color' if 'mask' in texture else 'sRGB'
+		size = source.size[0]
+		pixels = [0.0] * (size * source.size[1] * 4)
+		source.pixels.foreach_get(pixels)
+	finally:
+		bpy.data.images.remove(source)
+	return _new_image(root, logical, pixels, size, data='mask' in texture)
+
+
 def _new_image(root, logical, pixels, size, data):
 	"""An in-memory PNG that export writes to the logical path's file."""
 	image = bpy.data.images.new(logical.rsplit('/', 1)[-1], size, size, alpha=True)
@@ -234,13 +247,14 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 		if context.object is not None and context.object.mode != 'OBJECT':
 			bpy.ops.object.mode_set(mode='OBJECT')
 
-		color, mask = template.textures(256)
-		icon, icon_mask = template.icon(64)
-		_new_image(root, character.get('color_texture'), color, 256, data=False)
-		_new_image(root, character.get('color_mask_texture'), mask, 256, data=True)
-		_new_image(root, character.get('icon_texture'), icon, 64, data=False)
-		_new_image(root, character.get('icon_mask_texture'), icon_mask, 64, data=True)
-		meshes = {part: scene.mesh_from_objmesh(template.cuboid(part), f'meshes/{name}_{part}') for part in template.CUBOIDS}
+		# The starter body ships as files in assets/template/.
+		missing = [p for p in [template.obj_path(part) for part in template.CUBOIDS] + [template.texture_path(t) for t in template.TEXTURES] if not os.path.isfile(p)]
+		if missing:
+			self.report({'ERROR'}, f"Bundled template files missing: {', '.join(os.path.basename(p) for p in missing)}. Rebuild the addon (make template).")
+			return {'CANCELLED'}
+		for texture, field in zip(template.TEXTURES, ('color_texture', 'color_mask_texture', 'icon_texture', 'icon_mask_texture')):
+			_template_image(root, character.get(field), texture)
+		meshes = {part: scene.mesh_from_obj(template.obj_path(part), f'meshes/{name}_{part}') for part in template.CUBOIDS}
 		collection, _ = _build(context, root, character_path, character, meshes)
 		_place_and_activate(context, collection)
 		self.report({'INFO'}, f"Created {collection.name}; Export Character writes it to the workspace")

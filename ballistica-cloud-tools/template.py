@@ -14,14 +14,32 @@ The cuboids share one texture atlas: each part gets a cell, and each face
 of its box a patch inside that cell, so faces can be painted separately.
 The color mask tints the body with the player color (red) and the lower
 limbs with the highlight (green); head, hands and feet stay untinted.
-Pure Python, testable without Blender.
+Pure Python, testable without Blender. assets/build_template.py writes
+the result to assets/template/ as OBJs and PNGs, which is what New
+Character actually loads.
 """
+
+import os
+
 
 from . import objfile, rig
 
 # Half-size of the head cube: inside the head ball (radius 0.23), with the
 # front face at the eyes' depth (eye_offset z = 0.205).
 HEAD = 0.21
+TEXTURE_SIZE = 256
+ICON_SIZE = 64
+# The shipped starter files (assets/build_template.py writes them).
+TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), 'assets', 'template')
+TEXTURES = ('color', 'color_mask', 'icon', 'icon_mask')
+
+
+def obj_path(part):
+	return os.path.join(TEMPLATE_DIR, f'{part}.obj')
+
+
+def texture_path(name):
+	return os.path.join(TEMPLATE_DIR, f'{name}.png')
 
 
 

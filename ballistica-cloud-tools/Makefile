@@ -13,7 +13,7 @@ ZIP := $(NAME)-$(VERSION).zip
 DEV_ZIP := $(NAME)-dev.zip
 TAG := ballistica-cloud-tools-v$(VERSION)
 
-.PHONY: all dev watch install build assets test blender-test clean tag publish CHANGELOG.md
+.PHONY: all dev watch install build assets template test blender-test clean tag publish CHANGELOG.md
 
 # Versioned release archive; refuses uncommitted changes in this folder.
 all: $(ZIP)
@@ -42,6 +42,10 @@ build: assets
 
 assets:
 	$(BLENDER) -b --factory-startup --python assets/build_assets.py
+
+# Regenerate the committed New Character starter files (assets/template/).
+template:
+	$(BLENDER) -b --factory-startup --python assets/build_template.py
 
 # Pure-Python tests, no Blender.
 test:

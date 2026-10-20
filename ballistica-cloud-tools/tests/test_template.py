@@ -108,5 +108,20 @@ class TextureTest(unittest.TestCase):
 		self.assertEqual(len(mask), 16 * 16 * 4)
 
 
+class ShippedTemplateTest(unittest.TestCase):
+	"""assets/template/ is what New Character loads; it must match template.py."""
+
+	def test_objs_match_the_generator(self):
+		for part in template.CUBOIDS:
+			shipped = objfile.read(template.obj_path(part))
+			made = template.cuboid(part)
+			corners = lambda mesh: sorted(tuple(round(c, 5) for c in mesh.positions[v]) for face in mesh.faces for v, _, _ in face)
+			self.assertEqual(corners(shipped), corners(made), f'{part}: run make template')
+
+	def test_textures_exist(self):
+		for name in template.TEXTURES:
+			self.assertTrue(os.path.isfile(template.texture_path(name)), name)
+
+
 if __name__ == '__main__':
 	unittest.main()
