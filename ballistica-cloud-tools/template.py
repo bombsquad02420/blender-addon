@@ -33,6 +33,16 @@ def _limb(z_extent, half_width, forward=0.0):
 	return ((-half_width, forward - half_width, z_extent[0]), (half_width, forward + half_width, z_extent[1]))
 
 
+# Part -> how much its far end (+z, away from the parent joint) narrows,
+# so limbs taper like muscle instead of reading as planks. The box's x/y
+# extents are its widest (near) end.
+TAPER = {
+	'upper_arm': 0.72, 'forearm': 0.75,
+	'upper_leg': 0.7, 'lower_leg': 0.72,
+	'pelvis': 0.85,
+}
+
+
 _TORSO_R = rig.DEFAULTS['torso_radius']
 _PELVIS_W, _PELVIS_H, _PELVIS_D = rig.PELVIS_SIZE
 
@@ -40,15 +50,16 @@ _PELVIS_W, _PELVIS_H, _PELVIS_D = rig.PELVIS_SIZE
 CUBOIDS = {
 	'head': ((-HEAD, -HEAD, -HEAD), (HEAD, HEAD, HEAD)),
 	# Shoulders on top (shoulder joints sit 0.14 up), the spine joint below.
-	'torso': ((-_TORSO_R, -0.12, -0.11), (_TORSO_R, rig.SHOULDER_ON_TORSO[1] + 0.05, 0.12)),
-	'pelvis': ((-_PELVIS_W * 0.42, -_PELVIS_H * 0.5, -0.08), (_PELVIS_W * 0.42, _PELVIS_H * 0.6, 0.08)),
-	# Lengths along the bone from the neo_spaz meshes; widths ~ capsule radii.
-	'upper_arm': _limb((-0.2, 0.075), 0.055),  # capsule radius 0.06
-	'forearm': _limb((-0.13, 0.07), 0.05),  # capsule radius 0.06
+	'torso': ((-_TORSO_R * 1.05, -0.12, -0.12), (_TORSO_R * 1.05, rig.SHOULDER_ON_TORSO[1] + 0.06, 0.13)),
+	'pelvis': ((-_PELVIS_W * 0.46, -_PELVIS_H * 0.5, -0.09), (_PELVIS_W * 0.46, _PELVIS_H * 0.6, 0.09)),
+	# Lengths along the bone from the neo_spaz meshes; widths a bit over
+	# the capsule radii at the near end, tapering (TAPER) toward the far one.
+	'upper_arm': _limb((-0.2, 0.075), 0.072),  # capsule radius 0.06
+	'forearm': _limb((-0.13, 0.07), 0.055),  # capsule radius 0.06
 	# A fist, from the wrist forward along the hand.
-	'hand': ((-0.05, -0.045, -0.02), (0.05, 0.055, 0.1)),
-	'upper_leg': _limb((-0.12, 0.1), 0.05),  # thigh radius 0.04
-	'lower_leg': _limb((-0.12, 0.1), 0.05, forward=0.01),  # ankle radius 0.07
+	'hand': ((-0.055, -0.05, -0.02), (0.055, 0.06, 0.1)),
+	'upper_leg': _limb((-0.12, 0.1), 0.075),  # thigh radius 0.04
+	'lower_leg': _limb((-0.12, 0.1), 0.06, forward=0.01),  # ankle radius 0.07
 	# A shoe, long along the foot's forward (+y), sole at the bottom.
 	'toes': ((-0.055, -0.04, -0.02), (0.055, 0.12, 0.065)),
 }
@@ -68,7 +79,7 @@ TINT = {
 }
 MASK_RGB = {'color': (1.0, 0.0, 0.0), 'highlight': (0.0, 1.0, 0.0), None: (0.0, 0.0, 0.0)}
 
-SKIN = (0.93, 0.76, 0.64)
+SKIN = (1.0, 1.0, 1.0)
 TINTED = (0.85, 0.85, 0.85)  # light, so the tint shows
 SHOE = (0.18, 0.16, 0.15)
 BASE_COLORS = {'head': SKIN, 'hand': SKIN, 'toes': SHOE}
@@ -89,11 +100,14 @@ PATCH_MARGIN = 0.06  # of a patch, so bleeding at patch edges stays inside
 def cuboid(part):
 	"""The part's box as an ObjMesh (game axes): 12 triangles, UVs, flat normals."""
 	lo, hi = CUBOIDS[part]
-	return box(lo, hi, part)
+	return box(lo, hi, part, TAPER.get(part, 1.0))
 
 
-def box(lo, hi, cell='head'):
-	"""A box from `lo` to `hi` (game axes), UV'd into an atlas cell."""
+def box(lo, hi, cell='head', taper=1.0):
+	"""A box from `lo` to `hi` (game axes), UV'd into an atlas cell.
+
+	`taper` scales the +z end's x/y about the box's centre line.
+	"""
 	part = cell
 	mesh = objfile.ObjMesh()
 	for index, ((axis, sign), (u_axis, v_axis)) in enumerate(FACES):
@@ -107,15 +121,35 @@ def box(lo, hi, cell='head'):
 			point[axis] = hi[axis] if sign > 0 else lo[axis]
 			point[u_axis] = hi[u_axis] if du else lo[u_axis]
 			point[v_axis] = hi[v_axis] if dv else lo[v_axis]
+			if taper != 1.0 and point[2] == hi[2]:
+				for a in (0, 1):
+					mid = (lo[a] + hi[a]) / 2
+					point[a] = mid + (point[a] - mid) * taper
 			mesh.positions.append(tuple(point))
 			mesh.uvs.append(_uv(part, index, du, dv))
 			corners.append((len(mesh.positions) - 1, len(mesh.uvs) - 1, ni))
 		# Keep the winding counter-clockwise seen from outside.
 		if _flips(axis, sign, u_axis, v_axis):
 			corners.reverse()
+		if taper != 1.0:  # tapered sides lean: use the face's real normal
+			a, b, c = (mesh.positions[corner[0]] for corner in corners[:3])
+			mesh.normals[ni] = _normalized(_cross(_sub(b, a), _sub(c, a)))
 		mesh.faces.append((corners[0], corners[1], corners[2]))
 		mesh.faces.append((corners[0], corners[2], corners[3]))
 	return mesh
+
+
+def _sub(a, b):
+	return tuple(x - y for x, y in zip(a, b))
+
+
+def _cross(a, b):
+	return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+
+def _normalized(v):
+	length = sum(x * x for x in v) ** 0.5
+	return tuple(x / length for x in v)
 
 
 def _flips(axis, sign, u_axis, v_axis):

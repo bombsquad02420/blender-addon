@@ -59,7 +59,7 @@ class CuboidTest(unittest.TestCase):
 			self.assertLess(lo[2], start, part)
 			self.assertGreater(hi[2], end, part)
 			length = hi[2] - lo[2]
-			self.assertGreater(length, 1.8 * (hi[0] - lo[0]), f'{part} should be long and slim')
+			self.assertGreater(length, 1.4 * (hi[0] - lo[0]), f'{part} should be long and slim')
 
 	@unittest.skipUnless(os.path.isdir(SAMPLE), 'ClassicCharacterAssets not cloned next to the addon repo')
 	def test_limb_lengths_match_the_default_spaz(self):
