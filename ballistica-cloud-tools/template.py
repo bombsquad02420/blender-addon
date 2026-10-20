@@ -12,8 +12,8 @@ right-side.
 
 The cuboids share one texture atlas: each part gets a cell, and each face
 of its box a patch inside that cell, so faces can be painted separately.
-The color mask tints the body with the player color (red) and the lower
-limbs with the highlight (green); head, hands and feet stay untinted.
+The character is white; the color mask tints only the shorts with the
+player color (red) and gloves and shoes with the highlight (green).
 Pure Python, testable without Blender. assets/build_template.py writes
 the result to assets/template/ as OBJs and PNGs, which is what New
 Character actually loads.
@@ -91,16 +91,14 @@ CELLS = {
 GRID = 3
 
 # Mask channel per part: which tint it takes in the game.
-TINT = {
-	'torso': 'color', 'pelvis': 'color', 'upper_arm': 'color', 'upper_leg': 'color',
-	'forearm': 'highlight', 'lower_leg': 'highlight',
-}
+# Mostly white: the player color only on the shorts (pelvis), the
+# highlight on gloves and shoes.
+TINT = {'pelvis': 'color', 'hand': 'highlight', 'toes': 'highlight'}
 MASK_RGB = {'color': (1.0, 0.0, 0.0), 'highlight': (0.0, 1.0, 0.0), None: (0.0, 0.0, 0.0)}
 
 SKIN = (1.0, 1.0, 1.0)
-TINTED = (0.85, 0.85, 0.85)  # light, so the tint shows
-SHOE = (0.18, 0.16, 0.15)
-BASE_COLORS = {'head': SKIN, 'hand': SKIN, 'toes': SHOE}
+TINTED = (1.0, 1.0, 1.0)  # white, so the tint shows true
+BASE_COLORS = {}
 
 # Box faces: (outward normal axis, sign) and the two axes spanning it,
 # laid out in the cell as a 3x2 grid of patches.

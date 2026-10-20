@@ -625,8 +625,8 @@ parts = {o.name for o in cubey.all_objects if o.ballistica_part.role in [p for p
 assert len(parts) == 15, sorted(parts)  # 3 center parts + 6 paired parts on both sides
 assert operators.check(cubey) == [], operators.check(cubey)
 mask = bpy.data.images['cubey_color_mask']
-torso = ((int(2.5 / 3 * 256)) * 256 + int(1.5 / 3 * 256)) * 4  # centre of the torso's atlas cell
-assert tuple(mask.pixels[torso:torso + 3]) == (1.0, 0.0, 0.0), tuple(mask.pixels[torso:torso + 3])
+pelvis = ((int(2.5 / 3 * 256)) * 256 + int(2.5 / 3 * 256)) * 4  # centre of the pelvis's atlas cell (shorts)
+assert tuple(mask.pixels[pelvis:pelvis + 3]) == (1.0, 0.0, 0.0), tuple(mask.pixels[pelvis:pelvis + 3])
 for bad_name, message in (('spaz', 'is taken'), ('Bad Name', 'lowercase')):
 	try:
 		bpy.ops.ballistica.new_character(directory=ws, name=bad_name)

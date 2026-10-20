@@ -97,10 +97,13 @@ class TextureTest(unittest.TestCase):
 			i = (y * size + x) * 4
 			return tuple(data[i:i + 3])
 
-		self.assertEqual(pixel(mask, 'torso'), (1.0, 0.0, 0.0))
-		self.assertEqual(pixel(mask, 'forearm'), (0.0, 1.0, 0.0))
-		self.assertEqual(pixel(mask, 'head'), (0.0, 0.0, 0.0))
-		self.assertEqual(pixel(color, 'head'), template.SKIN)
+		self.assertEqual(pixel(mask, 'pelvis'), (1.0, 0.0, 0.0))  # shorts
+		self.assertEqual(pixel(mask, 'hand'), (0.0, 1.0, 0.0))  # gloves
+		self.assertEqual(pixel(mask, 'toes'), (0.0, 1.0, 0.0))  # shoes
+		for part in ('head', 'torso', 'upper_arm', 'forearm', 'upper_leg', 'lower_leg'):
+			self.assertEqual(pixel(mask, part), (0.0, 0.0, 0.0), part)
+		for part in template.CELLS:
+			self.assertEqual(pixel(color, part), (1.0, 1.0, 1.0), part)  # all white
 
 	def test_icon(self):
 		pixels, mask = template.icon(16)
