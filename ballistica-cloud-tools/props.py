@@ -377,6 +377,20 @@ def _part_mesh_poll(self, mesh):
 	return not mesh.get(INTERNAL_MESH_KEY) and not mesh.name.startswith(('guide_', '_bct'))
 
 
+def _texture_row_changed(self, context):
+	hook = ATTACHMENT_REBUILD_HOOKS.get('texture')
+	if hook is not None:
+		hook(self)
+
+
+class COLLECTION_PG_ballistica_texture_row(bpy.types.PropertyGroup):
+	"""A row of the Textures list: which image a body texture uses."""
+	field: bpy.props.StringProperty(name="Field", options={'HIDDEN'})
+	image: bpy.props.PointerProperty(
+		type=bpy.types.Image, name="Image", options=_options(), update=_texture_row_changed,
+		description="The image the body shows and exports for this texture")
+
+
 class COLLECTION_PG_ballistica_part_row(bpy.types.PropertyGroup):
 	"""A row of the Parts list: which mesh a body part uses."""
 	part: bpy.props.StringProperty(name="Part", options={'HIDDEN'})
@@ -630,6 +644,10 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	parts: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_part_row)
 	active_part_index: bpy.props.IntProperty(name="Active Part", options=_options(), update=_active_part_changed)
 
+	# Textures list (the colour texture fields are written from it on export)
+	textures: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_texture_row)
+	active_texture_index: bpy.props.IntProperty(name="Active Texture", options=_options())
+
 	# Advanced (not in the web UI form)
 	flippers: bpy.props.BoolProperty(
 		name="Flippers", description="One long upper-arm mesh is the whole arm", default=False, options=_options())
@@ -720,6 +738,7 @@ def to_character(settings, overrides=None):
 
 
 classes = (
+	COLLECTION_PG_ballistica_texture_row,
 	COLLECTION_PG_ballistica_part_row,
 	MESH_PG_ballistica_asset,
 	IMAGE_PG_ballistica_texture,

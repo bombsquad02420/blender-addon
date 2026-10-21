@@ -397,7 +397,7 @@ shows them in the web UI form's order, with the same defaults:
 | Section | Fields |
 | --- | --- |
 | Identity | `name` (translation key), `icon_texture`, `icon_mask_texture`, `color`, `highlight`, `highlight_name`, `highlight_editing`, `highlight2`, `highlight2_name`, `highlight2_editing` |
-| Textures | `color_texture`, `color_mask_texture` |
+| Textures | the Textures list (below): `color_texture`, `color_mask_texture` |
 | Parts | the Parts list (below): `head_mesh` … `toes_mesh`, the `left_*_mesh` overrides, `flippers` |
 | Sounds | the six sound lists, each a comma-separated list of audio paths |
 | Physique | `torso_radius`, `shoulder_offset`, `thigh_radius`, `ankle_radius`, `step_separation`, `idle_arm_stiffness`, `arm_swing`, `idle_sway` |
@@ -423,6 +423,14 @@ form (they're JSON-only there).
   Clicking a row selects the part; clicking a part picks its row. The mesh
   fields are written from the rows on export; a row without a mesh (a file
   that wasn't found) keeps its field.
+- **Textures list.** Two rows, Colour and Colour Mask, each holding a
+  Blender image (picked, or **+** for a blank one: white, or a black mask
+  that tints nothing). Picking one shows it on the body material (made if
+  the character has none); clearing one unlinks it, so the body shows plain
+  white rather than a broken texture. Below: the image's export path and
+  **Build Settings** (role, quality, wrapping, alpha), read from and written
+  to `workspace.json`. A mask always gets a Data role on export. An image
+  picked from elsewhere is saved under its export path.
 - **Flippers** only shortens the upper arm under boxing gloves; the engine
   still draws any forearm and hand meshes that are set. If both are set,
   the Meshes section and Check show a hint (not an error).
@@ -553,9 +561,11 @@ Loading doesn't change your selection.
    changed since import or the last export (modifiers applied, part-local,
    triangulated, UVs and normals; Blender axes → game). Unchanged meshes
    aren't rewritten; the check covers modifier changes too.
-3. Save textures edited or made in Blender as PNG.
-4. Mark mask textures `texture_role: data` in `workspace.json`, leaving
-   everything else in it as it was.
+3. Save textures edited, made or picked in Blender as PNG at their export
+   paths.
+4. Write the body textures' build settings into `workspace.json` (and mark
+   the icon mask `texture_role: data`), leaving everything else in it as it
+   was.
 5. Write the `.bchar`, keeping unknown fields.
 
 **Blender's copy wins:** edits made in the web UI since import are lost

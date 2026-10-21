@@ -233,10 +233,60 @@ def _standard_colors_note(layout, context):
 		box.operator('ballistica.standard_colors', icon='COLOR')
 
 
+class BALLISTICA_UL_textures(bpy.types.UIList):
+	"""The body's two textures: colour and colour mask."""
+
+	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
+		from . import texture_scene
+
+		row = layout.row()
+		row.label(text=texture_scene.LABELS[item.field], icon='IMAGE_DATA' if item.image else 'ERROR')
+		sub = row.row()
+		sub.active = False
+		sub.label(text=item.image.name if item.image else "(none)")
+
+
 class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 	bl_label = "Textures"
 	header_icon = 'TEXTURE'
-	fields = ('color_texture', 'color_mask_texture')
+
+	def draw(self, context):
+		from . import texture_scene, workspace
+
+		collection = active_character(context)
+		settings = collection.ballistica_character
+		layout = self.layout
+		if not texture_scene.has_rows(settings):
+			layout.label(text="This file is from an older version.", icon='INFO')
+			layout.operator('ballistica.repair', text="Add the Textures List", icon='TOOL_SETTINGS')
+			return
+		layout.template_list(
+			'BALLISTICA_UL_textures', '', settings, 'textures', settings, 'active_texture_index', rows=2, maxrows=2)
+		index = settings.active_texture_index
+		if not 0 <= index < len(settings.textures):
+			return
+		item = settings.textures[index]
+		col = layout.column()
+		_split(col)
+		if texture_scene.is_mask(item):
+			col.label(text="Red: player colour · Green: highlight · Blue: highlight 2", icon='INFO')
+		line = col.row(align=True)
+		line.prop(item, 'image')
+		line.operator('ballistica.new_texture_image', text="", icon='ADD')
+		image = item.image
+		if image is None:
+			return
+		texture = image.ballistica_texture
+		col.prop(texture, 'path', placeholder=texture_scene.default_path(collection, item.field))
+		header, body = layout.panel('BALLISTICA_texture_settings', default_closed=True)
+		header.label(text="Build Settings")
+		if body is not None:
+			_split(body)
+			body.prop(texture, 'role')
+			if texture_scene.is_mask(item) and texture.role not in workspace.DATA_ROLES:
+				body.label(text="Masks need a Data role (export sets it).", icon='ERROR')
+			for name in ('quality', 'wrap_h', 'wrap_v', 'alpha'):
+				body.prop(texture, name)
 
 
 class BALLISTICA_UL_parts(bpy.types.UIList):
@@ -453,6 +503,7 @@ def _triangles(collection):
 
 classes = (
 	BALLISTICA_UL_characters,
+	BALLISTICA_UL_textures,
 	BALLISTICA_UL_parts,
 	BALLISTICA_UL_attachments,
 	BALLISTICA_UL_segments,

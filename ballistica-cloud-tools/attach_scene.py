@@ -96,6 +96,8 @@ def tag_mesh(mesh, root, logical):
 
 
 def _material(collection, settings, segment):
+	if not segment.texture and not segment.mask_texture and settings.body_material is not None:
+		return settings.body_material  # the body's textures
 	texture = segment.texture or settings.color_texture
 	mask = segment.mask_texture or settings.color_mask_texture
 	if (texture, mask) == (settings.color_texture, settings.color_mask_texture):

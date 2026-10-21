@@ -939,6 +939,49 @@ assert tuple(head_part.scale) == (1.0, 1.0, 1.0)
 assert (head_part.data.vertices[0].co - size * 2).length < 1e-5
 assert repair.issues(cubey2) == []
 
+# Textures list: the body's colour texture and mask, with their settings.
+from ballistica_cloud_tools import texture_scene  # noqa: E402
+
+cs = cubey2.ballistica_character
+assert [r.field for r in cs.textures] == list(texture_scene.ROWS)
+color_row, mask_row = cs.textures
+body = cs.body_material
+group_node = next(n for n in body.node_tree.nodes if n.type == 'GROUP')
+assert color_row.image is not None and group_node.inputs['Color'].links[0].from_node.image == color_row.image
+cubey_color = color_row.image
+color_row.image = None  # cleared: plain white, not a broken texture
+assert not group_node.inputs['Color'].links and texture_scene.fields(cubey2)['color_texture'] == ''
+color_row.image = cubey_color
+assert group_node.inputs['Color'].links[0].from_node.image == cubey_color
+scene.ballistica_active_character = cubey2
+cs.active_texture_index = 1
+cubey_mask = mask_row.image
+assert bpy.ops.ballistica.new_texture_image() == {'FINISHED'}
+assert mask_row.image != cubey_mask and mask_row.image.colorspace_settings.name == 'Non-Color'
+assert mask_row.image.ballistica_texture.role == 'data'
+assert texture_scene.fields(cubey2)['color_mask_texture'] == 'textures/cubey_color_mask_2'  # cubey's own is taken
+mask_row.image = cubey_mask
+draw_panels()
+cubey_color.ballistica_texture.wrap_h = 'repeat'  # build settings go to workspace.json on export
+cubey_color.ballistica_texture.alpha = 'no'
+assert bpy.ops.ballistica.export_character() == {'FINISHED'}
+from ballistica_cloud_tools import jsonfile  # noqa: E402
+entries = jsonfile.read(os.path.join(ws, 'workspace.json'))['path']
+assert entries['textures/cubey_color.png'] == {'type': 'tex_v1', 'texture_wrapping_h': 'repeat', 'texture_alpha': 'no'}
+assert entries['textures/cubey_color_mask.png']['texture_role'] == 'data'
+cubey_color.ballistica_texture.wrap_h = 'clamp'
+cubey_color.ballistica_texture.alpha = 'auto'
+assert bpy.ops.ballistica.export_character() == {'FINISHED'}
+assert 'textures/cubey_color.png' not in jsonfile.read(os.path.join(ws, 'workspace.json'))['path']
+# An image picked from elsewhere is saved under its export path.
+painted = bpy.data.images.new('kid_painting', 32, 32)
+painted.generated_color = (1.0, 0.0, 0.0, 1.0)
+color_row.image = painted
+painted.ballistica_texture.path = 'textures/cubey_red'
+assert bpy.ops.ballistica.export_character() == {'FINISHED'}
+assert os.path.isfile(os.path.join(ws, 'textures', 'cubey_red.png'))
+assert _bchar.Character.load(os.path.join(ws, 'characters', 'cubey.bchar')).get('color_texture') == 'textures/cubey_red'
+
 package.unregister()
 assert nodegroup.LIBRARY_NAME not in [lib.name for lib in bpy.context.preferences.filepaths.asset_libraries]
 shutil.rmtree(os.path.dirname(ws))

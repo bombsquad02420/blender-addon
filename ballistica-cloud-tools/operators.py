@@ -7,7 +7,7 @@ import re
 import bpy
 from bpy_extras.io_utils import ImportHelper
 
-from . import attach_scene, bchar, clone, eye_scene, part_scene, objfile, pose, props, rig, scene, template, workspace
+from . import attach_scene, bchar, clone, eye_scene, part_scene, texture_scene, objfile, pose, props, rig, scene, template, workspace
 from .ui import active_character
 
 
@@ -75,6 +75,7 @@ def _build(context, root, character_path, character, meshes=None):
 		scene.parent_to_bone(left, arm, scene.bone_name(part, 'L'), scene.MIRROR_X @ world)
 
 	part_scene.fill_rows(collection)
+	texture_scene.fill_rows(collection)
 	scene.build_eyes(collection, arm, placements, settings, groups['Eyes'])
 	eye_scene.build(collection, arm, groups['Eyes'])
 	attach_scene.build(collection, placements, spread=False)
@@ -381,7 +382,7 @@ def check(collection):
 	problems = []
 	if not root or not os.path.isfile(os.path.join(root, workspace.WORKSPACE_FILE)):
 		return [f"Workspace folder not found: {root or '(none)'}"]
-	fields = part_scene.fields(collection)
+	fields = {**part_scene.fields(collection), **texture_scene.fields(collection)}
 	character = props.to_character(settings, fields)
 	part_names = {f: part_scene.label(r) for r in settings.parts for f in [part_scene.field(r)]}
 	for field in rig.REQUIRED_REFS:
@@ -399,13 +400,15 @@ def check(collection):
 			continue
 		if kind == 'mesh' and _loaded_attachment_mesh(root, logical) is not None:
 			continue  # In Blender (made or copied here); export writes it.
-		if kind == 'texture' and scene.find_image(workspace.new_file_path(root, logical, kind)) is not None:
+		if kind == 'texture' and (scene.find_image(workspace.new_file_path(root, logical, kind)) or scene.find_texture(root, logical)):
 			continue  # Made in Blender; export writes it.
 		problems.append(f"{field}: {logical} not found in the workspace")
-	for field in ('color_mask_texture', 'icon_mask_texture'):
-		path = workspace.file_path(root, character.get(field) or '', 'texture') if character.get(field) else None
-		if path and workspace.texture_role(root, path) != 'data':
-			problems.append(f"{field}: {character.get(field)} is not marked texture_role: data (export will fix this)")
+	path = workspace.file_path(root, character.get('icon_mask_texture') or '', 'texture') if character.get('icon_mask_texture') else None
+	if path and workspace.texture_role(root, path) not in workspace.DATA_ROLES:
+		problems.append(f"icon_mask_texture: {character.get('icon_mask_texture')} is not marked texture_role: data (export will fix this)")
+	mask = texture_scene.row(settings, 'color_mask_texture')
+	if mask is not None and mask.image is not None and mask.image.ballistica_texture.role not in workspace.DATA_ROLES:
+		problems.append(f"Colour Mask: {mask.image.name} should have the Data role (export will set it)")
 	for obj in _exportable_parts(collection):
 		if not obj.data.polygons:
 			problems.append(f"{obj.name}: mesh is empty (model it, or clear its field if the part is optional)")
@@ -728,19 +731,27 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 			if obj is not None:
 				_write_mesh(root, logical, obj, written)
 
-		# Textures: save images edited in Blender back as PNG, and write ones
-		# made in Blender that aren't on disk yet (a new character's).
+		# Textures: the body's from the Textures list, with their settings;
+		# icons and attachment textures by path (edited or made in Blender).
+		if not texture_scene.has_rows(settings):
+			texture_scene.fill_rows(collection)  # a file from before the Textures list
+		texture_scene.assign_paths(collection)
+		texture_settings = {}
+		for item in settings.textures:
+			if item.image is not None:
+				if texture_scene.is_mask(item) and item.image.ballistica_texture.role not in workspace.DATA_ROLES:
+					item.image.ballistica_texture.role = 'data'
+				path = _save_image(root, item.image, written)
+				texture_settings[path] = props.texture_settings_of(item.image)
 		masks = []
-		for field, data in (
-			('color_texture', False), ('color_mask_texture', True),
-			('icon_texture', False), ('icon_mask_texture', True),
-		):
+		for field, data in (('icon_texture', False), ('icon_mask_texture', True)):
 			_save_texture(root, getattr(settings, field), data, written, masks)
 		for logical in _attachment_refs(settings, ('texture',)):
 			_save_texture(root, logical, False, written, masks)
 		for logical in _attachment_refs(settings, ('mask_texture',)):
 			_save_texture(root, logical, True, written, masks)
-		if workspace.mark_data_textures(root, masks):
+		changed = workspace.set_texture_settings(root, texture_settings) if texture_settings else False
+		if workspace.mark_data_textures(root, masks) or changed:
 			written.append(workspace.WORKSPACE_FILE)
 
 		character = props.to_character(settings)
@@ -774,6 +785,23 @@ def _write_mesh(root, logical, obj, written):
 		objfile.write(path, scene.obj_from_mesh(mesh))
 	obj.data[scene.SIGNATURE_KEY] = signature
 	written.append(os.path.relpath(path, root))
+
+
+def _save_image(root, image, written):
+	"""Save an image to its export path if it's new, edited or moved; return the file."""
+	logical = image.ballistica_texture.path
+	path = workspace.file_path(root, logical, 'texture') or workspace.new_file_path(root, logical, 'texture')
+	current = os.path.abspath(bpy.path.abspath(image.filepath_raw)) if image.filepath_raw else None
+	if image.is_dirty or not os.path.isfile(path) or current != os.path.abspath(path):
+		os.makedirs(os.path.dirname(path), exist_ok=True)
+		image.file_format = 'PNG'
+		if current == os.path.abspath(path):
+			image.save()
+		else:
+			image.save(filepath=path)  # now this image's file
+		image[scene.ROOT_KEY] = root
+		written.append(os.path.relpath(path, root))
+	return path
 
 
 def _save_texture(root, logical, data, written, masks):
@@ -923,6 +951,28 @@ class BALLISTICA_OT_new_part_mesh(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+class BALLISTICA_OT_new_texture_image(bpy.types.Operator):
+	"""Give the selected texture a new blank image to paint: white for the colour texture, black (no tint) for the mask"""
+	bl_idname = 'ballistica.new_texture_image'
+	bl_label = "New Image"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	@classmethod
+	def poll(cls, context):
+		collection = active_character(context)
+		if collection is None:
+			return False
+		settings = collection.ballistica_character
+		return 0 <= settings.active_texture_index < len(settings.textures)
+
+	def execute(self, context):
+		collection = active_character(context)
+		settings = collection.ballistica_character
+		item = settings.textures[settings.active_texture_index]
+		item.image = texture_scene.new_image(collection, item.field)
+		return {'FINISHED'}
+
+
 class BALLISTICA_OT_toggle_group(bpy.types.Operator):
 	"""Show or hide this part of the character in the viewport"""
 	bl_idname = 'ballistica.toggle_group'
@@ -950,6 +1000,7 @@ classes = (
 	BALLISTICA_OT_toggle_group,
 	BALLISTICA_OT_select_eye_handle,
 	BALLISTICA_OT_new_part_mesh,
+	BALLISTICA_OT_new_texture_image,
 	BALLISTICA_OT_import_character,
 	BALLISTICA_OT_remove_character,
 	BALLISTICA_OT_new_character,

@@ -431,10 +431,12 @@ def build_material(name, root, texture, mask, collection):
 	# The colorized color straight into the output, unlit like the web UI.
 	links.new(group.outputs['Color'], out.inputs['Surface'])
 	tex = nodes.new('ShaderNodeTexImage')
+	tex.name = 'bct_color'
 	tex.image = _image(root, texture, data=False)
 	tex.location = (-350, 150)
 	links.new(tex.outputs['Color'], group.inputs['Color'])
 	mask_node = nodes.new('ShaderNodeTexImage')
+	mask_node.name = 'bct_color_mask'
 	mask_node.image = _image(root, mask, data=True)
 	mask_node.location = (-350, -150)
 	links.new(mask_node.outputs['Color'], group.inputs['Color Mask'])
