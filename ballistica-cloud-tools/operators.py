@@ -402,7 +402,31 @@ def check(collection):
 			problems.append(f"{obj.name}: mesh is empty (model it, or clear its field if the part is optional)")
 		elif obj.data.uv_layers.active is None:
 			problems.append(f"{obj.name}: mesh has no UVs")
+	# What export writes (modifiers applied): body parts and attachment
+	# segments. Left copies share the right side's mesh.
+	attachment_meshes = [o for o in attach_scene.tagged(collection, attach_scene.MESH) if o.get(attach_scene.SIDE_KEY) != 'L']
+	for obj in _exportable_parts(collection) + attachment_meshes:
+		problem = _uv_problem(obj)
+		if problem:
+			problems.append(problem)
 	return problems
+
+
+def _uv_problem(obj):
+	"""A message if the object's exported UVs fall outside the texture."""
+	from array import array
+
+	with scene.evaluated_mesh(obj) as mesh:
+		layer = mesh.uv_layers.active
+		if layer is None or not mesh.polygons:
+			return None
+		uvs = array('f', [0.0]) * (len(layer.data) * 2)
+		layer.data.foreach_get('uv', uvs)
+	out = objfile.uv_range_problem(uvs)
+	if out is None:
+		return None
+	return (f"{obj.name}: UVs go outside the texture ({out[0]:.2f} to {out[1]:.2f}); the cloud "
+		"build only accepts 0 to 1, with no tiling, so move them back inside the 0-1 square")
 
 
 def _exportable_parts(collection):

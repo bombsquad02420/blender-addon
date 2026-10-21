@@ -80,3 +80,20 @@ def write(path, mesh):
 def _num(value):
 	text = f'{value:.6f}'
 	return '0.000000' if text == '-0.000000' else text
+
+
+# The mesh compiler (ballistica tools/bacommontools/meshcompile.py) stores
+# UVs as u16 over [0, 1]: anything further outside than this is an error
+# (no tiling or wrapping UVs); within it, it's clamped as authoring noise.
+UV_TOLERANCE = 0.05
+
+
+def uv_range_problem(uvs):
+	"""(lowest, highest) UV component if any falls outside what the cloud
+	build accepts, else None. `uvs` is a flat sequence u0, v0, u1, v1, ..."""
+	if not uvs:
+		return None
+	lo, hi = min(uvs), max(uvs)
+	if lo < -UV_TOLERANCE or hi > 1.0 + UV_TOLERANCE:
+		return lo, hi
+	return None

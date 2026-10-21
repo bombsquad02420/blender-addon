@@ -641,6 +641,12 @@ bmesh.ops.create_cube(bm, size=0.4)
 bm.to_mesh(blanky_head.data)
 bm.free()
 assert not any(blanky_head.name in p for p in operators.check(blanky))  # modelled: no longer flagged
+uv_layer = blanky_head.data.uv_layers.active
+uv_layer.data[0].uv = (1.6, 0.5)  # a UV dragged off the texture
+assert any(blanky_head.name in p and 'outside the texture' in p for p in operators.check(blanky)), operators.check(blanky)
+uv_layer.data[0].uv = (0.5, 0.5)
+assert not any('outside the texture' in p for p in operators.check(blanky))
+assert not any('outside the texture' in p for p in operators.check(zoe))  # classic meshes are fine
 scene.ballistica_active_character = zoe
 
 # The Attachments panel draws (against a stand-in layout that checks every

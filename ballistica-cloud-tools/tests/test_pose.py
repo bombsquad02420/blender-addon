@@ -108,6 +108,17 @@ class FlippersHintTest(unittest.TestCase):
 		self.assertIn('a hand mesh', rig.flippers_hint(True, '', 'meshes/h'))
 
 
+class UvRangeTest(unittest.TestCase):
+	def test_within_range_and_tolerance(self):
+		self.assertIsNone(objfile.uv_range_problem([0.0, 0.5, 1.0, 1.0]))
+		self.assertIsNone(objfile.uv_range_problem([-0.04, 1.049]))  # authoring noise
+		self.assertIsNone(objfile.uv_range_problem([]))
+
+	def test_outside_range(self):
+		self.assertEqual(objfile.uv_range_problem([0.2, 1.5, 0.3, -0.2]), (-0.2, 1.5))
+		self.assertEqual(objfile.uv_range_problem([0.0, 2.0]), (0.0, 2.0))
+
+
 class ObjTest(unittest.TestCase):
 	@unittest.skipUnless(os.path.isdir(SAMPLE), 'ClassicCharacterAssets not cloned next to the addon repo')
 	def test_round_trip_keeps_geometry(self):
