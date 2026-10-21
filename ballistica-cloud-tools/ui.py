@@ -467,8 +467,8 @@ class VIEW3D_PT_ballistica_eyes(_Section, bpy.types.Panel):
 
 	def draw(self, context):
 		_group_toggles(self.layout, context, active_character(context), ('Eyes', 'Rig'))
-		_Section.draw(self, context)
 		self.layout.operator('ballistica.select_eye_handle', icon='RESTRICT_SELECT_OFF')
+		_Section.draw(self, context)
 
 
 class BALLISTICA_UL_attachments(bpy.types.UIList):
