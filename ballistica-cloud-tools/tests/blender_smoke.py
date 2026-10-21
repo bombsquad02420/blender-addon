@@ -1053,6 +1053,9 @@ assert not sharing.duplicate_paths(pixel_two)
 own.ballistica_asset.path = shared.ballistica_asset.path  # typed the other one's path
 assert any('overwrite each other' in p for p in operators.check(pixel_two))
 
+url = ui.issue_url()
+assert 'template=ballistica_cloud_tools.yml' in url and 'addon_version=' in url and 'blender_version=5.' in url, url
+
 package.unregister()
 assert nodegroup.LIBRARY_NAME not in [lib.name for lib in bpy.context.preferences.filepaths.asset_libraries]
 shutil.rmtree(os.path.dirname(ws))

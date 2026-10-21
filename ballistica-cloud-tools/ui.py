@@ -593,7 +593,30 @@ def _triangles(collection):
 	return total
 
 
-ISSUES_URL = "https://github.com/bombsquad02420/blender-addon/issues/new?template=ballistica_cloud_tools.md"
+ISSUES_URL = "https://github.com/bombsquad02420/blender-addon/issues/new"
+ISSUE_TEMPLATE = "ballistica_cloud_tools.yml"
+
+
+def _os_name():
+	import platform
+
+	if platform.system() == 'Darwin':
+		return f"macOS {platform.mac_ver()[0]}"
+	if platform.system() == 'Windows':
+		return f"Windows {platform.release()} ({platform.version()})"
+	return f"{platform.system()} {platform.release()}"
+
+
+def issue_url():
+	"""A new issue with the Cloud Tools form, its version fields filled in."""
+	from urllib.parse import urlencode
+
+	return ISSUES_URL + '?' + urlencode({
+		'template': ISSUE_TEMPLATE,
+		'addon_version': _addon_version(),
+		'blender_version': bpy.app.version_string,
+		'os': _os_name(),
+	})
 
 
 def _addon_version():
@@ -623,9 +646,10 @@ class VIEW3D_PT_ballistica_help(_Panel, bpy.types.Panel):
 		layout = self.layout
 		col = layout.column(align=True)
 		col.label(text="Stuck, or found a bug? Tell us on GitHub.")
-		col.label(text="A screenshot and these versions help:")
+		col.label(text="The report starts with these filled in:")
 		col.label(text=f"Addon {_addon_version()} · Blender {bpy.app.version_string}")
-		layout.operator('wm.url_open', text="Report a Problem", icon='URL').url = ISSUES_URL
+		col.label(text=_os_name())
+		layout.operator('wm.url_open', text="Report a Problem", icon='URL').url = issue_url()
 
 
 classes = (
