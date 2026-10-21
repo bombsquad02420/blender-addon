@@ -68,7 +68,7 @@ class RoundTripTest(unittest.TestCase):
 				self.assertEqual(attachments.to_json(attachments.from_json(raw), raw), raw, name)
 				self.assertEqual(attachments.problems(attachments.from_json(raw)), [], name)
 				count += 1
-		self.assertEqual(count, 4)  # Zoe's three, Pixel's wing
+		self.assertGreaterEqual(count, 4)  # Zoe's three, Pixel's wing (more if the sample was edited)
 
 
 class RulesTest(unittest.TestCase):

@@ -106,9 +106,12 @@ def _plain(value):
 
 
 def _round(value):
-	# Blender stores floats as float32; keep files readable (0.3, not
-	# 0.30000001192092896) without losing meaningful precision.
-	rounded = round(value, 6)
+	# Blender stores floats as float32: keep 7 significant digits, which
+	# is what float32 holds. That undoes its noise (0.3, not
+	# 0.30000001192092896; 48.427, not 48.426998) without cutting small
+	# values short the way a fixed number of decimals would (-0.0028449
+	# keeps all its digits). Same rule as attachments._num.
+	rounded = float(f'{value:.7g}')
 	return 0.0 if rounded == 0 else rounded
 
 
