@@ -982,6 +982,32 @@ assert bpy.ops.ballistica.export_character() == {'FINISHED'}
 assert os.path.isfile(os.path.join(ws, 'textures', 'cubey_red.png'))
 assert _bchar.Character.load(os.path.join(ws, 'characters', 'cubey.bchar')).get('color_texture') == 'textures/cubey_red'
 
+# Shared meshes and images: who uses them, Make Unique, and duplicate paths.
+from ballistica_cloud_tools import sharing  # noqa: E402
+
+pixel_one, pixel_two = bpy.data.collections['pixel'], bpy.data.collections.get('pixel.001')
+if pixel_two is None:  # removed earlier: share through a fresh import
+	assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'pixel.bchar')) == {'FINISHED'}
+	pixel_two = bpy.context.scene.ballistica_active_character
+p1, p2 = pixel_one.ballistica_character, pixel_two.ballistica_character
+torso_index = [(r.part, r.side) for r in p1.parts].index(('torso', 'CENTER'))
+shared = p1.parts[torso_index].mesh
+assert shared == p2.parts[torso_index].mesh and set(sharing.users(shared)) == {pixel_one, pixel_two}
+bpy.context.scene.ballistica_active_character = pixel_two
+p2.active_part_index = torso_index
+draw_panels()  # the shared note draws
+assert bpy.ops.ballistica.make_unique(kind='PART') == {'FINISHED'}
+own = p2.parts[torso_index].mesh
+assert own != shared and sharing.users(own) == [pixel_two] and sharing.users(shared) == [pixel_one]
+assert own.ballistica_asset.path == 'meshes/pixel_torso' or own.ballistica_asset.path.startswith('meshes/pixel_torso_')
+assert len(own.vertices) == len(shared.vertices)
+p2.active_texture_index = 0
+assert bpy.ops.ballistica.make_unique(kind='TEXTURE') == {'FINISHED'}
+assert p2.textures[0].image != p1.textures[0].image and tuple(p2.textures[0].image.size) == tuple(p1.textures[0].image.size)
+assert not sharing.duplicate_paths(pixel_two)
+own.ballistica_asset.path = shared.ballistica_asset.path  # typed the other one's path
+assert any('overwrite each other' in p for p in operators.check(pixel_two))
+
 package.unregister()
 assert nodegroup.LIBRARY_NAME not in [lib.name for lib in bpy.context.preferences.filepaths.asset_libraries]
 shutil.rmtree(os.path.dirname(ws))

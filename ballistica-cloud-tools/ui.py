@@ -233,6 +233,19 @@ def _standard_colors_note(layout, context):
 		box.operator('ballistica.standard_colors', icon='COLOR')
 
 
+def _shared_note(layout, block, collection, kind):
+	"""'Used by N characters' with Make Unique, when another character uses it too."""
+	from . import sharing
+
+	users = sharing.users(block)
+	if len(users) < 2:
+		return
+	row = layout.row(align=True)
+	others = ', '.join(c.name for c in users if c != collection)
+	row.label(text=f"Also used by {others}", icon='LINKED')
+	row.operator('ballistica.make_unique', text="Make Unique").kind = kind
+
+
 class BALLISTICA_UL_textures(bpy.types.UIList):
 	"""The body's two textures: colour and colour mask."""
 
@@ -276,6 +289,7 @@ class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 		image = item.image
 		if image is None:
 			return
+		_shared_note(col, image, collection, 'TEXTURE')
 		texture = image.ballistica_texture
 		col.prop(texture, 'path', placeholder=texture_scene.default_path(collection, item.field))
 		header, body = layout.panel('BALLISTICA_texture_settings', default_closed=True)
@@ -340,6 +354,7 @@ class VIEW3D_PT_ballistica_parts(_Section, bpy.types.Panel):
 			line.prop(row, 'mesh')
 			line.operator('ballistica.new_part_mesh', text="", icon='ADD')
 			if row.mesh is not None:
+				_shared_note(col, row.mesh, collection, 'PART')
 				asset = row.mesh.ballistica_asset
 				col.prop(asset, 'export_uv')
 				col.prop(asset, 'path', placeholder=part_scene.default_path(collection, row))

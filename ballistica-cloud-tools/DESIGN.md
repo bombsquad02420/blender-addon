@@ -431,6 +431,10 @@ form (they're JSON-only there).
   **Build Settings** (role, quality, wrapping, alpha), read from and written
   to `workspace.json`. A mask always gets a Data role on export. An image
   picked from elsewhere is saved under its export path.
+- **Shared meshes and images.** When another character uses the selected
+  part's mesh or texture, the panel says which, with **Make Unique**: a copy
+  (unsaved paint included) with its own export path. Check reports two
+  different meshes or images given the same export path in one workspace.
 - **Flippers** only shortens the upper arm under boxing gloves; the engine
   still draws any forearm and hand meshes that are set. If both are set,
   the Meshes section and Check show a hint (not an error).

@@ -421,6 +421,9 @@ def check(collection):
 		problem = _uv_problem(obj)
 		if problem:
 			problems.append(problem)
+	from . import sharing
+
+	problems += sharing.duplicate_paths(collection)
 	# Things that drifted in the scene: export still works, but may not
 	# give what the scene shows (Repair fixes them).
 	from . import repair
@@ -973,6 +976,35 @@ class BALLISTICA_OT_new_texture_image(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+class BALLISTICA_OT_make_unique(bpy.types.Operator):
+	"""Give this character its own copy, so editing it doesn't change the other characters using it"""
+	bl_idname = 'ballistica.make_unique'
+	bl_label = "Make Unique"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	kind: bpy.props.EnumProperty(items=[('PART', "Part", ""), ('TEXTURE', "Texture", "")], options={'HIDDEN', 'SKIP_SAVE'})
+
+	@classmethod
+	def poll(cls, context):
+		return active_character(context) is not None
+
+	def execute(self, context):
+		from . import sharing
+
+		collection = active_character(context)
+		settings = collection.ballistica_character
+		if self.kind == 'PART':
+			if not 0 <= settings.active_part_index < len(settings.parts) or settings.parts[settings.active_part_index].mesh is None:
+				return {'CANCELLED'}
+			copy = sharing.make_unique_mesh(collection, settings.parts[settings.active_part_index])
+		else:
+			if not 0 <= settings.active_texture_index < len(settings.textures) or settings.textures[settings.active_texture_index].image is None:
+				return {'CANCELLED'}
+			copy = sharing.make_unique_image(collection, settings.textures[settings.active_texture_index])
+		self.report({'INFO'}, f"{copy.name} is {collection.name}'s own now")
+		return {'FINISHED'}
+
+
 class BALLISTICA_OT_toggle_group(bpy.types.Operator):
 	"""Show or hide this part of the character in the viewport"""
 	bl_idname = 'ballistica.toggle_group'
@@ -1001,6 +1033,7 @@ classes = (
 	BALLISTICA_OT_select_eye_handle,
 	BALLISTICA_OT_new_part_mesh,
 	BALLISTICA_OT_new_texture_image,
+	BALLISTICA_OT_make_unique,
 	BALLISTICA_OT_import_character,
 	BALLISTICA_OT_remove_character,
 	BALLISTICA_OT_new_character,
