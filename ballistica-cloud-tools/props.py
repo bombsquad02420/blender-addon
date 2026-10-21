@@ -384,6 +384,39 @@ def _part_mesh_poll(self, mesh):
 	return not mesh.get(INTERNAL_MESH_KEY) and not mesh.name.startswith(('guide_', '_bct'))
 
 
+class COLLECTION_PG_ballistica_sound_row(bpy.types.PropertyGroup):
+	"""A row of the Sounds list: one of the .bchar's sound fields."""
+	field: bpy.props.StringProperty(name="Field", options={'HIDDEN'})
+
+
+def sound_rows_ok(settings):
+	return [r.field for r in settings.sounds] == list(rig.SOUND_FIELDS)
+
+
+def ensure_sound_rows(settings):
+	if not sound_rows_ok(settings):
+		settings.sounds.clear()
+		for field in rig.SOUND_FIELDS:
+			settings.sounds.add().field = field
+
+
+def sound_list(text):
+	return [s.strip() for s in text.split(',') if s.strip()]
+
+
+def _sound_picked(self, context):
+	"""A sound was picked to add: append it to the selected row's list."""
+	picked = self.sound_to_add.strip()
+	if not picked:
+		return
+	if 0 <= self.active_sound_index < len(self.sounds):
+		field = self.sounds[self.active_sound_index].field
+		sounds = sound_list(getattr(self, field))
+		if picked not in sounds:
+			setattr(self, field, ', '.join(sounds + [picked]))
+	self.sound_to_add = ''
+
+
 def _texture_row_changed(self, context):
 	hook = ATTACHMENT_REBUILD_HOOKS.get('texture')
 	if hook is not None:
@@ -651,6 +684,13 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	parts: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_part_row)
 	active_part_index: bpy.props.IntProperty(name="Active Part", options=_options(), update=_active_part_changed)
 
+	# Sounds list (rows name the sound fields above)
+	sounds: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_sound_row)
+	active_sound_index: bpy.props.IntProperty(name="Active Sound", options=_options())
+	sound_to_add: bpy.props.StringProperty(
+		name="Add Sound", search=_asset_search('sound'), update=_sound_picked, options=_options(),
+		description="Pick a sound from the workspace to add to this list")
+
 	# Textures list (the colour texture fields are written from it on export)
 	textures: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_texture_row)
 	active_texture_index: bpy.props.IntProperty(name="Active Texture", options=_options())
@@ -709,6 +749,7 @@ def _load_into(settings, character):
 			setattr(settings, field, value)
 	for field in rig.SOUND_FIELDS:
 		setattr(settings, field, ', '.join(character.get(field, [])))
+	ensure_sound_rows(settings)
 	settings.attachments.clear()
 	for raw in character.attachments:
 		set_attachment(settings.attachments.add(), attach_rules.from_json(raw), raw)
@@ -745,6 +786,7 @@ def to_character(settings, overrides=None):
 
 
 classes = (
+	COLLECTION_PG_ballistica_sound_row,
 	COLLECTION_PG_ballistica_texture_row,
 	COLLECTION_PG_ballistica_part_row,
 	MESH_PG_ballistica_asset,

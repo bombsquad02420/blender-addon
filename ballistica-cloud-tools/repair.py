@@ -33,6 +33,7 @@ NO_PART = 'no_part'  # a part with a mesh has no object
 NO_EYE_HANDLE = 'no_eye_handle'
 NO_PART_ROWS = 'no_part_rows'  # a file from before the Parts list
 NO_TEXTURE_ROWS = 'no_texture_rows'  # a file from before the Textures list
+NO_SOUND_ROWS = 'no_sound_rows'  # a file from before the Sounds list
 EYE_HANDLE_SKEWED = 'eye_handle_skewed'  # turned, or scaled unevenly
 
 # Kind -> (short label, fix button, longer explanation for the tooltip).
@@ -57,6 +58,7 @@ TEXT = {
 	NO_GUIDES: ("Guides missing", "Rebuild", "The physics guides were deleted"),
 	NO_ATTACHMENTS: ("Attachment {name} incomplete", "Rebuild", "Attachment {name}'s handles or meshes were deleted"),
 	NO_PART: ("{name} missing", "Rebuild", "The {name} object was deleted, but the character still uses its mesh"),
+	NO_SOUND_ROWS: ("Sounds list missing", "Add", "This file is from an older version of the addon, without the Sounds list"),
 	NO_TEXTURE_ROWS: ("Textures list missing", "Add", "This file is from an older version of the addon, without the Textures list"),
 	NO_PART_ROWS: ("Parts list missing", "Add", "This file is from an older version of the addon, without the Parts list"),
 	NO_EYE_HANDLE: ("Eye handle missing", "Add", "The handle that moves and sizes the eyes is missing (or the file is from an older version)"),
@@ -242,6 +244,10 @@ def _character_issues(collection, arm):
 
 	if not texture_scene.has_rows(collection.ballistica_character):
 		issues.append(Issue(NO_TEXTURE_ROWS))
+	from . import props
+
+	if not props.sound_rows_ok(collection.ballistica_character):
+		issues.append(Issue(NO_SOUND_ROWS))
 	guides = _guides(collection)
 	if guides is None or not guides.objects:
 		issues.append(Issue(NO_GUIDES))
@@ -306,6 +312,10 @@ def fix(collection, issue, keep=False):
 		_fix_rig(collection)
 	elif kind == NO_EYES:
 		_rebuild_eyes(collection)
+	elif kind == NO_SOUND_ROWS:
+		from . import props
+
+		props.ensure_sound_rows(collection.ballistica_character)
 	elif kind == NO_TEXTURE_ROWS:
 		from . import texture_scene
 
@@ -337,7 +347,7 @@ def fix(collection, issue, keep=False):
 
 
 # Character-level fixes run first: they recreate what object fixes need.
-ORDER = (NO_GROUP, NO_RIG, RIG_MOVED, NO_ROOT, NO_GUIDES, NO_EYES, NO_EYE_HANDLE, NO_ATTACHMENTS, NO_PART_ROWS, NO_TEXTURE_ROWS, NO_PART)
+ORDER = (NO_GROUP, NO_RIG, RIG_MOVED, NO_ROOT, NO_GUIDES, NO_EYES, NO_EYE_HANDLE, NO_ATTACHMENTS, NO_PART_ROWS, NO_TEXTURE_ROWS, NO_SOUND_ROWS, NO_PART)
 
 
 def repair(collection, objects=None):

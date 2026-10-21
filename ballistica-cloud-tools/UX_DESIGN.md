@@ -155,6 +155,15 @@ mask stay in Identity.
 
 ### Not in steps 1–3
 
+- **Repair re-locks and re-links.** Fix Whole Character should quietly
+  re-apply the soft locks (anchor scale, eye handle rotation axes, bone
+  locks) without listing them as problems, since unlocking may have been
+  deliberate. Missing or broken drivers (material tints and reflection,
+  offset bones, eye size and style, Spread, guide sizes, left attachments
+  following the right) should show as one Needs fixing item, "Preview links
+  broken", whose fix sets them up again. Today both only happen when the
+  rig, eyes, guides or attachments are rebuilt.
+
 - Attachment segments keep their path pickers for now; moving them to mesh
   and image pickers is a follow-up.
 - Brushes and attachment templates (steps 4 and 5).

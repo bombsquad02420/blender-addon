@@ -400,7 +400,7 @@ shows them in the web UI form's order, with the same defaults:
 | Identity | `name` (translation key), `icon_texture`, `icon_mask_texture`, `color`, `highlight`, `highlight_name`, `highlight_editing`, `highlight2`, `highlight2_name`, `highlight2_editing` |
 | Textures | the Textures list (below): `color_texture`, `color_mask_texture` |
 | Parts | the Parts list (below): `head_mesh` … `toes_mesh`, the `left_*_mesh` overrides, `flippers` |
-| Sounds | the six sound lists, each a comma-separated list of audio paths |
+| Sounds | the Sounds list: six fixed rows (jump, attack, impact, death, pickup, fall), each showing how many sounds it has and how many are missing; the selected one as comma-separated audio paths, with a picker to add one from the workspace |
 | Physique | `torso_radius`, `shoulder_offset`, `thigh_radius`, `ankle_radius`, `step_separation`, `idle_arm_stiffness`, `arm_swing`, `idle_sway` |
 | Eyes | `eye_style_left/right`, Size and Position (`eye_scale`, `eye_offset`; see below), `eye_color`, `eyeball_color`, `eyelid_color`, `eyelid_angle` |
 | Surface | `reflection_scale` |

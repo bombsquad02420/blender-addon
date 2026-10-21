@@ -379,10 +379,52 @@ class VIEW3D_PT_ballistica_parts(_Section, bpy.types.Panel):
 				box.label(text="They'll still be drawn; turn them off for flipper arms.")
 
 
+def _missing_sounds(settings, field):
+	from . import props, workspace
+
+	root = settings.workspace_root
+	return [s for s in props.sound_list(getattr(settings, field)) if workspace.file_path(root, s, 'sound') is None]
+
+
+class BALLISTICA_UL_sounds(bpy.types.UIList):
+	"""The six sound lists: jump, attack, impact, death, pickup, fall."""
+
+	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
+		from . import props
+
+		count = len(props.sound_list(getattr(data, item.field)))
+		missing = _missing_sounds(data, item.field)
+		row = layout.row()
+		row.label(text=item.field.replace('_sounds', '').title(), icon='ERROR' if missing else 'SOUND')
+		sub = row.row()
+		sub.active = False
+		sub.label(text=f"{len(missing)} of {count} missing" if missing else str(count))
+
+
 class VIEW3D_PT_ballistica_sounds(_Section, bpy.types.Panel):
 	bl_label = "Sounds"
 	header_icon = 'SOUND'
-	fields = rig.SOUND_FIELDS
+
+	def draw(self, context):
+		from . import props
+
+		settings = active_character(context).ballistica_character
+		layout = self.layout
+		if not props.sound_rows_ok(settings):
+			layout.label(text="This file is from an older version.", icon='INFO')
+			layout.operator('ballistica.repair', text="Add the Sounds List", icon='TOOL_SETTINGS')
+			return
+		layout.template_list(
+			'BALLISTICA_UL_sounds', '', settings, 'sounds', settings, 'active_sound_index', rows=6, maxrows=6)
+		index = settings.active_sound_index
+		if not 0 <= index < len(settings.sounds):
+			return
+		field = settings.sounds[index].field
+		col = layout.column()
+		col.prop(settings, field, text="")
+		col.prop(settings, 'sound_to_add', text="", icon='ADD', placeholder="Add a sound from the workspace")
+		for path in _missing_sounds(settings, field):
+			col.label(text=f"{path}: not in the workspace", icon='ERROR')
 
 
 class VIEW3D_PT_ballistica_physique(_Section, bpy.types.Panel):
@@ -527,6 +569,7 @@ def _triangles(collection):
 
 classes = (
 	BALLISTICA_UL_characters,
+	BALLISTICA_UL_sounds,
 	BALLISTICA_UL_textures,
 	BALLISTICA_UL_parts,
 	BALLISTICA_UL_attachments,

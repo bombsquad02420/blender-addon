@@ -804,6 +804,20 @@ assert rig.flippers_hint(settings.flippers, settings.forearm_mesh, settings.hand
 draw_panels()
 settings.flippers = False
 
+# Sounds list: six fixed rows; picking a workspace sound adds it.
+zs_sounds = zoe.ballistica_character
+assert [r.field for r in zs_sounds.sounds] == list(rig.SOUND_FIELDS)
+zs_sounds.active_sound_index = list(rig.SOUND_FIELDS).index('fall_sounds')
+before_fall = zs_sounds.fall_sounds
+some_sound = sorted(os.listdir(os.path.join(ws, 'audio')))[0].rsplit('.', 1)[0]
+zs_sounds.sound_to_add = f'audio/{some_sound}'
+assert zs_sounds.fall_sounds.endswith(f'audio/{some_sound}') and zs_sounds.sound_to_add == ''
+zs_sounds.fall_sounds = before_fall + ', audio/no_such_sound'
+assert ui._missing_sounds(zs_sounds, 'fall_sounds') == ['audio/no_such_sound']
+assert any('audio/no_such_sound not found' in p for p in operators.check(zoe))
+draw_panels()
+zs_sounds.fall_sounds = before_fall
+
 # The character list's eye hides or shows a whole character.
 zoe_layer = next(_layer_collections(bpy.context.view_layer.layer_collection, zoe))
 assert not zoe_layer.hide_viewport
@@ -952,6 +966,9 @@ eye_scene.handle(cubey2).rotation_euler.x = 0.3
 assert [i.kind for i in repair.issues(cubey2)] == [repair.EYE_HANDLE_SKEWED]
 assert bpy.ops.ballistica.repair() == {'FINISHED'} and repair.issues(cubey2) == []
 
+cubey2.ballistica_character.sounds.clear()  # a file from before the Sounds list
+assert [i.kind for i in repair.issues(cubey2)] == [repair.NO_SOUND_ROWS]
+assert bpy.ops.ballistica.repair() == {'FINISHED'} and repair.issues(cubey2) == []
 cubey_rows = [(r.part, r.side, r.enabled, r.mesh) for r in cubey2.ballistica_character.parts]
 cubey2.ballistica_character.parts.clear()  # a file from before the Parts list
 assert [i.kind for i in repair.issues(cubey2)] == [repair.NO_PART_ROWS]
