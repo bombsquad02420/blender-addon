@@ -289,9 +289,13 @@ class VIEW3D_PT_ballistica_eyes(_Section, bpy.types.Panel):
 	bl_label = "Eyes"
 	header_icon = 'MATSPHERE'
 	fields = (
-		'eye_style_left', 'eye_style_right', 'eye_scale', 'eye_offset',
+		'eye_style_left', 'eye_style_right', 'eye_size', 'eye_position',
 		'eye_color', 'eyeball_color', 'eyelid_color', 'eyelid_angle',
 	)
+
+	def draw(self, context):
+		_Section.draw(self, context)
+		self.layout.operator('ballistica.select_eye_handle', icon='RESTRICT_SELECT_OFF')
 
 
 class BALLISTICA_UL_attachments(bpy.types.UIList):

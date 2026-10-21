@@ -241,6 +241,27 @@ head_centre = scene.TO_GAME @ (zoe_arm.matrix_world @ zoe_arm.pose.bones['head']
 offset = tuple(round(c, 4) for c in (scene.TO_GAME @ eye_obj.matrix_world.translation) - head_centre)
 zscale = zoe.ballistica_character.eye_scale
 assert offset == tuple(round(c * zscale, 4) for c in (0.07, -0.03, 0.2)), (offset, zscale)
+# The eye handle: on the +X eye; Position and Size are what people mean.
+from ballistica_cloud_tools import eye_scene  # noqa: E402
+
+zhandle = eye_scene.handle(zoe)
+bpy.context.view_layer.update()
+assert (zhandle.matrix_world.translation - eye_obj.matrix_world.translation).length < 1e-5
+assert abs(zhandle.scale.x - zscale) < 1e-6
+zset = zoe.ballistica_character
+where = tuple(zset.eye_position)
+zset.eye_size = zscale * 1.2  # bigger eyes stay put
+assert all(abs(a - b) < 1e-5 for a, b in zip(zset.eye_position, where)), (tuple(zset.eye_position), where)
+assert all(abs(a - b / (zscale * 1.2)) < 1e-5 for a, b in zip(zset.eye_offset, where))
+assert abs(zhandle.scale.x - zscale * 1.2) < 1e-6  # the handle follows the panel
+zhandle.location.z += 0.02  # dragged up in the viewport (Blender +Z is game +Y)
+bpy.context.view_layer.update()
+assert abs(zset.eye_position[1] - (where[1] + 0.02)) < 1e-5, (tuple(zset.eye_position), where)
+zhandle.scale = (zscale,) * 3
+zhandle.location.z -= 0.02
+bpy.context.view_layer.update()
+assert abs(zset.eye_scale - zscale) < 1e-6 and all(abs(a - b) < 1e-5 for a, b in zip(zset.eye_position, where))
+
 # Sizes: guides and eyes follow the panel's radii and eye scale.
 zs = zoe.ballistica_character
 zs.torso_radius, zs.thigh_radius, zs.ankle_radius, zs.eye_scale = 0.25, 0.06, 0.045, 1.5
@@ -850,6 +871,13 @@ for kind, name in issues:
 	assert bpy.ops.ballistica.fix_issue(kind=kind, name=name) == {'FINISHED'}
 assert repair.issues(cubey2) == []
 assert tuple(spot.scale) == (1.0, 1.0, 1.0) and hand.visible_get() and torso.material_slots[0].material == cubey2.ballistica_character.body_material
+
+bpy.data.objects.remove(eye_scene.handle(cubey2))  # an older file, or deleted
+assert [i.kind for i in repair.issues(cubey2)] == [repair.NO_EYE_HANDLE]
+assert bpy.ops.ballistica.repair() == {'FINISHED'} and eye_scene.handle(cubey2) is not None
+eye_scene.handle(cubey2).scale = (1.0, 2.0, 1.0)
+assert [i.kind for i in repair.issues(cubey2)] == [repair.EYE_HANDLE_SKEWED]
+assert bpy.ops.ballistica.repair() == {'FINISHED'} and repair.issues(cubey2) == []
 
 # Keep: an Object Mode scale applied to the mesh, so it is exported.
 head_part = next(o for o in cubey2.all_objects if o.ballistica_part.role == 'head')

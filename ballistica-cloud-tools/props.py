@@ -33,6 +33,39 @@ def _tag_collection(self, context):
 	self.id_data.update_tag()
 
 
+def _eye_changed(self, context):
+	"""Eye offset or scale changed: re-run drivers and move the eye handle."""
+	self.id_data.update_tag()
+	if not self.get('_loading'):
+		hook = ATTACHMENT_REBUILD_HOOKS.get('eye')
+		if hook is not None:
+			hook(self)
+
+
+# The panel's eye Position and Size: what people mean by them, converted to
+# the .bchar's eye_offset and eye_scale (position = eye_scale * eye_offset;
+# see eye_scene).
+
+def _eye_position_get(self):
+	return tuple(c * self.eye_scale for c in self.eye_offset)
+
+
+def _eye_position_set(self, value):
+	lo, hi = R['eye_offset']
+	self.eye_offset = tuple(min(max(c / self.eye_scale, lo), hi) for c in value)
+
+
+def _eye_size_get(self):
+	return self.eye_scale
+
+
+def _eye_size_set(self, value):
+	"""A new size, keeping the eyes where they are."""
+	position = _eye_position_get(self)
+	self.eye_scale = rig.clamp(value, R['eye_scale'])
+	_eye_position_set(self, position)
+
+
 def _vec(name, field, color=False, default=None, span=None, update=None, description=''):
 	lo, hi = span or R[field]
 	kwargs = {'update': update} if update else {}
@@ -421,10 +454,18 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	# Eyes
 	eye_style_left: _eye_style("Eye Style Left")
 	eye_style_right: _eye_style("Eye Style Right")
-	eye_scale: _float("Eye Scale", 'eye_scale', update=_tag_collection)
+	eye_scale: _float("Eye Scale", 'eye_scale', update=_eye_changed)
 	eye_offset: _vec(
-		"Eye Offset", 'eye_offset', update=_tag_collection,
+		"Eye Offset", 'eye_offset', update=_eye_changed,
 		description="Drives the eye_offset bones: the +X eye (Eye Style Right) from the head centre, mirrored for the other; scaled by Eye Scale")
+	eye_size: bpy.props.FloatProperty(
+		name="Size", description="How big the eyes are (1 is standard). Changing it keeps them where they are",
+		min=R['eye_scale'][0], max=R['eye_scale'][1], get=_eye_size_get, set=_eye_size_set, options=_options())
+	eye_position: bpy.props.FloatVectorProperty(
+		name="Position", size=3, subtype='TRANSLATION', unit='LENGTH',
+		description="Where the +X eye sits from the head centre, game axes (X sideways, Y up, Z forward); "
+		"the other eye mirrors it. The eye handle in the viewport moves it too",
+		soft_min=-0.5, soft_max=0.5, get=_eye_position_get, set=_eye_position_set, options=_options())
 	eye_color: _vec("Eye Color", 'eye_color', color=True, update=_tag_collection)
 	eyeball_color: _vec("Eyeball Color", 'eyeball_color', color=True, update=_tag_collection)
 	eyelid_color: _vec("Eyelid Color", 'eyelid_color', color=True, update=_tag_collection)

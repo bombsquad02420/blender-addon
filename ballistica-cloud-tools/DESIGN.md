@@ -401,7 +401,7 @@ shows them in the web UI form's order, with the same defaults:
 | Meshes | `head_mesh`, `torso_mesh`, `pelvis_mesh`, `upper_arm_mesh`, `flippers`, `forearm_mesh`, `hand_mesh`, `upper_leg_mesh`, `lower_leg_mesh`, `toes_mesh`; a collapsible **Left Side** with the `left_*_mesh` overrides |
 | Sounds | the six sound lists, each a comma-separated list of audio paths |
 | Physique | `torso_radius`, `shoulder_offset`, `thigh_radius`, `ankle_radius`, `step_separation`, `idle_arm_stiffness`, `arm_swing`, `idle_sway` |
-| Eyes | `eye_style_left/right`, `eye_scale`, `eye_offset`, `eye_color`, `eyeball_color`, `eyelid_color`, `eyelid_angle` |
+| Eyes | `eye_style_left/right`, Size and Position (`eye_scale`, `eye_offset`; see below), `eye_color`, `eyeball_color`, `eyelid_color`, `eyelid_angle` |
 | Surface | `reflection_scale` |
 | Attachments | see below |
 
@@ -465,6 +465,17 @@ objects and then select the active attachment's new meshes.
 
 New attachments are an `antenna` on top of the head with a placeholder box
 segment (`meshes/<character>_attachment<n>`, written on export).
+
+### Eye handle
+
+The engine places each eye at `head + eye_scale × eye_offset`, so in the
+`.bchar` a bigger eye also sits further out. The panel shows **Size**
+(`eye_scale`) and **Position** (`eye_scale × eye_offset`, from the head
+centre) instead; changing the size keeps the eyes where they are. An **eye
+handle** (a sphere empty on the head bone, around the +X eye, in the Eyes
+group) holds both: move it to move the eyes, scale it to size them; the other
+eye mirrors it, and its rotation is padlocked. **Select Eye Handle** (in Eyes)
+shows and selects it. Export reads it, like attachment handles.
 
 ### Preview and guides
 

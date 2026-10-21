@@ -7,7 +7,7 @@ import re
 import bpy
 from bpy_extras.io_utils import ImportHelper
 
-from . import attach_scene, bchar, clone, objfile, pose, props, rig, scene, template, workspace
+from . import attach_scene, bchar, clone, eye_scene, objfile, pose, props, rig, scene, template, workspace
 from .ui import active_character
 
 
@@ -75,6 +75,7 @@ def _build(context, root, character_path, character, meshes=None):
 		scene.parent_to_bone(left, arm, scene.bone_name(part, 'L'), scene.MIRROR_X @ world)
 
 	scene.build_eyes(collection, arm, placements, settings, groups['Eyes'])
+	eye_scene.build(collection, arm, groups['Eyes'])
 	attach_scene.build(collection, placements, spread=False)
 	scene.build_guides(collection, arm, placements, joints, settings)
 	scene.setup_offset_drivers(collection, arm)
@@ -700,6 +701,7 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 			return {'CANCELLED'}
 		written = []
 		attach_scene.sync_from_handles(collection)
+		eye_scene.pull(collection)
 
 		# Meshes: write each part's mesh data to the file its field names.
 		for obj in _exportable_parts(collection):
@@ -861,6 +863,32 @@ class BALLISTICA_OT_remove_character(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+class BALLISTICA_OT_select_eye_handle(bpy.types.Operator):
+	"""Select the eye handle: move it to move the eyes, scale it to size them (the other eye mirrors it)"""
+	bl_idname = 'ballistica.select_eye_handle'
+	bl_label = "Select Eye Handle"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	@classmethod
+	def poll(cls, context):
+		return context.mode == 'OBJECT' and active_character(context) is not None
+
+	def execute(self, context):
+		obj = eye_scene.handle(active_character(context))
+		if obj is None:
+			self.report({'ERROR'}, "This character has no eye handle; Repair adds it.")
+			return {'CANCELLED'}
+		from .scene import _layer_collections
+
+		for layer in _layer_collections(context.view_layer.layer_collection, obj.users_collection[0]):
+			layer.hide_viewport = False  # the Eyes group starts hidden
+		for other in context.view_layer.objects.selected:
+			other.select_set(False)
+		obj.select_set(True)
+		context.view_layer.objects.active = obj
+		return {'FINISHED'}
+
+
 class BALLISTICA_OT_toggle_group(bpy.types.Operator):
 	"""Show or hide this part of the character in the viewport"""
 	bl_idname = 'ballistica.toggle_group'
@@ -886,6 +914,7 @@ def menu_import(self, context):
 
 classes = (
 	BALLISTICA_OT_toggle_group,
+	BALLISTICA_OT_select_eye_handle,
 	BALLISTICA_OT_import_character,
 	BALLISTICA_OT_remove_character,
 	BALLISTICA_OT_new_character,
