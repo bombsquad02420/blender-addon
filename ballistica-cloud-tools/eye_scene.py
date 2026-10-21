@@ -10,9 +10,14 @@ position and size separately, so the handle and the panel use those:
 
 The handle is a sphere empty on the head bone, around the +X eye (the one
 eye_style_right styles); the other eye mirrors it. Its location is the
-position and its (uniform) scale the size; its rotation is padlocked.
+position, its (uniform) scale the size, and its turn about the forward
+axis the eyelid angle (the lids' preview turn, clamped to the game's
+range); the other two rotation axes are padlocked. It lives in the Rig
+collection, so it shows with the rig, like attachment anchors.
 Handle and panel numbers stay in sync both ways, like attachment handles.
 """
+
+import math
 
 import bpy
 from mathutils import Matrix
@@ -48,7 +53,7 @@ def build(collection, arm, group):
 	obj.hide_render = True
 	obj.show_in_front = True
 	obj.rotation_mode = transforms.EULER_ORDER
-	obj.lock_rotation = (True, True, True)
+	obj.lock_rotation = (True, False, True)  # only the forward axis (Blender Y): the eyelid angle
 	obj.ballistica_part.role = 'NONE'
 	obj[HANDLE_KEY] = True
 	scene.parent_to_bone(obj, arm, 'head', Matrix.Translation(scene.game_point(placements['head'].location)))
@@ -68,6 +73,14 @@ def push(collection):
 		obj.location = location
 	if any(abs(s - settings.eye_scale) > 1e-6 for s in obj.scale):
 		obj.scale = (settings.eye_scale,) * 3
+	turn = lid_turn(settings.eyelid_angle)
+	if abs(obj.rotation_euler.y - turn) > 1e-6:
+		obj.rotation_euler.y = turn
+
+
+def lid_turn(angle):
+	"""The handle's Y rotation for an eyelid angle (as the lid's preview turns)."""
+	return -math.radians(angle)
 
 
 def pull(collection):
@@ -84,6 +97,12 @@ def pull(collection):
 		settings.eye_scale = size
 	if any(abs(a - b) > 1e-6 for a, b in zip(settings.eye_offset, offset)):
 		settings.eye_offset = offset
+	lo, hi = rig.BASIC_SPAZ_RANGES['eyelid_angle']
+	angle = min(max(-math.degrees(obj.rotation_euler.y), lo), hi)
+	if abs(settings.eyelid_angle - angle) > 1e-4:
+		settings.eyelid_angle = angle
+	if abs(obj.rotation_euler.y - lid_turn(angle)) > 1e-6:
+		obj.rotation_euler.y = lid_turn(angle)  # past the game's range: back to its end
 
 
 _syncing = False

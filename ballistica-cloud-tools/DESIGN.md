@@ -491,10 +491,12 @@ The engine places each eye at `head + eye_scale × eye_offset`, so in the
 `.bchar` a bigger eye also sits further out. The panel shows **Size**
 (`eye_scale`) and **Position** (`eye_scale × eye_offset`, from the head
 centre) instead; changing the size keeps the eyes where they are. An **eye
-handle** (a sphere empty on the head bone, around the +X eye, in the Eyes
-group) holds both: move it to move the eyes, scale it to size them; the other
-eye mirrors it, and its rotation is padlocked. **Select Eye Handle** (in Eyes)
-shows and selects it. Export reads it, like attachment handles.
+handle** (a sphere empty on the head bone, around the +X eye, in the Rig
+group like attachment anchors) holds them: move it to move the eyes, scale it
+to size them, turn it about the forward axis to tilt the eyelids
+(`eyelid_angle`, clamped to ±30°); the other eye mirrors it, and the other
+rotation axes are padlocked. **Select Eye Handle** (in Eyes) shows the Rig
+group and selects it. Export reads it, like attachment handles.
 
 ### Preview and guides
 

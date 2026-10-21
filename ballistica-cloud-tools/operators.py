@@ -77,7 +77,7 @@ def _build(context, root, character_path, character, meshes=None):
 	part_scene.fill_rows(collection)
 	texture_scene.fill_rows(collection)
 	scene.build_eyes(collection, arm, placements, settings, groups['Eyes'])
-	eye_scene.build(collection, arm, groups['Eyes'])
+	eye_scene.build(collection, arm, groups['Rig'])
 	attach_scene.build(collection, placements, spread=False)
 	scene.build_guides(collection, arm, placements, joints, settings)
 	scene.setup_offset_drivers(collection, arm)
@@ -907,7 +907,7 @@ class BALLISTICA_OT_remove_character(bpy.types.Operator):
 
 
 class BALLISTICA_OT_select_eye_handle(bpy.types.Operator):
-	"""Select the eye handle: move it to move the eyes, scale it to size them (the other eye mirrors it)"""
+	"""Select the eye handle: move it to move the eyes, scale it to size them, turn it to tilt the eyelids (the other eye mirrors it)"""
 	bl_idname = 'ballistica.select_eye_handle'
 	bl_label = "Select Eye Handle"
 	bl_options = {'REGISTER', 'UNDO'}
@@ -924,7 +924,7 @@ class BALLISTICA_OT_select_eye_handle(bpy.types.Operator):
 		from .scene import _layer_collections
 
 		for layer in _layer_collections(context.view_layer.layer_collection, obj.users_collection[0]):
-			layer.hide_viewport = False  # the Eyes group starts hidden
+			layer.hide_viewport = False  # the Rig group starts hidden
 		for other in context.view_layer.objects.selected:
 			other.select_set(False)
 		obj.select_set(True)

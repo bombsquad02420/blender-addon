@@ -279,6 +279,15 @@ assert abs(zhandle.scale.x - zscale * 1.2) < 1e-6  # the handle follows the pane
 zhandle.location.z += 0.02  # dragged up in the viewport (Blender +Z is game +Y)
 bpy.context.view_layer.update()
 assert abs(zset.eye_position[1] - (where[1] + 0.02)) < 1e-5, (tuple(zset.eye_position), where)
+zhandle.rotation_euler.y = -__import__('math').radians(12.0)  # turned: the eyelids tilt
+bpy.context.view_layer.update()
+assert abs(zset.eyelid_angle - 12.0) < 1e-3, zset.eyelid_angle
+zhandle.rotation_euler.y = -__import__('math').radians(80.0)  # past the game's range
+bpy.context.view_layer.update()
+assert abs(zset.eyelid_angle - 30.0) < 1e-3 and abs(zhandle.rotation_euler.y + __import__('math').radians(30.0)) < 1e-5
+zset.eyelid_angle = 0.0
+assert abs(zhandle.rotation_euler.y) < 1e-6 and tuple(zhandle.lock_rotation) == (True, False, True)
+assert zhandle.users_collection[0] == bpy.data.collections['zoe Rig']
 zhandle.scale = (zscale,) * 3
 zhandle.location.z -= 0.02
 bpy.context.view_layer.update()
@@ -929,6 +938,7 @@ bpy.data.objects.remove(eye_scene.handle(cubey2))  # an older file, or deleted
 assert [i.kind for i in repair.issues(cubey2)] == [repair.NO_EYE_HANDLE]
 assert bpy.ops.ballistica.repair() == {'FINISHED'} and eye_scene.handle(cubey2) is not None
 eye_scene.handle(cubey2).scale = (1.0, 2.0, 1.0)
+eye_scene.handle(cubey2).rotation_euler.x = 0.3
 assert [i.kind for i in repair.issues(cubey2)] == [repair.EYE_HANDLE_SKEWED]
 assert bpy.ops.ballistica.repair() == {'FINISHED'} and repair.issues(cubey2) == []
 

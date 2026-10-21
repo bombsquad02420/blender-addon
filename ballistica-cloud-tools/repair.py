@@ -186,7 +186,8 @@ def _object_issues(collection, obj, arm, material):
 			if obj.parent != parent or obj.parent_bone != bone or not _close(obj.matrix_parent_inverse, scene.bone_rest_parent_inverse(parent, bone, rest)):
 				issues.append(Issue(DETACHED, obj=obj))
 		scale = obj.scale
-		if obj.rotation_euler.to_matrix() != Matrix.Identity(3) or max(scale) - min(scale) > 1e-5:
+		turned = abs(obj.rotation_euler.x) > 1e-5 or abs(obj.rotation_euler.z) > 1e-5 or obj.rotation_mode != 'YXZ'
+		if turned or max(scale) - min(scale) > 1e-5:
 			issues.append(Issue(EYE_HANDLE_SKEWED, obj=obj))
 		return issues
 	if role not in PART_ROLES and role not in ('eye', 'attachment'):
@@ -316,12 +317,12 @@ def fix(collection, issue, keep=False):
 	elif kind == NO_EYE_HANDLE:
 		arm = armature(collection)
 		if arm is not None:
-			handle = eye_scene.build(collection, arm, scene.group(collection, 'Eyes') or collection)
+			handle = eye_scene.build(collection, arm, scene.group(collection, 'Rig') or collection)
 			scene.setup_spread_drivers(collection, [handle])
 	elif kind == EYE_HANDLE_SKEWED:
+		obj.rotation_mode = 'YXZ'
 		obj.rotation_euler = (0.0, 0.0, 0.0)
-		obj.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
-		eye_scene.push(collection)
+		eye_scene.push(collection)  # the eyelid turn back
 		size = collection.ballistica_character.eye_scale
 		obj.scale = (size, size, size)
 	elif kind == NO_GUIDES:
@@ -423,7 +424,7 @@ def _group_of(collection, obj):
 	if obj.type == 'ARMATURE' or obj.get(attach_scene.ROLE_KEY) in (attach_scene.ANCHOR, attach_scene.HANDLE):
 		return 'Rig'
 	if obj.get(eye_scene.HANDLE_KEY):
-		return 'Eyes'
+		return 'Rig'
 	role = obj.ballistica_part.role
 	if role in scene.PART_GROUPS:
 		return scene.PART_GROUPS[role]

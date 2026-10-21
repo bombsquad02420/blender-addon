@@ -71,9 +71,10 @@ plain terms instead, converted on import and export like coordinates are:
   eye_offset`), game axes.
 - **Size**: `eye_scale`. Changing it keeps the position.
 
-An **eye handle** (a sphere empty on the head bone, around the +X eye) holds
-both: move it to move the eyes, scale it (uniformly) to size them. The other
-eye mirrors it. Rotation is padlocked. Handle and panel numbers stay in sync
+An **eye handle** (a sphere empty on the head bone, around the +X eye, in the
+Rig collection) holds them: move it to move the eyes, scale it (uniformly) to
+size them, turn it about the forward axis to tilt the eyelids (±30°). The
+other eye mirrors it; the other rotation axes are padlocked. Handle and panel numbers stay in sync
 both ways, like attachment handles. Repair makes uneven scale even and clears
 rotation.
 

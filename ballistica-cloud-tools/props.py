@@ -642,7 +642,7 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	eye_color: _vec("Eye Color", 'eye_color', color=True, update=_tag_collection)
 	eyeball_color: _vec("Eyeball Color", 'eyeball_color', color=True, update=_tag_collection)
 	eyelid_color: _vec("Eyelid Color", 'eyelid_color', color=True, update=_tag_collection)
-	eyelid_angle: _float("Eyelid Angle", 'eyelid_angle', update=_tag_collection)
+	eyelid_angle: _float("Eyelid Angle", 'eyelid_angle', update=_eye_changed)
 
 	# Surface
 	reflection_scale: _float("Reflection Scale", 'reflection_scale', update=_tag_collection)
