@@ -41,6 +41,40 @@ def make_active(obj):
 ws = os.path.join(tempfile.mkdtemp(), 'ws')
 shutil.copytree(SAMPLE, ws, ignore=shutil.ignore_patterns('.git'))
 
+# The checks below are written against classic Zoe's three hair
+# attachments; the sample may have been edited since (in place, by
+# exporting), so reset them in this temporary copy.
+CLASSIC_ZOE_ATTACHMENTS = [
+	{'damping': 0.7, 'kind': 'antenna', 'radius': 0.375,
+		'segments': [{'mesh': 'meshes/hair_tuft1', 'transform': {'translate': [0.02, 0.16, 0.05]}}],
+		'stiffness': 0.2, 'target': 'head',
+		'transform': {'rotate': [48.427, 28.318, 12.945], 'translate': [-0.173, 0.124, 0.153]}},
+	{'damping': 0.7, 'kind': 'antenna',
+		'segments': [{'mesh': 'meshes/hair_tuft2', 'transform': {'rotate': [0.0, -24.995, 0.0], 'translate': [-0.01, 0.03, 0.06]}}],
+		'stiffness': 0.3, 'target': 'head',
+		'transform': {'rotate': [-59.035, 23.207, -13.262], 'translate': [0.196, 0.098, 0.118]}},
+	{'damping': 0.8, 'kind': 'antenna_2', 'length': 0.8, 'radius': 0.625,
+		'segments': [
+			{'mesh': 'meshes/hair_tuft3', 'transform': {'rotate': [-180.0, 0.0, 0.0]}},
+			{'mesh': 'meshes/hair_tuft4', 'transform': {'rotate': [-180.0, 0.0, 0.0], 'translate': [0.0, 0.0, 0.04]}}],
+		'stiffness': 0.67, 'stiffness_change': -0.26, 'target': 'head',
+		'transform': {'rotate': [-180.0, 63.025, 0.0], 'translate': [0.0, 0.28, -0.224]}},
+]
+
+
+def _reset_zoe():
+	import json
+
+	path = os.path.join(ws, 'characters', 'zoe.bchar')
+	with open(path) as infile:
+		raw = json.load(infile)
+	raw['data']['attachments'] = CLASSIC_ZOE_ATTACHMENTS
+	with open(path, 'w') as outfile:
+		outfile.write(json.dumps(raw, indent=2, sort_keys=True) + '\n')
+
+
+_reset_zoe()
+
 
 def snapshot():
 	out = {}
@@ -52,8 +86,25 @@ def snapshot():
 	return out
 
 
+def expected_attachment_meshes(name):
+	"""Attachment mesh objects a character should get: one per segment, two
+	for a `both` attachment on a limb or wing. From the file, so the test
+	follows the sample workspace if it was edited."""
+	import json
+	from ballistica_cloud_tools import attachments as rules
+
+	with open(os.path.join(ws, 'characters', f'{name}.bchar')) as infile:
+		data = json.load(infile)['data']
+	total = 0
+	for a in data.get('attachments', []):
+		sides = 2 if a.get('target') in rules.LIMB_TARGETS and a.get('side', 'both') == 'both' else 1
+		total += sides * len(a.get('segments', []))
+	return total
+
+
 before = snapshot()
-for name, attachments in (('agent_johnson', 0), ('zoe', 4), ('pixel', 2)):
+for name in ('agent_johnson', 'zoe', 'pixel'):
+	attachments = expected_attachment_meshes(name)
 	assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', f'{name}.bchar')) == {'FINISHED'}
 	collection = bpy.data.collections[name]
 	found = [o for o in collection.all_objects if o.ballistica_part.role == 'attachment']
@@ -546,6 +597,29 @@ assert bpy.ops.ballistica.toggle_group(collection=eyes_group.name) == {'FINISHED
 assert eyes_layer.hide_viewport == (not was_hidden)
 bpy.ops.ballistica.toggle_group(collection=eyes_group.name)
 assert eyes_layer.hide_viewport == was_hidden
+
+# New Character starting from an existing one: own copies of its files.
+with open(os.path.join(ws, 'characters', 'zoe.bchar')) as infile:
+	zoe_data = json.load(infile)['data']
+before_copy = snapshot()
+assert bpy.ops.ballistica.new_character(directory=ws, name='zoey', start_from='characters/zoe') == {'FINISHED'}
+zoey = bpy.data.collections['zoey']
+assert snapshot() == before_copy  # nothing written before export
+zs = zoey.ballistica_character
+assert zs.head_mesh == 'meshes/zoey_head' and zs.color_texture == 'textures/zoey_color'
+assert tuple(round(c, 4) for c in zs.color) == tuple(round(c, 4) for c in zoe_data['color'])
+assert len(zs.attachments) == len(zoe_data.get('attachments', []))
+assert all(seg.mesh.startswith('meshes/zoey_') for a in zs.attachments for seg in a.segments)
+assert operators.check(zoey) == [], operators.check(zoey)
+make_active(next(o for o in zoey.all_objects if o.ballistica_part.role == 'head'))
+assert bpy.ops.ballistica.export_character() == {'FINISHED'}
+changed = sorted(k for k, v in snapshot().items() if before_copy.get(k) != v)
+assert all('zoey' in k or k == 'workspace.json' for k in changed), changed
+assert 'characters/zoey.bchar' in changed and 'textures/zoey_color.png' in changed
+assert not [k for k in changed if 'zoe_' in k or k.endswith('zoe.bchar')]  # the original is untouched
+assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'zoey.bchar')) == {'FINISHED'}
+assert operators.check(bpy.data.collections['zoey.001']) == []
+scene.ballistica_active_character = zoe  # the checks below work on Zoe
 
 # The Attachments panel draws (against a stand-in layout that checks every
 # property it shows exists).

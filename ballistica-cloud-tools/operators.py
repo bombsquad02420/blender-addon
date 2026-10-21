@@ -7,7 +7,7 @@ import re
 import bpy
 from bpy_extras.io_utils import ImportHelper
 
-from . import attach_scene, bchar, objfile, pose, props, rig, scene, template, workspace
+from . import attach_scene, bchar, clone, objfile, pose, props, rig, scene, template, workspace
 from .ui import active_character
 
 
@@ -67,8 +67,8 @@ def _build(context, root, character_path, character, meshes=None):
 			continue
 		right.ballistica_part.side = 'R'
 		left_logical = getattr(settings, f'left_{part}_mesh')
-		left_path = workspace.file_path(root, left_logical, 'mesh') if left_logical else None
-		mesh = attach_scene.mesh_for(root, left_logical) if left_path else right.data
+		# On disk or made in memory (a copied character's); else the right's.
+		mesh = (attach_scene.mesh_for(root, left_logical) if left_logical else None) or right.data
 		left = _part_object(groups[scene.PART_GROUPS[part]], f'{part}.L', mesh, part, body_material)
 		left.ballistica_part.side = 'L'
 		scene.parent_to_bone(left, arm, scene.bone_name(part, 'L'), scene.MIRROR_X @ world)
@@ -193,9 +193,9 @@ def _template_image(root, logical, texture):
 	return _new_image(root, logical, pixels, size, data='mask' in texture)
 
 
-def _new_image(root, logical, pixels, size, data):
+def _new_image(root, logical, pixels, size, data, height=None):
 	"""An in-memory PNG that export writes to the logical path's file."""
-	image = bpy.data.images.new(logical.rsplit('/', 1)[-1], size, size, alpha=True)
+	image = bpy.data.images.new(logical.rsplit('/', 1)[-1], size, height or size, alpha=True)
 	if data:
 		# Before the pixels: changing a generated image's color space
 		# regenerates it, wiping them.
@@ -206,8 +206,56 @@ def _new_image(root, logical, pixels, size, data):
 	return image
 
 
+BLANK = 'BLANK'
+_START_ITEMS = []  # dynamic enum items must stay referenced from Python
+
+
+def _start_from_items(self, context):
+	"""Blank, then every character in the dialog's workspace."""
+	items = [(BLANK, "Blank (cuboids)", "A cuboid body in the game's proportions", 'MESH_CUBE', 0)]
+	root = workspace.find_root(self.directory) if self.directory else None
+	if root is not None:
+		for i, logical in enumerate(workspace.list_assets(root, 'character'), start=1):
+			items.append((logical, logical.rsplit('/', 1)[-1], f"Copy {logical}: its meshes, textures and settings", 'OUTLINER_COLLECTION', i))
+	_START_ITEMS[:] = items
+	return _START_ITEMS
+
+
+def _copy_assets(root, character, meshes, textures):
+	"""In-memory copies of a source character's files under their new paths.
+
+	Returns {part: mesh} for the body parts (what _build takes); every
+	other copied mesh is found by attach_scene.mesh_for through its tag.
+	Missing source files are skipped (Check reports them).
+	"""
+	copied = {}
+	for old, new in meshes.items():
+		path = workspace.file_path(root, old, 'mesh')
+		if path is None:
+			continue
+		mesh = scene.mesh_from_obj(path, new)
+		attach_scene.tag_mesh(mesh, root, new)
+		copied[new] = mesh
+	masks = clone.mask_textures(character)
+	for old, new in textures.items():
+		path = workspace.file_path(root, old, 'texture')
+		if path is None:
+			continue
+		source = bpy.data.images.load(path)
+		try:
+			if new in masks:
+				source.colorspace_settings.name = 'Non-Color'
+			width, height = source.size
+			pixels = [0.0] * (width * height * 4)
+			source.pixels.foreach_get(pixels)
+		finally:
+			bpy.data.images.remove(source)
+		_new_image(root, new, pixels, width, data=new in masks, height=height)
+	return {part: copied[character.data[field]] for part, field, _ in rig.PARTS if character.data.get(field) in copied}
+
+
 class BALLISTICA_OT_new_character(bpy.types.Operator):
-	"""Start a character from scratch in a workspace: rig, guides, eyes and a cuboid body in the game's proportions. Nothing is written until you export"""
+	"""Start a character in a workspace: rig, guides and eyes, with a cuboid body in the game's proportions or a copy of another character. Nothing is written until you export"""
 	bl_idname = 'ballistica.new_character'
 	bl_label = "New Character"
 	bl_options = {'REGISTER', 'UNDO'}
@@ -218,6 +266,9 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 	name: bpy.props.StringProperty(
 		name="Name", default="my_character",
 		description="Lowercase id used for the character's files, e.g. characters/<name>.bchar and meshes/<name>_head.obj")
+	start_from: bpy.props.EnumProperty(
+		name="Start From", items=_start_from_items,
+		description="Blank cuboids, or a copy of a character in the workspace (its own copies of the meshes and textures)")
 
 	def invoke(self, context, event):
 		current = active_character(context)
@@ -235,8 +286,25 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 			self.report({'ERROR'}, "Name must be lowercase letters, digits and underscores, starting with a letter.")
 			return {'CANCELLED'}
 		character_path = f'characters/{name}'
-		character = new_character(name)
-		taken = [logical for _, kind, logical in character.referenced_assets() if workspace.file_path(root, logical, kind)]
+		source = None
+		if self.start_from and self.start_from != BLANK:
+			source_path = workspace.file_path(root, self.start_from, 'character')
+			if source_path is None:
+				self.report({'ERROR'}, f"{self.start_from} isn't in this workspace.")
+				return {'CANCELLED'}
+			try:
+				source = bchar.Character.load(source_path)
+			except (OSError, ValueError) as exc:
+				self.report({'ERROR'}, f"Couldn't read {self.start_from}: {exc}")
+				return {'CANCELLED'}
+			character, mesh_map, texture_map = clone.plan(source, name)
+		else:
+			character = new_character(name)
+		# Only the files this character will write; copied sounds are shared.
+		taken = [
+			logical for _, kind, logical in character.referenced_assets()
+			if kind in ('mesh', 'texture') and workspace.file_path(root, logical, kind)
+		]
 		if workspace.file_path(root, character_path, 'character'):
 			taken.insert(0, character_path)
 		if taken:
@@ -246,6 +314,13 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 			return {'CANCELLED'}
 		if context.object is not None and context.object.mode != 'OBJECT':
 			bpy.ops.object.mode_set(mode='OBJECT')
+
+		if source is not None:
+			meshes = _copy_assets(root, character, mesh_map, texture_map)
+			collection, _ = _build(context, root, character_path, character, meshes)
+			_place_and_activate(context, collection)
+			self.report({'INFO'}, f"Created {collection.name} from {self.start_from}; Export Character writes it to the workspace")
+			return {'FINISHED'}
 
 		# The starter body ships as files in assets/template/.
 		missing = [p for p in [template.obj_path(part) for part in template.CUBOIDS] + [template.texture_path(t) for t in template.TEXTURES] if not os.path.isfile(p)]
@@ -282,8 +357,8 @@ def check(collection):
 	for field, kind, logical in character.referenced_assets():
 		if field in exported or workspace.file_path(root, logical, kind) is not None:
 			continue
-		if kind == 'mesh' and field.startswith('attachments') and _loaded_attachment_mesh(root, logical) is not None:
-			continue  # Made in Blender; export writes it.
+		if kind == 'mesh' and _loaded_attachment_mesh(root, logical) is not None:
+			continue  # In Blender (made or copied here); export writes it.
 		if kind == 'texture' and scene.find_image(workspace.new_file_path(root, logical, kind)) is not None:
 			continue  # Made in Blender; export writes it.
 		problems.append(f"{field}: {logical} not found in the workspace")
@@ -504,8 +579,10 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 			logical = getattr(settings, field) or f'meshes/{collection.name}_{part}'
 			setattr(settings, field, logical)
 			_write_mesh(root, logical, obj, written)
-		# Attachment segment meshes made or edited in Blender.
-		for logical in _attachment_refs(settings, ('mesh',)):
+		# Every other mesh it uses that's in Blender: left overrides and
+		# attachment segments, made or edited here (unchanged ones skipped).
+		left = [getattr(settings, f'left_{p}_mesh') for p in rig.PAIRED_PARTS]
+		for logical in dict.fromkeys([m for m in left if m] + _attachment_refs(settings, ('mesh',))):
 			mesh = _loaded_attachment_mesh(root, logical)
 			obj = next((o for o in collection.all_objects if o.data == mesh), None) if mesh is not None else None
 			if obj is not None:
