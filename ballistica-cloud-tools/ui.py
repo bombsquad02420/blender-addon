@@ -53,7 +53,15 @@ class BALLISTICA_UL_characters(bpy.types.UIList):
 	"""The scene's characters (character collections from bpy.data)."""
 
 	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
-		layout.label(text=item.name, icon='OUTLINER_COLLECTION')
+		from .scene import _layer_collections
+
+		row = layout.row(align=True)
+		row.label(text=item.name, icon='OUTLINER_COLLECTION')
+		layer = next(_layer_collections(context.view_layer.layer_collection, item), None)
+		if layer is not None:
+			visible = not layer.hide_viewport
+			op = row.operator('ballistica.toggle_group', text="", icon='HIDE_OFF' if visible else 'HIDE_ON', emboss=False)
+			op.collection = item.name
 
 	def filter_items(self, context, data, property):
 		in_scene = set(characters(context.scene))

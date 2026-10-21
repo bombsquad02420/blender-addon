@@ -782,6 +782,13 @@ assert rig.flippers_hint(settings.flippers, settings.forearm_mesh, settings.hand
 draw_panels()
 settings.flippers = False
 
+# The character list's eye hides or shows a whole character.
+zoe_layer = next(_layer_collections(bpy.context.view_layer.layer_collection, zoe))
+assert not zoe_layer.hide_viewport
+ui.BALLISTICA_UL_characters.draw_item(None, bpy.context, StubLayout(), None, zoe, 0, None, None, 0)
+assert bpy.ops.ballistica.toggle_group(collection=zoe.name) == {'FINISHED'} and zoe_layer.hide_viewport
+assert bpy.ops.ballistica.toggle_group(collection=zoe.name) == {'FINISHED'} and not zoe_layer.hide_viewport
+
 # Deleting the active character falls back to another one.
 doomed = bpy.data.collections['pixel.001']
 scene.ballistica_active_character = doomed

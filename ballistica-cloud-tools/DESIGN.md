@@ -334,6 +334,7 @@ collection (`scene.ballistica_active_character`), so it doesn't depend on
 what's selected:
 
 - Clicking a row makes that character active.
+- Each row's eye icon hides or shows that whole character.
 - Clicking any object of a character in the viewport (body part, eye,
   attachment) makes it active.
 - New Character and Import make the new character active.

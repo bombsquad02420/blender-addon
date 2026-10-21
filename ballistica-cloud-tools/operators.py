@@ -1006,7 +1006,7 @@ class BALLISTICA_OT_make_unique(bpy.types.Operator):
 
 
 class BALLISTICA_OT_toggle_group(bpy.types.Operator):
-	"""Show or hide this part of the character in the viewport"""
+	"""Show or hide this in the viewport"""
 	bl_idname = 'ballistica.toggle_group'
 	bl_label = "Toggle Visibility"
 	bl_options = {'INTERNAL'}
