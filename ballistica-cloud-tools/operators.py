@@ -207,18 +207,43 @@ def _new_image(root, logical, pixels, size, data, height=None):
 
 
 BLANK = 'BLANK'
+EMPTY = 'EMPTY'
 _START_ITEMS = []  # dynamic enum items must stay referenced from Python
 
 
 def _start_from_items(self, context):
-	"""Blank, then every character in the dialog's workspace."""
-	items = [(BLANK, "Blank (cuboids)", "A cuboid body in the game's proportions", 'MESH_CUBE', 0)]
+	"""Blank, Empty, then every character in the dialog's workspace."""
+	items = [
+		(BLANK, "Blank (cuboids)", "A cuboid body in the game's proportions", 'MESH_CUBE', 0),
+		(EMPTY, "Empty (no geometry)", "Rig, guides, eyes and part objects with empty meshes and plain textures, to model from scratch", 'MESH_DATA', 1),
+	]
 	root = workspace.find_root(self.directory) if self.directory else None
 	if root is not None:
-		for i, logical in enumerate(workspace.list_assets(root, 'character'), start=1):
+		for i, logical in enumerate(workspace.list_assets(root, 'character'), start=2):
 			items.append((logical, logical.rsplit('/', 1)[-1], f"Copy {logical}: its meshes, textures and settings", 'OUTLINER_COLLECTION', i))
 	_START_ITEMS[:] = items
 	return _START_ITEMS
+
+
+# Placeholder textures for an empty character: (field, size, rgba).
+EMPTY_TEXTURES = (
+	('color_texture', 256, (1.0, 1.0, 1.0, 1.0)),
+	('color_mask_texture', 256, (0.0, 0.0, 0.0, 1.0)),  # no tint
+	('icon_texture', 64, (0.5, 0.5, 0.5, 1.0)),
+	('icon_mask_texture', 64, (0.0, 0.0, 0.0, 1.0)),
+)
+
+
+def _empty_assets(root, character, name):
+	"""Empty part meshes (with a UV map) and plain textures, in memory."""
+	for field, size, rgba in EMPTY_TEXTURES:
+		_new_image(root, character.get(field), list(rgba) * (size * size), size, data='mask' in field)
+	meshes = {}
+	for part, _, _ in rig.PARTS:
+		mesh = bpy.data.meshes.new(f'meshes/{name}_{part}')
+		mesh.uv_layers.new(name="UVMap")  # ready for modelling and painting
+		meshes[part] = mesh
+	return meshes
 
 
 def _copy_assets(root, character, meshes, textures):
@@ -287,7 +312,7 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 			return {'CANCELLED'}
 		character_path = f'characters/{name}'
 		source = None
-		if self.start_from and self.start_from != BLANK:
+		if self.start_from and self.start_from not in (BLANK, EMPTY):
 			source_path = workspace.file_path(root, self.start_from, 'character')
 			if source_path is None:
 				self.report({'ERROR'}, f"{self.start_from} isn't in this workspace.")
@@ -315,6 +340,12 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 		if context.object is not None and context.object.mode != 'OBJECT':
 			bpy.ops.object.mode_set(mode='OBJECT')
 
+		if self.start_from == EMPTY:
+			meshes = _empty_assets(root, character, name)
+			collection, _ = _build(context, root, character_path, character, meshes)
+			_place_and_activate(context, collection)
+			self.report({'INFO'}, f"Created {collection.name} with empty meshes; model each part, then Export Character")
+			return {'FINISHED'}
 		if source is not None:
 			meshes = _copy_assets(root, character, mesh_map, texture_map)
 			collection, _ = _build(context, root, character_path, character, meshes)
@@ -367,7 +398,9 @@ def check(collection):
 		if path and workspace.texture_role(root, path) != 'data':
 			problems.append(f"{field}: {character.get(field)} is not marked texture_role: data (export will fix this)")
 	for obj in _exportable_parts(collection):
-		if obj.data.uv_layers.active is None:
+		if not obj.data.polygons:
+			problems.append(f"{obj.name}: mesh is empty (model it, or clear its field if the part is optional)")
+		elif obj.data.uv_layers.active is None:
 			problems.append(f"{obj.name}: mesh has no UVs")
 	return problems
 

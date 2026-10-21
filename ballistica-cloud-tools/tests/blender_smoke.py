@@ -621,6 +621,28 @@ assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters
 assert operators.check(bpy.data.collections['zoey.001']) == []
 scene.ballistica_active_character = zoe  # the checks below work on Zoe
 
+# New Character, Empty: the whole setup with empty part meshes.
+before_empty = snapshot()
+assert bpy.ops.ballistica.new_character(directory=ws, name='blanky', start_from='EMPTY') == {'FINISHED'}
+blanky = bpy.data.collections['blanky']
+assert snapshot() == before_empty  # nothing written before export
+parts = [o for o in blanky.all_objects if o.ballistica_part.role in [p for p, _, _ in rig.PARTS]]
+assert len(parts) == 15 and all(len(o.data.polygons) == 0 for o in parts)
+assert all(o.data.uv_layers.active is not None for o in parts)
+assert any(o.ballistica_part.role == 'eye' for o in blanky.all_objects)  # the rest of the setup is there
+assert bpy.data.images['blanky_color'].size[:] == (256, 256)
+empty_problems = [p for p in operators.check(blanky) if 'mesh is empty' in p]
+assert len(empty_problems) == 9, empty_problems  # every right/centre part
+import bmesh  # noqa: E402
+blanky_head = next(o for o in parts if o.ballistica_part.role == 'head')
+bm = bmesh.new()
+bm.from_mesh(blanky_head.data)  # keeps its UV map, as modelling in Edit Mode does
+bmesh.ops.create_cube(bm, size=0.4)
+bm.to_mesh(blanky_head.data)
+bm.free()
+assert not any(blanky_head.name in p for p in operators.check(blanky))  # modelled: no longer flagged
+scene.ballistica_active_character = zoe
+
 # The Attachments panel draws (against a stand-in layout that checks every
 # property it shows exists).
 class StubLayout:
