@@ -638,7 +638,10 @@ agent_settings.active_part_index = list(rows).index(('head', 'CENTER'))
 assert bpy.ops.ballistica.new_part_mesh() == {'FINISHED'}  # a box to model from, no export path yet
 assert head_obj.data != agent_head_mesh and len(head_obj.data.polygons) > 0, (head_obj.data, head_row.mesh, agent_head_mesh, head_obj.name)
 assert part_scene.fields(agent)['head_mesh'] == 'meshes/agent_johnson_head'
+head_row.mesh = None  # cleared with the picker's X
+assert any(p.startswith('Head: no mesh picked') for p in operators.check(agent)), operators.check(agent)
 head_row.mesh = agent_head_mesh
+head_obj = next(o for o in agent.all_objects if o.ballistica_part.role == 'head')  # made again
 # Clicking a row selects its object; making a part active picks its row.
 for o in bpy.context.view_layer.objects:
 	o.select_set(False)

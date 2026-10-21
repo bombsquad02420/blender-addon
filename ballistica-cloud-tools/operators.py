@@ -388,6 +388,9 @@ def check(collection):
 	for field in rig.REQUIRED_REFS:
 		if not character.get(field):
 			problems.append(f"{part_names[field]} needs a mesh" if field in part_names else f"{field} is required")
+	for row in settings.parts:
+		if row.enabled and row.mesh is None and row.side != 'L':
+			problems.append(f"{part_scene.label(row)}: no mesh picked (pick one, press + for a box, or turn the part off)")
 	hint = rig.flippers_hint(settings.flippers, character.get('forearm_mesh'), character.get('hand_mesh'))
 	if hint:
 		problems.append(hint)

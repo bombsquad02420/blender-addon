@@ -161,8 +161,12 @@ def copy_mesh(mesh, name):
 	return copy
 
 
-def on_row_changed(row):
-	"""props hook: a row's checkbox or mesh changed."""
+def on_row_changed(row, turned_on=False):
+	"""props hook: a row's checkbox or mesh changed.
+
+	Turning a row on that has no mesh yet gives it one: a copy of the right
+	side for a Left row, a box for an optional part.
+	"""
 	global _quiet
 	if _quiet:
 		return
@@ -170,7 +174,7 @@ def on_row_changed(row):
 	if not isinstance(collection, bpy.types.Collection) or not collection.ballistica_character.is_character:
 		return
 	settings = collection.ballistica_character
-	if row.enabled and row.mesh is None:
+	if turned_on and row.mesh is None:
 		_quiet = True
 		try:
 			if row.side == 'L':

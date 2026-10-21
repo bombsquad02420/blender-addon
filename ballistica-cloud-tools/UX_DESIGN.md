@@ -1,6 +1,6 @@
 # Ballistica Cloud Tools — Guided editing (design)
 
-Status: agreed 2026-10-22; steps 1–3 being built. Extends [DESIGN.md](DESIGN.md),
+Status: agreed 2026-10-22; steps 1–3 built (see DESIGN.md for how they work). Extends [DESIGN.md](DESIGN.md),
 which describes the addon as it is.
 
 ## Who it's for
@@ -139,7 +139,7 @@ mask stay in Identity.
 ### Checks
 
 - Two different meshes, or two images, with the same export path.
-- Required parts without a mesh.
+- A used part without a mesh (its picker cleared).
 - Everything Repair finds (as notes).
 
 ### Panel

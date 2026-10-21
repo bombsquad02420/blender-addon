@@ -353,8 +353,15 @@ def _active_segment_changed(self, context):
 			return
 
 
+def _part_row_enabled(self, context):
+	"""A Parts row's checkbox changed: update the part's objects."""
+	hook = ATTACHMENT_REBUILD_HOOKS.get('part')
+	if hook is not None:
+		hook(self, turned_on=self.enabled)
+
+
 def _part_row_changed(self, context):
-	"""A Parts row's checkbox or mesh changed: update the part's objects."""
+	"""A Parts row's mesh changed: update the part's objects."""
 	hook = ATTACHMENT_REBUILD_HOOKS.get('part')
 	if hook is not None:
 		hook(self)
@@ -397,7 +404,7 @@ class COLLECTION_PG_ballistica_part_row(bpy.types.PropertyGroup):
 	side: bpy.props.EnumProperty(
 		name="Side", items=[('CENTER', "Center", ""), ('R', "Right", ""), ('L', "Left", "")], options={'HIDDEN'})
 	enabled: bpy.props.BoolProperty(
-		name="Use", default=True, options=_options(), update=_part_row_changed,
+		name="Use", default=True, options=_options(), update=_part_row_enabled,
 		description="Use this part. Off: the character has none (a Left part mirrors the right one instead). Its mesh is kept")
 	mesh: bpy.props.PointerProperty(
 		type=bpy.types.Mesh, name="Mesh", poll=_part_mesh_poll, options=_options(), update=_part_row_changed,
