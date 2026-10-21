@@ -96,3 +96,59 @@ def texture_role(root, texture_file):
 	path = os.path.join(root, WORKSPACE_FILE)
 	key = os.path.relpath(texture_file, root).replace(os.sep, '/')
 	return jsonfile.read(path).get('path', {}).get(key, {}).get('texture_role')
+
+
+# Per-texture build settings in workspace.json (assets_v1 `tex_v1` path
+# entries; ballistica bacommon/workspace/assetsv1.py): key -> (values,
+# default). Only non-default values are stored.
+TEXTURE_SETTINGS = {
+	'texture_role': (('default', 'source_premultiplied', 'straight_alpha', 'data', 'premultiplied_data'), 'default'),
+	'texture_quality': (('default', 'low', 'high', 'custom'), 'default'),
+	'texture_wrapping_h': (('clamp', 'repeat'), 'clamp'),
+	'texture_wrapping_v': (('clamp', 'repeat'), 'clamp'),
+	'texture_alpha': (('auto', 'yes', 'no'), 'auto'),
+}
+# Roles for masks: their channels are data, not colour.
+DATA_ROLES = ('data', 'premultiplied_data')
+
+
+def _texture_key(root, texture_file):
+	return os.path.relpath(texture_file, root).replace(os.sep, '/')
+
+
+def texture_settings(root, texture_file):
+	"""{key: value} for every TEXTURE_SETTINGS key (defaults where unset).
+
+	Values the addon doesn't know (a newer schema) are returned as found.
+	"""
+	path = os.path.join(root, WORKSPACE_FILE)
+	entry = jsonfile.read(path).get('path', {}).get(_texture_key(root, texture_file), {}) if os.path.isfile(path) else {}
+	return {key: entry.get(key, default) for key, (_, default) in TEXTURE_SETTINGS.items()}
+
+
+def set_texture_settings(root, settings_by_file):
+	"""Write textures' settings into workspace.json.
+
+	`settings_by_file` maps a texture file to {key: value} for the keys to
+	write: a default value removes the key, anything else sets it. Every
+	other key is left as it is; an entry left with nothing but its type is
+	removed (only textures with non-default settings are listed). Returns
+	True if workspace.json changed.
+	"""
+	path = os.path.join(root, WORKSPACE_FILE)
+	data = jsonfile.read(path)
+	entries = data.setdefault('path', {})
+	for texture_file, settings in settings_by_file.items():
+		key = _texture_key(root, texture_file)
+		entry = entries.get(key)
+		for name, value in settings.items():
+			if value == TEXTURE_SETTINGS[name][1]:
+				if entry is not None:
+					entry.pop(name, None)
+			else:
+				if entry is None:
+					entry = entries[key] = {'type': 'tex_v1'}
+				entry[name] = value
+		if entry is not None and entry == {'type': 'tex_v1'}:
+			del entries[key]
+	return jsonfile.write(path, data)

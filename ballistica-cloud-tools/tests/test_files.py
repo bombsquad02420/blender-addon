@@ -50,6 +50,31 @@ class WorkspaceTest(TempWorkspace):
 		self.assertTrue(workspace.file_path(self.root, 'meshes/a_head', 'mesh').endswith('a_head.obj'))
 		self.assertIsNone(workspace.file_path(self.root, 'meshes/missing', 'mesh'))
 
+	def test_texture_settings_default_unless_listed(self):
+		mask = os.path.join(self.root, 'textures', 'a_mask.png')
+		color = os.path.join(self.root, 'textures', 'a_color.png')
+		self.assertEqual(workspace.texture_settings(self.root, mask)['texture_role'], 'data')
+		self.assertEqual(workspace.texture_settings(self.root, color), {
+			'texture_role': 'default', 'texture_quality': 'default',
+			'texture_wrapping_h': 'clamp', 'texture_wrapping_v': 'clamp', 'texture_alpha': 'auto'})
+
+	def test_set_texture_settings_keeps_other_keys_and_drops_defaults(self):
+		mask = os.path.join(self.root, 'textures', 'a_mask.png')
+		color = os.path.join(self.root, 'textures', 'a_color.png')
+		self.assertTrue(workspace.set_texture_settings(self.root, {
+			color: {'texture_wrapping_h': 'repeat', 'texture_quality': 'default'},
+			mask: {'texture_role': 'data', 'texture_alpha': 'no'},
+		}))
+		entries = jsonfile.read(os.path.join(self.root, 'workspace.json'))['path']
+		self.assertEqual(entries['textures/a_color.png'], {'type': 'tex_v1', 'texture_wrapping_h': 'repeat'})
+		self.assertEqual(entries['textures/a_mask.png'], {'type': 'tex_v1', 'texture_role': 'data', 'texture_alpha': 'no'})
+		# Back to defaults: the colour texture's entry goes; nothing else is touched.
+		self.assertTrue(workspace.set_texture_settings(self.root, {color: {'texture_wrapping_h': 'clamp'}}))
+		entries = jsonfile.read(os.path.join(self.root, 'workspace.json'))['path']
+		self.assertNotIn('textures/a_color.png', entries)
+		self.assertIn('textures/a_mask.png', entries)
+		self.assertFalse(workspace.set_texture_settings(self.root, {color: {'texture_wrapping_h': 'clamp'}}))
+
 	def test_mark_data_textures_only_adds_missing_roles(self):
 		color = os.path.join(self.root, 'textures', 'a_color.png')
 		mask = os.path.join(self.root, 'textures', 'a_mask.png')
