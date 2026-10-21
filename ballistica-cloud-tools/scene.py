@@ -319,21 +319,32 @@ class _edit_mode:
 		bpy.context.view_layer.objects.active = self.previous
 
 
-def parent_to_bone(obj, arm, bone, world_matrix):
-	"""Bone-parent `obj` so it sits at `world_matrix` with an identity transform.
+def parent_to_bone(obj, arm, bone, rest_matrix):
+	"""Bone-parent `obj` so it sits at `rest_matrix` with an identity transform.
 
-	The rest placement goes into the parent inverse, leaving the object's
-	own location/rotation/scale at zero. Moving a part to get at it is then
-	undone by Alt+G/R/S (or Reset Parts), and export never reads transforms.
+	`rest_matrix` is where the object belongs with the rig at rest, in the
+	rig's own space. The rest placement goes into the parent inverse,
+	leaving the object's own location/rotation/scale at zero. Moving a part
+	to get at it is then undone by Alt+G/R/S (or Repair), and export never
+	reads transforms. Computed from the bone's rest, so it's right whatever
+	the pose is or wherever the character has been moved.
 	"""
 	obj.parent = arm
 	obj.parent_type = 'BONE'
 	obj.parent_bone = bone
-	bpy.context.view_layer.update()
-	obj.matrix_world = world_matrix
-	# world = bone @ parent_inverse @ basis: move the basis into the inverse.
-	obj.matrix_parent_inverse = obj.matrix_basis.copy()
+	obj.matrix_parent_inverse = bone_rest_parent_inverse(arm, bone, rest_matrix)
 	obj.matrix_basis = Matrix.Identity(4)
+
+
+def bone_rest_parent_inverse(arm, bone, rest_matrix):
+	"""The parent inverse that puts a child of `bone` at `rest_matrix`.
+
+	A bone-parented object hangs from the bone's tail: its world matrix is
+	rig @ pose bone @ (0, length, 0) @ parent inverse @ own transform.
+	"""
+	data = arm.data.bones[bone]
+	tail = data.matrix_local @ Matrix.Translation((0.0, data.length, 0.0))
+	return tail.inverted() @ rest_matrix
 
 
 # ---- material ----
@@ -738,7 +749,7 @@ def setup_spread_drivers(collection, objects=None):
 	into that frame once here; location stays free for moving parts.
 	"""
 	for obj in collection.all_objects if objects is None else objects:
-		if obj.parent_type != 'BONE' or not obj.parent_bone:
+		if obj.parent_type != 'BONE' or not obj.parent_bone or obj.parent is None or obj.parent_bone not in obj.parent.data.bones:
 			continue
 		part, _, side = obj.parent_bone.partition('.')
 		part = 'head' if part == 'eye_offset' else part
@@ -747,7 +758,10 @@ def setup_spread_drivers(collection, objects=None):
 			continue
 		if side == 'L':
 			offset = pose.mirror(offset)
-		rest = (obj.matrix_world @ obj.matrix_basis.inverted()).to_3x3()
+		# The object's rest frame in rig space (pose and rig placement don't matter).
+		bone = obj.parent.data.bones[obj.parent_bone]
+		tail = bone.matrix_local @ Matrix.Translation((0.0, bone.length, 0.0))
+		rest = (tail @ obj.matrix_parent_inverse).to_3x3()
 		local = rest.inverted() @ game_point(offset)
 		for i in range(3):
 			if abs(local[i]) > 1e-9:
