@@ -593,6 +593,41 @@ def _triangles(collection):
 	return total
 
 
+ISSUES_URL = "https://github.com/bombsquad02420/blender-addon/issues/new?template=ballistica_cloud_tools.md"
+
+
+def _addon_version():
+	import os
+	import re
+
+	manifest = os.path.join(os.path.dirname(__file__), 'blender_manifest.toml')
+	try:
+		with open(manifest, encoding='utf-8') as infile:
+			found = re.search(r'^version = "(.*)"', infile.read(), re.M)
+	except OSError:
+		return "unknown"
+	return found.group(1) if found else "unknown"
+
+
+class VIEW3D_PT_ballistica_help(_Panel, bpy.types.Panel):
+	"""Where to ask for help or report a problem (always last)."""
+	bl_label = "Help"
+	bl_parent_id = 'VIEW3D_PT_ballistica_character'
+	bl_options = {'DEFAULT_CLOSED'}
+	header_icon = 'HELP'
+
+	def draw_header(self, context):
+		self.layout.label(icon=self.header_icon)
+
+	def draw(self, context):
+		layout = self.layout
+		col = layout.column(align=True)
+		col.label(text="Stuck, or found a bug? Tell us on GitHub.")
+		col.label(text="A screenshot and these versions help:")
+		col.label(text=f"Addon {_addon_version()} · Blender {bpy.app.version_string}")
+		layout.operator('wm.url_open', text="Report a Problem", icon='URL').url = ISSUES_URL
+
+
 classes = (
 	BALLISTICA_UL_characters,
 	BALLISTICA_UL_sounds,
@@ -610,6 +645,7 @@ classes = (
 	VIEW3D_PT_ballistica_eyes,
 	VIEW3D_PT_ballistica_attachments,
 	VIEW3D_PT_ballistica_sounds,
+	VIEW3D_PT_ballistica_help,  # last: at the very bottom
 )
 
 
