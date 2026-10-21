@@ -7,7 +7,7 @@ import re
 import bpy
 from bpy_extras.io_utils import ImportHelper
 
-from . import attach_scene, bchar, clone, eye_scene, objfile, pose, props, rig, scene, template, workspace
+from . import attach_scene, bchar, clone, eye_scene, part_scene, objfile, pose, props, rig, scene, template, workspace
 from .ui import active_character
 
 
@@ -74,6 +74,7 @@ def _build(context, root, character_path, character, meshes=None):
 		left.ballistica_part.side = 'L'
 		scene.parent_to_bone(left, arm, scene.bone_name(part, 'L'), scene.MIRROR_X @ world)
 
+	part_scene.fill_rows(collection)
 	scene.build_eyes(collection, arm, placements, settings, groups['Eyes'])
 	eye_scene.build(collection, arm, groups['Eyes'])
 	attach_scene.build(collection, placements, spread=False)
@@ -380,11 +381,13 @@ def check(collection):
 	problems = []
 	if not root or not os.path.isfile(os.path.join(root, workspace.WORKSPACE_FILE)):
 		return [f"Workspace folder not found: {root or '(none)'}"]
-	character = props.to_character(settings)
+	fields = part_scene.fields(collection)
+	character = props.to_character(settings, fields)
+	part_names = {f: part_scene.label(r) for r in settings.parts for f in [part_scene.field(r)]}
 	for field in rig.REQUIRED_REFS:
 		if not character.get(field):
-			problems.append(f"{field} is required")
-	hint = rig.flippers_hint(settings.flippers, settings.forearm_mesh, settings.hand_mesh)
+			problems.append(f"{part_names[field]} needs a mesh" if field in part_names else f"{field} is required")
+	hint = rig.flippers_hint(settings.flippers, character.get('forearm_mesh'), character.get('hand_mesh'))
 	if hint:
 		problems.append(hint)
 	exported = {f for p, f, _ in rig.PARTS if any(o.ballistica_part.role == p for o in _exportable_parts(collection))}
@@ -707,17 +710,19 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 		attach_scene.sync_from_handles(collection)
 		eye_scene.pull(collection)
 
-		# Meshes: write each part's mesh data to the file its field names.
+		# Meshes: each part's mesh to its export path (unchanged ones skipped).
+		if not part_scene.has_rows(settings):
+			part_scene.fill_rows(collection)  # a file from before the Parts list
+		part_scene.assign_paths(collection)
 		for obj in _exportable_parts(collection):
-			part = obj.ballistica_part.role
-			field = dict((p, f) for p, f, _ in rig.PARTS)[part]
-			logical = getattr(settings, field) or f'meshes/{collection.name}_{part}'
-			setattr(settings, field, logical)
-			_write_mesh(root, logical, obj, written)
-		# Every other mesh it uses that's in Blender: left overrides and
-		# attachment segments, made or edited here (unchanged ones skipped).
-		left = [getattr(settings, f'left_{p}_mesh') for p in rig.PAIRED_PARTS]
-		for logical in dict.fromkeys([m for m in left if m] + _attachment_refs(settings, ('mesh',))):
+			_write_mesh(root, getattr(settings, part_scene.FIELDS[obj.ballistica_part.role]), obj, written)
+		for row in settings.parts:
+			if row.side == 'L' and row.enabled and row.mesh is not None:
+				obj = next((o for o in part_scene.objects_of(collection, row) if o.data == row.mesh), None)
+				if obj is not None:
+					_write_mesh(root, row.mesh.ballistica_asset.path, obj, written)
+		# Attachment segment meshes made or edited here.
+		for logical in _attachment_refs(settings, ('mesh',)):
 			mesh = _loaded_attachment_mesh(root, logical)
 			obj = next((o for o in collection.all_objects if o.data == mesh), None) if mesh is not None else None
 			if obj is not None:
@@ -893,6 +898,31 @@ class BALLISTICA_OT_select_eye_handle(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+class BALLISTICA_OT_new_part_mesh(bpy.types.Operator):
+	"""Give the selected part a new mesh: a box in the part's size, to model from"""
+	bl_idname = 'ballistica.new_part_mesh'
+	bl_label = "New Mesh"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	@classmethod
+	def poll(cls, context):
+		collection = active_character(context)
+		if collection is None or context.mode != 'OBJECT':
+			return False
+		settings = collection.ballistica_character
+		return 0 <= settings.active_part_index < len(settings.parts)
+
+	def execute(self, context):
+		collection = active_character(context)
+		settings = collection.ballistica_character
+		row = settings.parts[settings.active_part_index]
+		name = f'{collection.name}_left_{row.part}' if row.side == 'L' else f'{collection.name}_{row.part}'
+		mesh = part_scene.new_mesh(collection, row.part)
+		mesh.name = name
+		row.mesh = mesh
+		return {'FINISHED'}
+
+
 class BALLISTICA_OT_toggle_group(bpy.types.Operator):
 	"""Show or hide this part of the character in the viewport"""
 	bl_idname = 'ballistica.toggle_group'
@@ -919,6 +949,7 @@ def menu_import(self, context):
 classes = (
 	BALLISTICA_OT_toggle_group,
 	BALLISTICA_OT_select_eye_handle,
+	BALLISTICA_OT_new_part_mesh,
 	BALLISTICA_OT_import_character,
 	BALLISTICA_OT_remove_character,
 	BALLISTICA_OT_new_character,

@@ -600,32 +600,53 @@ assert new_root.name == 'pixel.001_root' and new_root.select_get(), new_root
 assert tuple(new_root.location) == (2.0, -1.0, 0.5), tuple(new_root.location)  # placed at the 3D cursor
 assert [o.name for o in bpy.context.selected_objects] == ['pixel.001_root']
 
-# Meshes fields: changing one swaps the part's mesh in the scene.
+# Parts list: each row holds its part's mesh; the scene follows the rows.
 from ballistica_cloud_tools import part_scene  # noqa: E402
 agent = bpy.data.collections['agent_johnson']
 agent_settings = agent.ballistica_character
+assert [(r.part, r.side) for r in agent_settings.parts] == part_scene.ROWS
+rows = {(r.part, r.side): r for r in agent_settings.parts}
 head_obj = next(o for o in agent.all_objects if o.ballistica_part.role == 'head')
 torso_obj = next(o for o in agent.all_objects if o.ballistica_part.role == 'torso')
-agent_settings.head_mesh = agent_settings.torso_mesh
-assert head_obj.data == torso_obj.data  # same file, same mesh
-agent_settings.head_mesh = 'meshes/agent_head'
-assert head_obj.data != torso_obj.data and head_obj.data.get('bct_logical') == 'meshes/agent_head'
-hands = [o for o in agent.all_objects if o.ballistica_part.role == 'hand']
-assert len(hands) == 2
-agent_settings.hand_mesh = ''  # optional part cleared: objects removed
-assert not [o for o in agent.all_objects if o.ballistica_part.role == 'hand']
-agent_settings.hand_mesh = 'meshes/agent_hand'  # set again: created on both sides
+head_row, torso_row = rows[('head', 'CENTER')], rows[('torso', 'CENTER')]
+assert head_row.mesh == head_obj.data and head_row.enabled
+agent_head_mesh = head_row.mesh
+head_row.mesh = torso_row.mesh  # picked another mesh
+assert head_obj.data == torso_obj.data
+head_row.mesh = agent_head_mesh
+assert head_obj.data == agent_head_mesh
+hand_row = rows[('hand', 'R')]
+hand_row.enabled = False  # optional part off: objects removed, mesh kept
+assert not [o for o in agent.all_objects if o.ballistica_part.role == 'hand'] and hand_row.mesh is not None
+assert part_scene.fields(agent)['hand_mesh'] == ''
+hand_row.enabled = True  # on again: both sides, same mesh
 hands = [o for o in agent.all_objects if o.ballistica_part.role == 'hand']
 assert sorted(o.ballistica_part.side for o in hands) == ['L', 'R'] and all(o.parent_bone for o in hands)
+assert all(o.data == hand_row.mesh for o in hands) and part_scene.fields(agent)['hand_mesh'] == 'meshes/agent_hand'
 right_toes = next(o for o in agent.all_objects if o.ballistica_part.role == 'toes' and o.ballistica_part.side == 'R')
 left_toes = next(o for o in agent.all_objects if o.ballistica_part.role == 'toes' and o.ballistica_part.side == 'L')
-agent_settings.left_toes_mesh = 'meshes/neo_spaz_toes'  # left override
-assert left_toes.data.get('bct_logical') == 'meshes/neo_spaz_toes' and right_toes.data.get('bct_logical') == 'meshes/agent_toes'
-agent_settings.left_toes_mesh = ''  # cleared: back to the right side's mesh
-assert left_toes.data == right_toes.data
-agent_settings.head_mesh = 'meshes/no_such_mesh'  # missing file: keeps its mesh
-assert head_obj.data.get('bct_logical') == 'meshes/agent_head'
-agent_settings.head_mesh = 'meshes/agent_head'
+left_row = rows[('toes', 'L')]
+assert not left_row.enabled and left_toes.data == right_toes.data
+left_row.enabled = True  # own left mesh: a copy of the right one
+assert left_toes.data == left_row.mesh != right_toes.data and len(left_row.mesh.vertices) == len(right_toes.data.vertices)
+assert part_scene.fields(agent)['left_toes_mesh'] == 'meshes/agent_johnson_left_toes'
+left_row.enabled = False  # mirrors the right again
+assert left_toes.data == right_toes.data and part_scene.fields(agent)['left_toes_mesh'] == ''
+was_active = bpy.context.scene.ballistica_active_character
+bpy.context.scene.ballistica_active_character = agent
+agent_settings.active_part_index = list(rows).index(('head', 'CENTER'))
+assert bpy.ops.ballistica.new_part_mesh() == {'FINISHED'}  # a box to model from, no export path yet
+assert head_obj.data != agent_head_mesh and len(head_obj.data.polygons) > 0, (head_obj.data, head_row.mesh, agent_head_mesh, head_obj.name)
+assert part_scene.fields(agent)['head_mesh'] == 'meshes/agent_johnson_head'
+head_row.mesh = agent_head_mesh
+# Clicking a row selects its object; making a part active picks its row.
+for o in bpy.context.view_layer.objects:
+	o.select_set(False)
+agent_settings.active_part_index = list(rows).index(('hand', 'R'))
+assert [o.name for o in bpy.context.view_layer.objects.selected] == [o.name for o in hands if o.ballistica_part.side == 'R']
+make_active(left_toes)
+assert agent_settings.parts[agent_settings.active_part_index] == left_row
+bpy.context.scene.ballistica_active_character = was_active
 
 agent_settings.flippers = True  # with forearm and hand meshes still set
 assert any('Flippers is on' in p for p in operators.check(agent))
@@ -900,6 +921,13 @@ assert bpy.ops.ballistica.repair() == {'FINISHED'} and eye_scene.handle(cubey2) 
 eye_scene.handle(cubey2).scale = (1.0, 2.0, 1.0)
 assert [i.kind for i in repair.issues(cubey2)] == [repair.EYE_HANDLE_SKEWED]
 assert bpy.ops.ballistica.repair() == {'FINISHED'} and repair.issues(cubey2) == []
+
+cubey_rows = [(r.part, r.side, r.enabled, r.mesh) for r in cubey2.ballistica_character.parts]
+cubey2.ballistica_character.parts.clear()  # a file from before the Parts list
+assert [i.kind for i in repair.issues(cubey2)] == [repair.NO_PART_ROWS]
+draw_panels()
+assert bpy.ops.ballistica.repair() == {'FINISHED'} and repair.issues(cubey2) == []
+assert [(r.part, r.side, r.enabled, r.mesh) for r in cubey2.ballistica_character.parts] == cubey_rows
 
 # Keep: an Object Mode scale applied to the mesh, so it is exported.
 head_part = next(o for o in cubey2.all_objects if o.ballistica_part.role == 'head')

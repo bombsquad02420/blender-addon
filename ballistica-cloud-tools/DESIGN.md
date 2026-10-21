@@ -398,7 +398,7 @@ shows them in the web UI form's order, with the same defaults:
 | --- | --- |
 | Identity | `name` (translation key), `icon_texture`, `icon_mask_texture`, `color`, `highlight`, `highlight_name`, `highlight_editing`, `highlight2`, `highlight2_name`, `highlight2_editing` |
 | Textures | `color_texture`, `color_mask_texture` |
-| Meshes | `head_mesh`, `torso_mesh`, `pelvis_mesh`, `upper_arm_mesh`, `flippers`, `forearm_mesh`, `hand_mesh`, `upper_leg_mesh`, `lower_leg_mesh`, `toes_mesh`; a collapsible **Left Side** with the `left_*_mesh` overrides |
+| Parts | the Parts list (below): `head_mesh` … `toes_mesh`, the `left_*_mesh` overrides, `flippers` |
 | Sounds | the six sound lists, each a comma-separated list of audio paths |
 | Physique | `torso_radius`, `shoulder_offset`, `thigh_radius`, `ankle_radius`, `step_separation`, `idle_arm_stiffness`, `arm_swing`, `idle_sway` |
 | Eyes | `eye_style_left/right`, Size and Position (`eye_scale`, `eye_offset`; see below), `eye_color`, `eyeball_color`, `eyelid_color`, `eyelid_angle` |
@@ -408,15 +408,21 @@ shows them in the web UI form's order, with the same defaults:
 `flippers`, the `left_*` overrides and attachments aren't in the web UI
 form (they're JSON-only there).
 
-- **Reference fields** are pickers over the workspace's own files, like the
-  web UI's dropdowns, filtered by role (colour textures, masks, icons)
-  unless Show All Assets is on.
-- **Mesh fields update the scene.** Changing a part's mesh swaps the mesh on
-  its objects (both sides, unless a `left_*` override applies); clearing an
-  optional part (pelvis, forearm, hand) removes its objects, setting it
-  again creates them. Meshes are shared by path: parts using the same file
-  share one Blender mesh. A path that doesn't exist leaves the part as it
-  was.
+- **Reference fields** (icons, textures, attachment segments) are pickers
+  over the workspace's own files, like the web UI's dropdowns, with likely
+  matches first.
+- **Parts list.** One row per body part in rig order (right side for limbs),
+  then a Left row per limb. Each row holds the Blender **mesh** the part
+  uses (picked from Blender's meshes, or **+** for a box in the part's size);
+  the part's objects follow it. Optional parts (pelvis, forearm, hand) and
+  Left rows have a checkbox: an optional part that's off has no objects (its
+  mesh stays in the row), and a Left row that's on gives the left limb its
+  own mesh, starting as a copy of the right one. Below the list: the
+  selected row's mesh, its **UV map** (the render-active one is exported)
+  and **export path** (empty: `meshes/<character>_<part>` on export).
+  Clicking a row selects the part; clicking a part picks its row. The mesh
+  fields are written from the rows on export; a row without a mesh (a file
+  that wasn't found) keeps its field.
 - **Flippers** only shortens the upper arm under boxing gloves; the engine
   still draws any forearm and hand meshes that are set. If both are set,
   the Meshes section and Check show a hint (not an error).

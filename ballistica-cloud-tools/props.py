@@ -353,17 +353,41 @@ def _active_segment_changed(self, context):
 			return
 
 
-def _part_mesh_update(field):
-	"""Update callback: a Meshes field changed; show the new mesh."""
+def _part_row_changed(self, context):
+	"""A Parts row's checkbox or mesh changed: update the part's objects."""
+	hook = ATTACHMENT_REBUILD_HOOKS.get('part')
+	if hook is not None:
+		hook(self)
 
-	def update(self, context):
-		if self.get('_loading'):
-			return
-		hook = ATTACHMENT_REBUILD_HOOKS.get('part')
-		if hook is not None:
-			hook(self, field)
 
-	return update
+def _active_part_changed(self, context):
+	"""A Parts row was clicked: select that part's object."""
+	if self.get('_loading'):
+		return
+	hook = ATTACHMENT_REBUILD_HOOKS.get('select_part')
+	if hook is not None:
+		hook(self.id_data, self.active_part_index)
+
+
+# Bundled and preview-only meshes, never offered as a part's mesh.
+INTERNAL_MESH_KEY = 'bct_internal'
+
+
+def _part_mesh_poll(self, mesh):
+	return not mesh.get(INTERNAL_MESH_KEY) and not mesh.name.startswith(('guide_', '_bct'))
+
+
+class COLLECTION_PG_ballistica_part_row(bpy.types.PropertyGroup):
+	"""A row of the Parts list: which mesh a body part uses."""
+	part: bpy.props.StringProperty(name="Part", options={'HIDDEN'})
+	side: bpy.props.EnumProperty(
+		name="Side", items=[('CENTER', "Center", ""), ('R', "Right", ""), ('L', "Left", "")], options={'HIDDEN'})
+	enabled: bpy.props.BoolProperty(
+		name="Use", default=True, options=_options(), update=_part_row_changed,
+		description="Use this part. Off: the character has none (a Left part mirrors the right one instead). Its mesh is kept")
+	mesh: bpy.props.PointerProperty(
+		type=bpy.types.Mesh, name="Mesh", poll=_part_mesh_poll, options=_options(), update=_part_row_changed,
+		description="The mesh this part shows and exports")
 
 
 def _attachment_rebuild(attachment):
@@ -549,15 +573,15 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	color_mask_texture: _ref("Color Mask Texture", 'texture', 'mask')
 
 	# Meshes
-	head_mesh: _ref("Head Mesh", 'mesh', update=_part_mesh_update('head_mesh'))
-	torso_mesh: _ref("Torso Mesh", 'mesh', update=_part_mesh_update('torso_mesh'))
-	pelvis_mesh: _ref("Pelvis Mesh", 'mesh', update=_part_mesh_update('pelvis_mesh'))
-	upper_arm_mesh: _ref("Upper Arm Mesh", 'mesh', update=_part_mesh_update('upper_arm_mesh'))
-	forearm_mesh: _ref("Forearm Mesh", 'mesh', update=_part_mesh_update('forearm_mesh'))
-	hand_mesh: _ref("Hand Mesh", 'mesh', update=_part_mesh_update('hand_mesh'))
-	upper_leg_mesh: _ref("Upper Leg Mesh", 'mesh', update=_part_mesh_update('upper_leg_mesh'))
-	lower_leg_mesh: _ref("Lower Leg Mesh", 'mesh', update=_part_mesh_update('lower_leg_mesh'))
-	toes_mesh: _ref("Toes Mesh", 'mesh', update=_part_mesh_update('toes_mesh'))
+	head_mesh: _ref("Head Mesh", 'mesh')
+	torso_mesh: _ref("Torso Mesh", 'mesh')
+	pelvis_mesh: _ref("Pelvis Mesh", 'mesh')
+	upper_arm_mesh: _ref("Upper Arm Mesh", 'mesh')
+	forearm_mesh: _ref("Forearm Mesh", 'mesh')
+	hand_mesh: _ref("Hand Mesh", 'mesh')
+	upper_leg_mesh: _ref("Upper Leg Mesh", 'mesh')
+	lower_leg_mesh: _ref("Lower Leg Mesh", 'mesh')
+	toes_mesh: _ref("Toes Mesh", 'mesh')
 
 	# Sounds
 	jump_sounds: _sounds("Jump Sounds")
@@ -602,15 +626,19 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	# Surface
 	reflection_scale: _float("Reflection Scale", 'reflection_scale', update=_tag_collection)
 
+	# Parts list (the mesh fields are written from it on export)
+	parts: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_part_row)
+	active_part_index: bpy.props.IntProperty(name="Active Part", options=_options(), update=_active_part_changed)
+
 	# Advanced (not in the web UI form)
 	flippers: bpy.props.BoolProperty(
 		name="Flippers", description="One long upper-arm mesh is the whole arm", default=False, options=_options())
-	left_upper_arm_mesh: _ref("Left Upper Arm Mesh", 'mesh', update=_part_mesh_update('left_upper_arm_mesh'))
-	left_forearm_mesh: _ref("Left Forearm Mesh", 'mesh', update=_part_mesh_update('left_forearm_mesh'))
-	left_hand_mesh: _ref("Left Hand Mesh", 'mesh', update=_part_mesh_update('left_hand_mesh'))
-	left_upper_leg_mesh: _ref("Left Upper Leg Mesh", 'mesh', update=_part_mesh_update('left_upper_leg_mesh'))
-	left_lower_leg_mesh: _ref("Left Lower Leg Mesh", 'mesh', update=_part_mesh_update('left_lower_leg_mesh'))
-	left_toes_mesh: _ref("Left Toes Mesh", 'mesh', update=_part_mesh_update('left_toes_mesh'))
+	left_upper_arm_mesh: _ref("Left Upper Arm Mesh", 'mesh')
+	left_forearm_mesh: _ref("Left Forearm Mesh", 'mesh')
+	left_hand_mesh: _ref("Left Hand Mesh", 'mesh')
+	left_upper_leg_mesh: _ref("Left Upper Leg Mesh", 'mesh')
+	left_lower_leg_mesh: _ref("Left Lower Leg Mesh", 'mesh')
+	left_toes_mesh: _ref("Left Toes Mesh", 'mesh')
 
 	# Attachments (not in the web UI form)
 	attachments: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_attachment)
@@ -662,13 +690,18 @@ def _load_into(settings, character):
 	settings.active_attachment_index = 0
 
 
-def to_character(settings):
-	"""A bchar.Character built from the stored raw definition plus settings."""
+def to_character(settings, overrides=None):
+	"""A bchar.Character built from the stored raw definition plus settings.
+
+	`overrides` maps string fields to values to use instead of the stored
+	ones (the mesh fields as export will write them).
+	"""
 	import json
 
+	overrides = overrides or {}
 	character = bchar.Character(json.loads(settings.raw_json) if settings.raw_json else None)
 	for field in STRING_FIELDS:
-		character.set(field, getattr(settings, field).strip())
+		character.set(field, overrides.get(field, getattr(settings, field)).strip())
 	for field in VALUE_FIELDS:
 		value = getattr(settings, field)
 		character.set(field, tuple(value) if hasattr(value, '__len__') and not isinstance(value, str) else value)
@@ -687,6 +720,7 @@ def to_character(settings):
 
 
 classes = (
+	COLLECTION_PG_ballistica_part_row,
 	MESH_PG_ballistica_asset,
 	IMAGE_PG_ballistica_texture,
 	OBJECT_PG_ballistica_part,

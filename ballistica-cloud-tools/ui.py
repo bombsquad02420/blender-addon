@@ -239,35 +239,70 @@ class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 	fields = ('color_texture', 'color_mask_texture')
 
 
-class VIEW3D_PT_ballistica_meshes(_Section, bpy.types.Panel):
-	bl_label = "Meshes"
+class BALLISTICA_UL_parts(bpy.types.UIList):
+	"""The body parts, in rig order; optional ones can be turned off."""
+
+	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
+		from . import part_scene
+
+		row = layout.row(align=True)
+		if part_scene.is_optional(item):
+			row.prop(item, 'enabled', text="")
+		else:
+			row.label(text="", icon='CHECKBOX_HLT')  # always used
+		sub = row.row()
+		sub.active = item.enabled
+		missing = item.enabled and item.mesh is None and item.side != 'L'
+		sub.label(text=part_scene.label(item), icon='ERROR' if missing else 'MESH_DATA')
+
+
+class VIEW3D_PT_ballistica_parts(_Section, bpy.types.Panel):
+	bl_label = "Parts"
 	header_icon = 'MESH_DATA'
-	# Flippers sits with the arm meshes it describes.
-	fields = tuple(
-		name for _, field, _ in rig.PARTS
-		for name in ((field, 'flippers') if field == 'upper_arm_mesh' else (field,))
-	)
 
 	def draw(self, context):
-		settings = active_character(context).ballistica_character
+		from . import part_scene
+
+		collection = active_character(context)
+		settings = collection.ballistica_character
 		layout = self.layout
-		layout.use_property_split = True
-		layout.use_property_decorate = False
-		hint = rig.flippers_hint(settings.flippers, settings.forearm_mesh, settings.hand_mesh)
-		for field in self.fields:
-			layout.prop(settings, field)
-			if field == 'flippers' and hint:
-				box = layout.box()
-				box.label(text="Forearm or hand mesh set with Flippers on", icon='INFO')
-				box.label(text="They'll still be drawn; clear them for flipper arms.")
-		header, body = self.layout.panel('BALLISTICA_meshes_left', default_closed=True)
-		header.label(text="Left Side")
-		if body is not None:
-			body.use_property_split = True
-			body.use_property_decorate = False
-			body.label(text="Own meshes for the left limbs (still authored as right-side parts).")
-			for part in rig.PAIRED_PARTS:
-				body.prop(settings, f'left_{part}_mesh')
+		if not part_scene.has_rows(settings):
+			layout.label(text="This file is from an older version.", icon='INFO')
+			layout.operator('ballistica.repair', text="Add the Parts List", icon='TOOL_SETTINGS')
+			return
+		layout.template_list(
+			'BALLISTICA_UL_parts', '', settings, 'parts', settings, 'active_part_index', rows=5, maxrows=15)
+		index = settings.active_part_index
+		if not 0 <= index < len(settings.parts):
+			return
+		row = settings.parts[index]
+		col = layout.column()
+		_split(col)
+		if row.side == 'L' and not row.enabled:
+			col.label(text=f"Mirrors the {part_scene.label(row)[5:]}.", icon='MOD_MIRROR')
+			col.label(text="Tick it to give the left side its own mesh.")
+		elif not row.enabled:
+			col.label(text=f"No {part_scene.label(row).lower()}. Tick it to add one.", icon='INFO')
+		else:
+			if row.side == 'L':
+				col.label(text="Model it as a right part: the game mirrors it.", icon='MOD_MIRROR')
+			line = col.row(align=True)
+			line.prop(row, 'mesh')
+			line.operator('ballistica.new_part_mesh', text="", icon='ADD')
+			if row.mesh is not None:
+				asset = row.mesh.ballistica_asset
+				col.prop(asset, 'export_uv')
+				col.prop(asset, 'path', placeholder=part_scene.default_path(collection, row))
+		if row.part in ('upper_arm', 'forearm', 'hand') and row.side != 'L':
+			col.separator()
+			col.prop(settings, 'flippers')
+			fields = part_scene.fields(collection)
+			hint = rig.flippers_hint(
+				settings.flippers, fields.get('forearm_mesh', settings.forearm_mesh), fields.get('hand_mesh', settings.hand_mesh))
+			if hint:
+				box = col.box()
+				box.label(text="Forearm or hand used with Flippers on", icon='INFO')
+				box.label(text="They'll still be drawn; turn them off for flipper arms.")
 
 
 class VIEW3D_PT_ballistica_sounds(_Section, bpy.types.Panel):
@@ -418,13 +453,14 @@ def _triangles(collection):
 
 classes = (
 	BALLISTICA_UL_characters,
+	BALLISTICA_UL_parts,
 	BALLISTICA_UL_attachments,
 	BALLISTICA_UL_segments,
 	VIEW3D_PT_ballistica_character,
 	# Sections appear in registration order.
 	VIEW3D_PT_ballistica_visibility,
 	VIEW3D_PT_ballistica_identity,
-	VIEW3D_PT_ballistica_meshes,
+	VIEW3D_PT_ballistica_parts,
 	VIEW3D_PT_ballistica_textures,
 	VIEW3D_PT_ballistica_physique,
 	VIEW3D_PT_ballistica_eyes,

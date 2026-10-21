@@ -409,6 +409,9 @@ def on_active_object_changed():
 	if getattr(scene, 'ballistica_active_character', None) != collection:
 		scene.ballistica_active_character = collection
 	if obj.get(ROLE_KEY) != MESH:
+		from . import part_scene
+
+		part_scene.follow(collection, obj)
 		return
 	settings = collection.ballistica_character
 	index, segment = obj[INDEX_KEY], obj.get(SEGMENT_KEY, 0)

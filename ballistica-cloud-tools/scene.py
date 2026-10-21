@@ -634,6 +634,7 @@ def _bm_mesh(name, build):
 	mesh = bpy.data.meshes.new(name)
 	bm.to_mesh(mesh)
 	bm.free()
+	mesh['bct_internal'] = True  # preview only: never offered as a part's mesh
 	return mesh
 
 
@@ -681,6 +682,8 @@ def build_eyes(collection, arm, placements, settings, target):
 	from . import nodegroup
 
 	ball_mesh, lid_mesh = nodegroup.get_data('meshes', nodegroup.EYE_MESHES)
+	for mesh in (ball_mesh, lid_mesh):
+		mesh['bct_internal'] = True  # bundled: never offered as a part's mesh
 	texture, mask = nodegroup.get_data('images', nodegroup.EYE_IMAGES)
 	name = collection.name
 	eye_material = build_eye_material(f'{name}_eye', collection, texture, mask, 'eye_color', 'eyeball_color', nodegroup.EYEBALL_REFLECTION)
