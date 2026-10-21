@@ -31,9 +31,6 @@ NO_GUIDES = 'no_guides'
 NO_ATTACHMENTS = 'no_attachments'  # an attachment's handles or meshes are gone
 NO_PART = 'no_part'  # a part with a mesh has no object
 NO_EYE_HANDLE = 'no_eye_handle'
-NO_PART_ROWS = 'no_part_rows'  # a file from before the Parts list
-NO_TEXTURE_ROWS = 'no_texture_rows'  # a file from before the Textures list
-NO_SOUND_ROWS = 'no_sound_rows'  # a file from before the Sounds list
 EYE_HANDLE_SKEWED = 'eye_handle_skewed'  # turned, or scaled unevenly
 
 # Kind -> (short label, fix button, longer explanation for the tooltip).
@@ -58,10 +55,7 @@ TEXT = {
 	NO_GUIDES: ("Guides missing", "Rebuild", "The physics guides were deleted"),
 	NO_ATTACHMENTS: ("Attachment {name} incomplete", "Rebuild", "Attachment {name}'s handles or meshes were deleted"),
 	NO_PART: ("{name} missing", "Rebuild", "The {name} object was deleted, but the character still uses its mesh"),
-	NO_SOUND_ROWS: ("Sounds list missing", "Add", "This file is from an older version of the addon, without the Sounds list"),
-	NO_TEXTURE_ROWS: ("Textures list missing", "Add", "This file is from an older version of the addon, without the Textures list"),
-	NO_PART_ROWS: ("Parts list missing", "Add", "This file is from an older version of the addon, without the Parts list"),
-	NO_EYE_HANDLE: ("Eye handle missing", "Add", "The handle that moves and sizes the eyes is missing (or the file is from an older version)"),
+	NO_EYE_HANDLE: ("Eye handle missing", "Add", "The handle that moves, sizes and tilts the eyes was deleted"),
 	EYE_HANDLE_SKEWED: ("Eye handle is turned or stretched", "Fix",
 		"Eyes can only be moved and scaled evenly. Fix clears the turn and evens out the scale"),
 }
@@ -117,9 +111,7 @@ def root_object(collection):
 def body_material(collection):
 	"""The character's body material: textures through the Colorize group."""
 	settings = collection.ballistica_character
-	if settings.body_material is not None:
-		return settings.body_material
-	return bpy.data.materials.get(collection.name)
+	return settings.body_material
 
 
 # ---- what an object should be ----
@@ -221,6 +213,8 @@ def _guides(collection):
 
 
 def _character_issues(collection, arm):
+	from . import part_scene
+
 	issues = []
 	for group in scene.GROUPS:
 		if scene.group(collection, group) is None:
@@ -236,18 +230,6 @@ def _character_issues(collection, arm):
 		issues.append(Issue(NO_EYES))
 	if eye_scene.handle(collection) is None:
 		issues.append(Issue(NO_EYE_HANDLE))
-	from . import part_scene
-
-	if not part_scene.has_rows(collection.ballistica_character):
-		issues.append(Issue(NO_PART_ROWS))
-	from . import texture_scene
-
-	if not texture_scene.has_rows(collection.ballistica_character):
-		issues.append(Issue(NO_TEXTURE_ROWS))
-	from . import props
-
-	if not props.sound_rows_ok(collection.ballistica_character):
-		issues.append(Issue(NO_SOUND_ROWS))
 	guides = _guides(collection)
 	if guides is None or not guides.objects:
 		issues.append(Issue(NO_GUIDES))
@@ -261,11 +243,8 @@ def _character_issues(collection, arm):
 		if not anchors or len(handles) < len(anchors) * len(attachment.segments) or (with_mesh and not meshes):
 			issues.append(Issue(NO_ATTACHMENTS, str(index + 1)))
 	for part, field, _ in rig.PARTS:
-		if part_scene.has_rows(settings):
-			row, _ = part_scene.rows(settings, part)
-			if not row.enabled or row.mesh is None:
-				continue
-		elif not getattr(settings, field):
+		row, _ = part_scene.rows(settings, part)
+		if row is None or not row.enabled or row.mesh is None:
 			continue
 		have = {o.ballistica_part.side for o in objects if o.ballistica_part.role == part}
 		need = {'R', 'L'} if part in rig.PAIRED_PARTS else {'CENTER'}
@@ -312,18 +291,6 @@ def fix(collection, issue, keep=False):
 		_fix_rig(collection)
 	elif kind == NO_EYES:
 		_rebuild_eyes(collection)
-	elif kind == NO_SOUND_ROWS:
-		from . import props
-
-		props.ensure_sound_rows(collection.ballistica_character)
-	elif kind == NO_TEXTURE_ROWS:
-		from . import texture_scene
-
-		texture_scene.fill_rows(collection)
-	elif kind == NO_PART_ROWS:
-		from . import part_scene
-
-		part_scene.fill_rows(collection)
 	elif kind == NO_EYE_HANDLE:
 		arm = armature(collection)
 		if arm is not None:
@@ -347,7 +314,7 @@ def fix(collection, issue, keep=False):
 
 
 # Character-level fixes run first: they recreate what object fixes need.
-ORDER = (NO_GROUP, NO_RIG, RIG_MOVED, NO_ROOT, NO_GUIDES, NO_EYES, NO_EYE_HANDLE, NO_ATTACHMENTS, NO_PART_ROWS, NO_TEXTURE_ROWS, NO_SOUND_ROWS, NO_PART)
+ORDER = (NO_GROUP, NO_RIG, RIG_MOVED, NO_ROOT, NO_GUIDES, NO_EYES, NO_EYE_HANDLE, NO_ATTACHMENTS, NO_PART)
 
 
 def repair(collection, objects=None):

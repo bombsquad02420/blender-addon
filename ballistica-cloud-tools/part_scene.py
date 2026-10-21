@@ -95,8 +95,6 @@ def fill_rows(collection):
 def update_part(collection, part):
 	"""Make `part`'s objects match its rows."""
 	settings = collection.ballistica_character
-	if not has_rows(settings):
-		fill_rows(collection)  # a file from before the Parts list
 	right_row, left_row = rows(settings, part)
 	right, left = _objects(collection, part)
 	mesh = right_row.mesh if right_row is not None and right_row.enabled else None
@@ -223,8 +221,6 @@ def fields(collection):
 	"""
 	settings = collection.ballistica_character
 	out = {}
-	if not has_rows(settings):
-		return out
 	for row in settings.parts:
 		if not row.enabled:
 			out[field(row)] = ''

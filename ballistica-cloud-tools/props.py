@@ -578,6 +578,9 @@ def _set_segments(attachment, segments):
 
 class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	is_character: bpy.props.BoolProperty(name="Is Character", default=False, options=_options())
+	format_version: bpy.props.IntProperty(
+		name="Format Version", default=0, options={'HIDDEN'},
+		description="The addon's scene format this character was built with (see migrate.py)")
 	workspace_root: bpy.props.StringProperty(name="Workspace", subtype='DIR_PATH', options=_options())
 	character_path: bpy.props.StringProperty(
 		name="Character", description="Logical path of the .bchar, e.g. characters/zoe",

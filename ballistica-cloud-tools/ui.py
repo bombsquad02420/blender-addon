@@ -93,6 +93,13 @@ class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 			layout.label(text="Import a .bchar, or + to start a new character.", icon='INFO')
 			return
 		settings = collection.ballistica_character
+		from . import migrate
+
+		if migrate.needs_update(collection):
+			box = layout.box()
+			box.label(text="Made with an older version of the addon.", icon='INFO')
+			box.operator('ballistica.update_character', icon='FILE_REFRESH')
+			return
 		col = layout.column(align=True)
 		col.label(text=collection.name, icon='OUTLINER_COLLECTION')
 		col.prop(settings, 'workspace_root', text="")
@@ -143,7 +150,7 @@ class VIEW3D_PT_ballistica_visibility(_Panel, bpy.types.Panel):
 
 	@classmethod
 	def poll(cls, context):
-		return active_character(context) is not None
+		return _current_character(context) is not None
 
 	def draw_header(self, context):
 		self.layout.label(icon=self.header_icon)
@@ -195,6 +202,14 @@ def _group_toggles(layout, context, collection, groups):
 		op.collection = child.name
 
 
+def _current_character(context):
+	"""The active character, if it's in the current format (else only Update shows)."""
+	from . import migrate
+
+	collection = active_character(context)
+	return collection if collection is not None and not migrate.needs_update(collection) else None
+
+
 class _Section(_Panel):
 	bl_parent_id = 'VIEW3D_PT_ballistica_character'
 	bl_options = {'DEFAULT_CLOSED'}
@@ -206,7 +221,7 @@ class _Section(_Panel):
 
 	@classmethod
 	def poll(cls, context):
-		return active_character(context) is not None
+		return _current_character(context) is not None
 
 	def draw(self, context):
 		settings = active_character(context).ballistica_character
@@ -294,10 +309,6 @@ class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 		collection = active_character(context)
 		settings = collection.ballistica_character
 		layout = self.layout
-		if not texture_scene.has_rows(settings):
-			layout.label(text="This file is from an older version.", icon='INFO')
-			layout.operator('ballistica.repair', text="Add the Textures List", icon='TOOL_SETTINGS')
-			return
 		layout.template_list(
 			'BALLISTICA_UL_textures', '', settings, 'textures', settings, 'active_texture_index', rows=2, maxrows=2)
 		index = settings.active_texture_index
@@ -355,10 +366,6 @@ class VIEW3D_PT_ballistica_parts(_Section, bpy.types.Panel):
 		collection = active_character(context)
 		settings = collection.ballistica_character
 		layout = self.layout
-		if not part_scene.has_rows(settings):
-			layout.label(text="This file is from an older version.", icon='INFO')
-			layout.operator('ballistica.repair', text="Add the Parts List", icon='TOOL_SETTINGS')
-			return
 		layout.template_list(
 			'BALLISTICA_UL_parts', '', settings, 'parts', settings, 'active_part_index', rows=5, maxrows=15)
 		index = settings.active_part_index
@@ -427,10 +434,6 @@ class VIEW3D_PT_ballistica_sounds(_Section, bpy.types.Panel):
 
 		settings = active_character(context).ballistica_character
 		layout = self.layout
-		if not props.sound_rows_ok(settings):
-			layout.label(text="This file is from an older version.", icon='INFO')
-			layout.operator('ballistica.repair', text="Add the Sounds List", icon='TOOL_SETTINGS')
-			return
 		layout.template_list(
 			'BALLISTICA_UL_sounds', '', settings, 'sounds', settings, 'active_sound_index', rows=6, maxrows=6)
 		index = settings.active_sound_index

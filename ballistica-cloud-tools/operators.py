@@ -7,7 +7,7 @@ import re
 import bpy
 from bpy_extras.io_utils import ImportHelper
 
-from . import attach_scene, bchar, clone, eye_scene, part_scene, texture_scene, objfile, pose, props, rig, scene, template, workspace
+from . import attach_scene, bchar, clone, eye_scene, migrate, part_scene, texture_scene, objfile, pose, props, rig, scene, template, workspace
 from .ui import active_character
 
 
@@ -24,6 +24,7 @@ def _build(context, root, character_path, character, meshes=None):
 	context.scene.collection.children.link(collection)
 	settings = collection.ballistica_character
 	settings.is_character = True
+	settings.format_version = migrate.FORMAT_VERSION
 	settings.workspace_root = root
 	settings.character_path = character_path
 	props.load_into(settings, character)
@@ -720,8 +721,6 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 		eye_scene.pull(collection)
 
 		# Meshes: each part's mesh to its export path (unchanged ones skipped).
-		if not part_scene.has_rows(settings):
-			part_scene.fill_rows(collection)  # a file from before the Parts list
 		part_scene.assign_paths(collection)
 		for obj in _exportable_parts(collection):
 			_write_mesh(root, getattr(settings, part_scene.FIELDS[obj.ballistica_part.role]), obj, written)
@@ -739,8 +738,6 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 
 		# Textures: the body's from the Textures list, with their settings;
 		# icons and attachment textures by path (edited or made in Blender).
-		if not texture_scene.has_rows(settings):
-			texture_scene.fill_rows(collection)  # a file from before the Textures list
 		texture_scene.assign_paths(collection)
 		texture_settings = {}
 		for item in settings.textures:
@@ -1072,6 +1069,24 @@ def _object_under_mouse(context, event):
 	return None
 
 
+class BALLISTICA_OT_update_character(bpy.types.Operator):
+	"""Update this character to the addon's current format (it was made with an older version)"""
+	bl_idname = 'ballistica.update_character'
+	bl_label = "Update Character"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	@classmethod
+	def poll(cls, context):
+		collection = active_character(context)
+		return context.mode == 'OBJECT' and collection is not None and migrate.needs_update(collection)
+
+	def execute(self, context):
+		collection = active_character(context)
+		migrate.update(collection)
+		self.report({'INFO'}, f"Updated {collection.name}")
+		return {'FINISHED'}
+
+
 class BALLISTICA_OT_toggle_group(bpy.types.Operator):
 	"""Show or hide this in the viewport"""
 	bl_idname = 'ballistica.toggle_group'
@@ -1102,6 +1117,7 @@ classes = (
 	BALLISTICA_OT_pick_part_mesh,
 	BALLISTICA_OT_new_texture_image,
 	BALLISTICA_OT_make_unique,
+	BALLISTICA_OT_update_character,
 	BALLISTICA_OT_import_character,
 	BALLISTICA_OT_remove_character,
 	BALLISTICA_OT_new_character,

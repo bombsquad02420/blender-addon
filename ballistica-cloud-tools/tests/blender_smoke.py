@@ -966,15 +966,13 @@ eye_scene.handle(cubey2).rotation_euler.x = 0.3
 assert [i.kind for i in repair.issues(cubey2)] == [repair.EYE_HANDLE_SKEWED]
 assert bpy.ops.ballistica.repair() == {'FINISHED'} and repair.issues(cubey2) == []
 
-cubey2.ballistica_character.sounds.clear()  # a file from before the Sounds list
-assert [i.kind for i in repair.issues(cubey2)] == [repair.NO_SOUND_ROWS]
-assert bpy.ops.ballistica.repair() == {'FINISHED'} and repair.issues(cubey2) == []
-cubey_rows = [(r.part, r.side, r.enabled, r.mesh) for r in cubey2.ballistica_character.parts]
-cubey2.ballistica_character.parts.clear()  # a file from before the Parts list
-assert [i.kind for i in repair.issues(cubey2)] == [repair.NO_PART_ROWS]
+# A character from an older addon format shows only Update Character.
+from ballistica_cloud_tools import migrate  # noqa: E402
+assert cubey2.ballistica_character.format_version == migrate.FORMAT_VERSION
+cubey2.ballistica_character.format_version = 0
+assert not ui.VIEW3D_PT_ballistica_identity.poll(bpy.context)
 draw_panels()
-assert bpy.ops.ballistica.repair() == {'FINISHED'} and repair.issues(cubey2) == []
-assert [(r.part, r.side, r.enabled, r.mesh) for r in cubey2.ballistica_character.parts] == cubey_rows
+assert bpy.ops.ballistica.update_character() == {'FINISHED'} and not migrate.needs_update(cubey2)
 
 # Keep: an Object Mode scale applied to the mesh, so it is exported.
 head_part = next(o for o in cubey2.all_objects if o.ballistica_part.role == 'head')

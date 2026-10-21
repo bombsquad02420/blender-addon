@@ -64,19 +64,8 @@ def _group_node(material):
 
 
 def _texture_node(material, field):
-	"""The image node feeding `field`'s socket (by name, else by its link)."""
-	nodes = material.node_tree.nodes if material.node_tree else ()
-	node = nodes.get(NODE_NAMES[field]) if nodes else None
-	if node is not None:
-		return node
-	group = _group_node(material)
-	if group is None:
-		return None
-	links = group.inputs[SOCKETS[field]].links
-	if links and links[0].from_node.type == 'TEX_IMAGE':
-		links[0].from_node.name = NODE_NAMES[field]
-		return links[0].from_node
-	return None
+	"""The image node feeding `field`'s socket (named by scene.build_material)."""
+	return material.node_tree.nodes.get(NODE_NAMES[field]) if material.node_tree else None
 
 
 def show(collection, field, image):
@@ -149,8 +138,6 @@ def fields(collection):
 	"""{texture field: logical path} as export will write them."""
 	settings = collection.ballistica_character
 	out = {}
-	if not has_rows(settings):
-		return out
 	for item in settings.textures:
 		if item.image is None:
 			out[item.field] = ''

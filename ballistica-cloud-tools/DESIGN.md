@@ -529,6 +529,14 @@ The problems show in a *Needs fixing* box under Check, each with its fix
 Check and Export. **Fix Selected** and **Fix Whole Character** fix them all.
 See [UX_DESIGN.md](UX_DESIGN.md).
 
+### Format version
+
+Each character collection is stamped with the addon's scene format
+(`format_version`, see `migrate.py`). A character older than the addon
+shows only an **Update Character** box, which runs the migration steps it's
+missing. Development versions are never migrated; the steps start empty at
+version 1, the first release.
+
 ### Pre-upload checks
 
 **Check** (also run on export) reports: required fields; referenced files

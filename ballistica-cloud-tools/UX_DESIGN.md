@@ -54,7 +54,6 @@ What Repair checks and fixes:
 | An attachment anchor is scaled (`.bchar` can't store that) | Reset its scale; its scale is padlocked (soft lock: it can be unlocked) |
 | The rig was deleted, or its bones were moved in Edit Mode | Rebuild the rig at the game's joints and re-parent everything |
 | The root, eyes, guides, attachment handles or a group collection are missing | Rebuild them |
-| A file from an older addon version (no parts list, no eye handle) | Add them |
 
 The same problems show in a **Needs fixing** box at the top of the panel
 (only when there are any), each with its fix button, and are listed by Check
