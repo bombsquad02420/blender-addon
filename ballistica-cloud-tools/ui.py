@@ -178,6 +178,23 @@ class VIEW3D_PT_ballistica_visibility(_Panel, bpy.types.Panel):
 			op.collection = layer.collection.name
 
 
+def _group_toggles(layout, context, collection, groups):
+	"""Show/hide buttons for some of the character's groups, as in Visibility."""
+	from .scene import _layer_collections, group
+
+	row = layout.row(align=True)
+	for name in groups:
+		child = group(collection, name)
+		layer = next(_layer_collections(context.view_layer.layer_collection, child), None) if child else None
+		if layer is None:
+			continue
+		visible = not layer.hide_viewport
+		op = row.operator(
+			'ballistica.toggle_group', text=name,
+			icon='HIDE_OFF' if visible else 'HIDE_ON', depress=visible)
+		op.collection = child.name
+
+
 class _Section(_Panel):
 	bl_parent_id = 'VIEW3D_PT_ballistica_character'
 	bl_options = {'DEFAULT_CLOSED'}
@@ -435,6 +452,10 @@ class VIEW3D_PT_ballistica_physique(_Section, bpy.types.Panel):
 		'step_separation', 'idle_arm_stiffness', 'arm_swing', 'idle_sway',
 	)
 
+	def draw(self, context):
+		_group_toggles(self.layout, context, active_character(context), ('Guides', 'Rig'))
+		_Section.draw(self, context)
+
 
 class VIEW3D_PT_ballistica_eyes(_Section, bpy.types.Panel):
 	bl_label = "Eyes"
@@ -445,6 +466,7 @@ class VIEW3D_PT_ballistica_eyes(_Section, bpy.types.Panel):
 	)
 
 	def draw(self, context):
+		_group_toggles(self.layout, context, active_character(context), ('Eyes', 'Rig'))
 		_Section.draw(self, context)
 		self.layout.operator('ballistica.select_eye_handle', icon='RESTRICT_SELECT_OFF')
 
@@ -480,6 +502,7 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 		collection = active_character(context)
 		settings = collection.ballistica_character
 		layout = self.layout
+		_group_toggles(layout, context, collection, ('Attachments', 'Rig'))
 		row = layout.row()
 		row.template_list(
 			'BALLISTICA_UL_attachments', '', settings, 'attachments', settings, 'active_attachment_index', rows=3)
