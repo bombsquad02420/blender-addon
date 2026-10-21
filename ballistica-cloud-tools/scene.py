@@ -173,12 +173,17 @@ def mesh_signature(mesh):
 		values = array('f' if attr != 'vertex_index' else 'i', [0]) * (len(collection) * size)
 		collection.foreach_get(attr, values)
 		digest.update(values.tobytes())
-	uv_layer = mesh.uv_layers.active
+	uv_layer = export_uv_layer(mesh)
 	if uv_layer is not None:
 		values = array('f', [0.0]) * (len(uv_layer.data) * 2)
 		uv_layer.data.foreach_get('uv', values)
 		digest.update(values.tobytes())
 	return digest.hexdigest()
+
+
+def export_uv_layer(mesh):
+	"""The UV map export writes: the render-active one (Blender's camera icon)."""
+	return next((layer for layer in mesh.uv_layers if layer.active_render), mesh.uv_layers.active)
 
 
 class evaluated_mesh:
@@ -208,6 +213,7 @@ class evaluated_mesh:
 
 def obj_from_mesh(mesh):
 	"""An ObjMesh (game axes) from a Blender mesh's own local data."""
+	uv_name = export_uv_layer(mesh).name if mesh.uv_layers else None
 	tmp = bmesh.new()
 	tmp.from_mesh(mesh)
 	bmesh.ops.triangulate(tmp, faces=tmp.faces[:])
@@ -215,7 +221,7 @@ def obj_from_mesh(mesh):
 	tmp.to_mesh(triangulated)
 	tmp.free()
 	try:
-		uv_layer = triangulated.uv_layers.active
+		uv_layer = triangulated.uv_layers.get(uv_name) if uv_name else None
 		out = objfile.ObjMesh()
 		out.positions = [tuple(TO_GAME @ v.co) for v in triangulated.vertices]
 		for poly in triangulated.polygons:
@@ -487,11 +493,46 @@ def _image(root, logical, data):
 	if path is None:
 		# Not on disk yet: an image made in Blender for this path (a new
 		# character's textures), saved there on export.
-		return find_image(workspace.new_file_path(root, logical, 'texture'))
-	image = bpy.data.images.load(path, check_existing=True)
+		return find_image(workspace.new_file_path(root, logical, 'texture')) or find_texture(root, logical)
+	image = find_image(path)
+	if image is None:
+		image = bpy.data.images.load(path, check_existing=True)
+		image.ballistica_texture.path = logical
+		image[ROOT_KEY] = root
+		from .props import load_texture_settings
+
+		load_texture_settings(image, workspace.texture_settings(root, path))
 	if data:
-		image.colorspace_settings.name = 'Non-Color'
+		set_colorspace(image, 'Non-Color')
 	return image
+
+
+ROOT_KEY = 'bct_root'
+
+
+def find_texture(root, logical):
+	"""An image in Blender whose export path is `logical` (made or renamed here)."""
+	return next(
+		(i for i in bpy.data.images if i.ballistica_texture.path == logical and i.get(ROOT_KEY, root) == root),
+		None)
+
+
+def set_colorspace(image, name):
+	"""Change how Blender reads an image's colours, keeping unsaved paint.
+
+	Changing a generated or edited image's colour space regenerates or
+	reloads it, which would wipe what was painted, so its pixels are kept.
+	"""
+	if image.colorspace_settings.name == name:
+		return
+	keep = image.source == 'GENERATED' or image.is_dirty
+	pixels = None
+	if keep and image.has_data:
+		pixels = [0.0] * len(image.pixels)
+		image.pixels.foreach_get(pixels)
+	image.colorspace_settings.name = name
+	if pixels is not None:
+		image.pixels.foreach_set(pixels)
 
 
 def find_image(path):
@@ -816,3 +857,8 @@ def setup_spread_drivers(collection, objects=None):
 		for i in range(3):
 			if abs(local[i]) > 1e-9:
 				drive_value(obj, 'delta_location', i, collection, 'spread', f'{local[i]:.6f}*v')
+
+
+from . import props as _props  # noqa: E402  (props must not import scene)
+
+_props.ATTACHMENT_REBUILD_HOOKS['colorspace'] = set_colorspace

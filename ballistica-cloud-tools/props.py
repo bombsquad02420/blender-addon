@@ -133,6 +133,134 @@ PART_ITEMS = [(p, p.replace('_', ' ').title(), '') for p, _, _ in rig.PARTS] + [
 ]
 
 
+# ---- meshes and images: where export writes them ----
+
+# ID property holding a mesh's or image's export path (logical path). The
+# same key attach_scene has always tagged meshes with, so older files keep
+# their paths.
+ASSET_PATH_KEY = 'bct_logical'
+EXTENSIONS = ('.obj', '.png')
+
+
+def _asset_path_get(self):
+	return self.id_data.get(ASSET_PATH_KEY, '')
+
+
+def _asset_path_set(self, value):
+	value = value.strip().replace('\\', '/').strip('/')
+	for ext in EXTENSIONS:
+		if value.lower().endswith(ext):
+			value = value[:-len(ext)]
+	if value:
+		self.id_data[ASSET_PATH_KEY] = value
+	elif ASSET_PATH_KEY in self.id_data:
+		del self.id_data[ASSET_PATH_KEY]
+
+
+def _path_prop(description):
+	return bpy.props.StringProperty(
+		name="Export Path", description=description, get=_asset_path_get, set=_asset_path_set, options=_options())
+
+
+_UV_ITEMS = {}  # mesh name -> items (dynamic enum items must stay referenced)
+
+
+def _uv_items(self, context):
+	mesh = self.id_data
+	items = [(layer.name, layer.name, "", i) for i, layer in enumerate(mesh.uv_layers)]
+	_UV_ITEMS[mesh.name] = items or [('NONE', "(no UV map)", "", 0)]
+	return _UV_ITEMS[mesh.name]
+
+
+def _uv_get(self):
+	"""The render-active UV map (Blender's camera icon): the one export writes."""
+	layers = self.id_data.uv_layers
+	return next((i for i, layer in enumerate(layers) if layer.active_render), 0)
+
+
+def _uv_set(self, value):
+	layers = self.id_data.uv_layers
+	if 0 <= value < len(layers):
+		layers[value].active_render = True
+
+
+class MESH_PG_ballistica_asset(bpy.types.PropertyGroup):
+	path: _path_prop("Where export writes this mesh in the workspace, without .obj (e.g. meshes/zoe_head). Empty: named after the character and part on export")
+	export_uv: bpy.props.EnumProperty(
+		name="UV Map", items=_uv_items, get=_uv_get, set=_uv_set, options=_options(),
+		description="The UV map export writes: the mesh's render-active one (the camera icon in Blender's UV Maps list). "
+		"Lets you paint or bake from another UV map")
+
+
+# Image setting -> workspace.json key.
+TEXTURE_KEYS = {
+	'role': 'texture_role', 'quality': 'texture_quality',
+	'wrap_h': 'texture_wrapping_h', 'wrap_v': 'texture_wrapping_v', 'alpha': 'texture_alpha',
+}
+TEXTURE_LABELS = {
+	'default': "Default", 'source_premultiplied': "Source Premultiplied", 'straight_alpha': "Straight Alpha",
+	'data': "Data", 'premultiplied_data': "Premultiplied Data", 'low': "Low", 'high': "High",
+	'custom': "Custom (set in the web UI)", 'clamp': "Clamp", 'repeat': "Repeat", 'auto': "Auto",
+	'yes': "Yes", 'no': "No",
+}
+# Keys holding a value the addon doesn't know (a newer schema): never written.
+KEEP_KEY = 'bct_texture_keep'
+
+
+def _texture_enum(name, key, description, update=None):
+	values, default = workspace.TEXTURE_SETTINGS[key]
+	kwargs = {'update': update} if update else {}
+	return bpy.props.EnumProperty(
+		name=name, description=description, default=default, options=_options(),
+		items=[(v, TEXTURE_LABELS[v], "") for v in values], **kwargs)
+
+
+def _role_changed(self, context):
+	"""Masks are data: show them without colour management, as the game does."""
+	hook = ATTACHMENT_REBUILD_HOOKS.get('colorspace')
+	if hook is not None:
+		hook(self.id_data, 'Non-Color' if self.role in workspace.DATA_ROLES else 'sRGB')
+
+
+class IMAGE_PG_ballistica_texture(bpy.types.PropertyGroup):
+	path: _path_prop("Where export writes this texture in the workspace, without .png (e.g. textures/zoe_color). Empty: named after the character on export")
+	role: _texture_enum(
+		"Role", 'texture_role', "How the cloud build treats the pixels. Masks are Data: their red, green and blue "
+		"are separate channels, not a colour", update=_role_changed)
+	quality: _texture_enum("Quality", 'texture_quality', "Compression quality in the game")
+	wrap_h: _texture_enum("Wrapping H", 'texture_wrapping_h', "What the texture does past its left and right edges")
+	wrap_v: _texture_enum("Wrapping V", 'texture_wrapping_v', "What the texture does past its top and bottom edges")
+	alpha: _texture_enum(
+		"Alpha", 'texture_alpha', "Whether the alpha channel matters. Auto: transparent if any pixel is; "
+		"No: opaque, whatever stray transparency the image has")
+
+
+def load_texture_settings(image, settings):
+	"""Fill an image's settings from workspace.json values (texture_settings)."""
+	texture = image.ballistica_texture
+	keep = []
+	for attr, key in TEXTURE_KEYS.items():
+		value = settings.get(key, workspace.TEXTURE_SETTINGS[key][1])
+		if value in workspace.TEXTURE_SETTINGS[key][0]:
+			if attr == 'role':
+				texture['role'] = workspace.TEXTURE_SETTINGS[key][0].index(value)  # no colour space change here
+			else:
+				setattr(texture, attr, value)
+		else:
+			keep.append(key)
+	if keep:
+		image[KEEP_KEY] = keep
+	elif KEEP_KEY in image:
+		del image[KEEP_KEY]
+
+
+def texture_settings_of(image):
+	"""{workspace.json key: value} to write for an image (unknown values left out)."""
+	texture = image.ballistica_texture
+	keep = set(image.get(KEEP_KEY, ()))
+	return {key: getattr(texture, attr) for attr, key in TEXTURE_KEYS.items() if key not in keep}
+
+
 class OBJECT_PG_ballistica_part(bpy.types.PropertyGroup):
 	role: bpy.props.EnumProperty(name="Role", items=[('NONE', 'None', '')] + PART_ITEMS, options=_options())
 	side: bpy.props.EnumProperty(
@@ -559,6 +687,8 @@ def to_character(settings):
 
 
 classes = (
+	MESH_PG_ballistica_asset,
+	IMAGE_PG_ballistica_texture,
 	OBJECT_PG_ballistica_part,
 	COLLECTION_PG_ballistica_segment,
 	COLLECTION_PG_ballistica_attachment,
@@ -598,6 +728,8 @@ def register():
 		bpy.utils.register_class(cls)
 	bpy.types.Collection.ballistica_character = bpy.props.PointerProperty(type=COLLECTION_PG_ballistica_character)
 	bpy.types.Object.ballistica_part = bpy.props.PointerProperty(type=OBJECT_PG_ballistica_part)
+	bpy.types.Mesh.ballistica_asset = bpy.props.PointerProperty(type=MESH_PG_ballistica_asset)
+	bpy.types.Image.ballistica_texture = bpy.props.PointerProperty(type=IMAGE_PG_ballistica_texture)
 	bpy.types.Scene.ballistica_active_character = bpy.props.PointerProperty(
 		type=bpy.types.Collection, poll=_is_character, name="Active Character",
 		description="The character the Ballistica panel shows and acts on", options=_options())
@@ -608,6 +740,8 @@ def register():
 def unregister():
 	del bpy.types.Scene.ballistica_character_index
 	del bpy.types.Scene.ballistica_active_character
+	del bpy.types.Image.ballistica_texture
+	del bpy.types.Mesh.ballistica_asset
 	del bpy.types.Object.ballistica_part
 	del bpy.types.Collection.ballistica_character
 	for cls in reversed(classes):

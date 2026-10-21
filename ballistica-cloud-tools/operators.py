@@ -205,6 +205,10 @@ def _new_image(root, logical, pixels, size, data, height=None):
 	image.pixels.foreach_set(pixels)
 	image.filepath_raw = workspace.new_file_path(root, logical, 'texture')
 	image.file_format = 'PNG'
+	image.ballistica_texture.path = logical
+	image[scene.ROOT_KEY] = root
+	if data:
+		image.ballistica_texture['role'] = workspace.TEXTURE_SETTINGS['texture_role'][0].index('data')
 	return image
 
 
@@ -402,7 +406,7 @@ def check(collection):
 	for obj in _exportable_parts(collection):
 		if not obj.data.polygons:
 			problems.append(f"{obj.name}: mesh is empty (model it, or clear its field if the part is optional)")
-		elif obj.data.uv_layers.active is None:
+		elif not obj.data.uv_layers:
 			problems.append(f"{obj.name}: mesh has no UVs")
 	# What export writes (modifiers applied): body parts and attachment
 	# segments. Left copies share the right side's mesh.
@@ -424,7 +428,7 @@ def _uv_problem(obj):
 	from array import array
 
 	with scene.evaluated_mesh(obj) as mesh:
-		layer = mesh.uv_layers.active
+		layer = scene.export_uv_layer(mesh) if mesh.uv_layers else None
 		if layer is None or not mesh.polygons:
 			return None
 		uvs = array('f', [0.0]) * (len(layer.data) * 2)

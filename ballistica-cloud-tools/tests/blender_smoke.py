@@ -112,6 +112,28 @@ for name in ('agent_johnson', 'zoe', 'pixel'):
 	assert len(found) == attachments, (name, [o.name for o in found])
 	assert operators.check(collection) == [], operators.check(collection)
 
+# Meshes and images carry their export path; images their texture settings.
+agent_head = next(o for o in bpy.data.collections['agent_johnson'].all_objects if o.ballistica_part.role == 'head')
+assert agent_head.data.ballistica_asset.path == 'meshes/agent_head'
+assert agent_head.data.ballistica_asset.export_uv == agent_head.data.uv_layers[0].name
+mask_image = next(i for i in bpy.data.images if i.ballistica_texture.path == 'textures/agent_color_mask')
+assert mask_image.ballistica_texture.role == 'data' and mask_image.colorspace_settings.name == 'Non-Color'
+color_image = next(i for i in bpy.data.images if i.ballistica_texture.path == 'textures/agent_color')
+assert color_image.ballistica_texture.role == 'default' and color_image.ballistica_texture.wrap_h == 'clamp'
+
+# The UV map export writes is the render-active one (picked in the panel).
+uv_test = bpy.data.meshes.new('uv_test')
+uv_test.from_pydata([(0, 0, 0), (1, 0, 0), (0, 1, 0)], [], [(0, 1, 2)])
+first, second = uv_test.uv_layers.new(name='paint'), uv_test.uv_layers.new(name='atlas')
+for loop, uv in enumerate(((0.1, 0.1), (0.2, 0.1), (0.1, 0.2))):
+	first.data[loop].uv, second.data[loop].uv = uv, (0.9, 0.9)
+assert uv_test.ballistica_asset.export_uv == 'paint'
+uv_test.ballistica_asset.export_uv = 'atlas'
+assert second.active_render and uv_test.uv_layers.active == first  # editing stays on 'paint'
+from ballistica_cloud_tools import scene  # noqa: E402
+assert {tuple(round(c, 3) for c in uv) for uv in scene.obj_from_mesh(uv_test).uvs} == {(0.9, 0.9)}
+bpy.data.meshes.remove(uv_test)
+
 # Colorize: the bundled asset group, driven by the collection's tints.
 from ballistica_cloud_tools import nodegroup  # noqa: E402
 
