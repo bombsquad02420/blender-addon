@@ -1008,6 +1008,70 @@ class BALLISTICA_OT_make_unique(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+class BALLISTICA_OT_pick_part_mesh(bpy.types.Operator):
+	"""Click an object in the viewport to use its mesh for the selected part"""
+	bl_idname = 'ballistica.pick_part_mesh'
+	bl_label = "Take Mesh From Object"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	@classmethod
+	def poll(cls, context):
+		collection = active_character(context)
+		if collection is None or context.mode != 'OBJECT':
+			return False
+		settings = collection.ballistica_character
+		return 0 <= settings.active_part_index < len(settings.parts) and settings.parts[settings.active_part_index].enabled
+
+	def invoke(self, context, event):
+		context.window.cursor_modal_set('EYEDROPPER')
+		context.workspace.status_text_set("Click an object to use its mesh · Esc or right-click: cancel")
+		context.window_manager.modal_handler_add(self)
+		return {'RUNNING_MODAL'}
+
+	def _finish(self, context):
+		context.window.cursor_modal_restore()
+		context.workspace.status_text_set(None)
+
+	def modal(self, context, event):
+		if event.type in {'ESC', 'RIGHTMOUSE'} and event.value == 'PRESS':
+			self._finish(context)
+			return {'CANCELLED'}
+		if event.type != 'LEFTMOUSE' or event.value != 'PRESS':
+			return {'RUNNING_MODAL'}
+		self._finish(context)
+		obj = _object_under_mouse(context, event)
+		if obj is None or obj.type != 'MESH':
+			self.report({'WARNING'}, "No mesh object there.")
+			return {'CANCELLED'}
+		collection = active_character(context)
+		settings = collection.ballistica_character
+		row = settings.parts[settings.active_part_index]
+		note = part_scene.use_object_mesh(row, obj)
+		self.report({'WARNING'} if note else {'INFO'}, note or f"{part_scene.label(row)} now uses {obj.data.name}")
+		return {'FINISHED'}
+
+
+def _object_under_mouse(context, event):
+	"""The object drawn under the mouse in any 3D viewport, or None."""
+	from bpy_extras import view3d_utils
+
+	for area in context.window.screen.areas:
+		if area.type != 'VIEW_3D':
+			continue
+		for region in area.regions:
+			if region.type != 'WINDOW':
+				continue
+			x, y = event.mouse_x - region.x, event.mouse_y - region.y
+			if not (0 <= x < region.width and 0 <= y < region.height):
+				continue
+			rv3d = area.spaces.active.region_3d
+			origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, (x, y))
+			direction = view3d_utils.region_2d_to_vector_3d(region, rv3d, (x, y))
+			hit, _, _, _, obj, _ = context.scene.ray_cast(context.evaluated_depsgraph_get(), origin, direction)
+			return obj.original if hit else None
+	return None
+
+
 class BALLISTICA_OT_toggle_group(bpy.types.Operator):
 	"""Show or hide this in the viewport"""
 	bl_idname = 'ballistica.toggle_group'
@@ -1035,6 +1099,7 @@ classes = (
 	BALLISTICA_OT_toggle_group,
 	BALLISTICA_OT_select_eye_handle,
 	BALLISTICA_OT_new_part_mesh,
+	BALLISTICA_OT_pick_part_mesh,
 	BALLISTICA_OT_new_texture_image,
 	BALLISTICA_OT_make_unique,
 	BALLISTICA_OT_import_character,

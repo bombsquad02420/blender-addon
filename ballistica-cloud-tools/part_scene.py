@@ -149,6 +149,26 @@ def new_mesh(collection, part):
 	return mesh
 
 
+def use_object_mesh(row, obj):
+	"""Give a row `obj`'s mesh (shared, not copied). Returns a note, or None.
+
+	Only the mesh comes across: the object's own transform and modifiers
+	don't, so the note says so when it has any.
+	"""
+	from .repair import _is_identity, _own_matrix
+
+	row.mesh = obj.data
+	left_behind = []
+	if not _is_identity(_own_matrix(obj)):
+		left_behind.append("location, rotation or scale")
+	if any(m.show_viewport for m in obj.modifiers):
+		left_behind.append("modifiers")
+	if left_behind and obj.ballistica_part.role == 'NONE':
+		return (f"Took {obj.name}'s mesh, but not its {' and '.join(left_behind)}. "
+			f"If it looks wrong, apply them on {obj.name} first (Ctrl+A)")
+	return None
+
+
 def copy_mesh(mesh, name):
 	"""A copy of a mesh with its own (empty) export path."""
 	from .props import ASSET_PATH_KEY

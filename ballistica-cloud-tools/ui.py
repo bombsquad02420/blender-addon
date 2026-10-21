@@ -360,6 +360,7 @@ class VIEW3D_PT_ballistica_parts(_Section, bpy.types.Panel):
 				col.label(text="Model it as a right part: the game mirrors it.", icon='MOD_MIRROR')
 			line = col.row(align=True)
 			line.prop(row, 'mesh')
+			line.operator('ballistica.pick_part_mesh', text="", icon='EYEDROPPER')
 			line.operator('ballistica.new_part_mesh', text="", icon='ADD')
 			if row.mesh is not None:
 				_shared_note(col, row.mesh, collection, 'PART')

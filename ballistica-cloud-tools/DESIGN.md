@@ -414,13 +414,16 @@ form (they're JSON-only there).
   matches first.
 - **Parts list.** One row per body part in rig order (right side for limbs),
   then a Left row per limb. Each row holds the Blender **mesh** the part
-  uses (picked from Blender's meshes, or **+** for a box in the part's size);
+  uses (picked from Blender's meshes, taken from an object in the viewport
+  with the **eyedropper**, or **+** for a box in the part's size);
   the part's objects follow it. Optional parts (pelvis, forearm, hand) and
   Left rows have a checkbox: an optional part that's off has no objects (its
   mesh stays in the row), and a Left row that's on gives the left limb its
   own mesh, starting as a copy of the right one. Below the list: the
   selected row's mesh, its **UV map** (the render-active one is exported)
   and **export path** (empty: `meshes/<character>_<part>` on export).
+  The eyedropper shares the object's mesh; it says so when the object's own
+  transform or modifiers are left behind (only the mesh comes across).
   Clicking a row selects the part; clicking a part picks its row. The mesh
   fields are written from the rows on export; a row without a mesh (a file
   that wasn't found) keeps its field.

@@ -647,6 +647,16 @@ agent_settings.active_part_index = list(rows).index(('head', 'CENTER'))
 assert bpy.ops.ballistica.new_part_mesh() == {'FINISHED'}  # a box to model from, no export path yet
 assert head_obj.data != agent_head_mesh and len(head_obj.data.polygons) > 0, (head_obj.data, head_row.mesh, agent_head_mesh, head_obj.name)
 assert part_scene.fields(agent)['head_mesh'] == 'meshes/agent_johnson_head'
+# The eyedropper takes an object's mesh (shared), noting what it leaves behind.
+prop_obj = bpy.data.objects.new('kid_model', bpy.data.meshes.new('kid_model'))
+bpy.context.scene.collection.objects.link(prop_obj)
+prop_obj.scale = (2.0, 2.0, 2.0)
+note = part_scene.use_object_mesh(head_row, prop_obj)
+assert head_obj.data == prop_obj.data and 'location, rotation or scale' in note, note
+prop_obj.scale = (1.0, 1.0, 1.0)
+assert part_scene.use_object_mesh(head_row, prop_obj) is None
+assert part_scene.use_object_mesh(head_row, torso_obj) is None  # another part: nothing left behind
+bpy.data.objects.remove(prop_obj)
 head_row.mesh = None  # cleared with the picker's X
 assert any(p.startswith('Head: no mesh picked') for p in operators.check(agent)), operators.check(agent)
 head_row.mesh = agent_head_mesh
