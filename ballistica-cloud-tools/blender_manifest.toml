@@ -25,6 +25,7 @@ paths_exclude_pattern = [
 	"/*.zip",
 	"/DESIGN.md",
 	"/BCHAR_FORMAT.md",
+	"/UX_DESIGN.md",
 	"/webui/",
 	"/tests/",
 	"/Makefile",
