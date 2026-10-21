@@ -346,6 +346,9 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	raw_json: bpy.props.StringProperty(
 		name="Raw Definition", description="The full .bchar as last loaded; unmodelled fields are kept from here",
 		options={'HIDDEN'})
+	body_material: bpy.props.PointerProperty(
+		type=bpy.types.Material, name="Body Material", options=_options(),
+		description="The body parts' material (the character's textures through Ballistica Colorize)")
 	spread: bpy.props.FloatProperty(
 		name="Spread", description="Pull the parts apart (exploded view), as the web UI's Spread slider",
 		default=0.0, min=0.0, max=1.0, subtype='FACTOR', options=_options(), update=_tag_collection)

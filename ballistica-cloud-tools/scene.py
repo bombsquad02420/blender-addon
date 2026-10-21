@@ -39,6 +39,18 @@ PART_GROUPS = {
 HIDDEN_GROUPS = ('Rig', 'Eyes')
 
 
+def group(collection, name):
+	"""The character's child collection for group `name` (e.g. 'Rig'), or None.
+
+	Found among its children by the name's ending, so it survives the
+	character collection being renamed.
+	"""
+	for child in collection.children:
+		if child.name == f'{collection.name} {name}' or child.name.endswith(f' {name}') or child.name.rsplit('.', 1)[0].endswith(f' {name}'):
+			return child
+	return None
+
+
 def make_groups(collection):
 	"""Create the character's child collections; return name -> collection."""
 	groups = {}
@@ -255,9 +267,9 @@ def build_root(collection, arm):
 
 
 def build_armature(collection, joints):
-	"""(`collection` is where the armature object is linked: the Rig group.)"""
 	"""Rest-pose armature, built at zero shoulder and eye offsets.
 
+	`collection` is where the armature object is linked (the Rig group).
 	Chains are connected so posing keeps them joined. The offset bones
 	start at the rig's base points; drivers move them by the .bchar
 	offsets, carrying the arms and eyes along.
@@ -268,36 +280,74 @@ def build_armature(collection, joints):
 	collection.objects.link(arm)
 	arm.show_in_front = True
 	arm.ballistica_part.role = 'NONE'
+	with _edit_mode(arm):
+		set_rest_bones(arm, joints)
+	lock_bones(arm)
+	return arm
 
+
+def rest_bones(joints):
+	"""Bone name -> (head, tail, parent, connected), Blender axes, rig space."""
 	points = dict(joints)
 	points['shoulder_tip'] = tuple(Vector(points['shoulder']) + Vector((0.0, 0.06, 0.0)))  # a short stub up
 	points['eye_tip'] = tuple(Vector(points['head']) + Vector((0.0, 0.0, 0.08)))  # looking forward (+Z)
-
+	bones = {}
 	tails = {}
-	with _edit_mode(arm):
-		bones = data.edit_bones
-		for part, head_joint, tail_joint, parent in BONES:
-			sides = SIDES if part in SIDED_BONES else (('C', 1.0),)
-			for side, sign in sides:
-				name = bone_name(part, side)
-				bone = bones.new(name)
-				bone.head = game_point(_mirror(points[head_joint], sign))
-				bone.tail = game_point(_mirror(points[tail_joint], sign))
-				bone.roll = 0.0
-				tails[name] = tail_joint
-				if parent:
-					parent_name = bone_name(parent, side)
-					bone.parent = bones[parent_name]
-					# Offset bones must stay free: connected bones ignore location.
-					bone.use_connect = tails[parent_name] == head_joint and part not in OFFSET_BONES
+	for part, head_joint, tail_joint, parent in BONES:
+		sides = SIDES if part in SIDED_BONES else (('C', 1.0),)
+		for side, sign in sides:
+			name = bone_name(part, side)
+			parent_name = bone_name(parent, side) if parent else None
+			# Offset bones must stay free: connected bones ignore location.
+			connected = parent_name is not None and tails[parent_name] == head_joint and part not in OFFSET_BONES
+			bones[name] = (
+				game_point(_mirror(points[head_joint], sign)),
+				game_point(_mirror(points[tail_joint], sign)),
+				parent_name, connected)
+			tails[name] = tail_joint
+	return bones
+
+
+def set_rest_bones(arm, joints):
+	"""Put the rig's bones (in Edit Mode) at the game's joints, adding missing ones."""
+	edit_bones = arm.data.edit_bones
+	layout = rest_bones(joints)
+	for name, (head, tail, _, _) in layout.items():
+		bone = edit_bones.get(name) or edit_bones.new(name)
+		bone.head = head
+		bone.tail = tail
+		bone.roll = 0.0
+	for name, (_, _, parent, connected) in layout.items():
+		bone = edit_bones[name]
+		bone.parent = edit_bones[parent] if parent else None
+		bone.use_connect = connected
+
+
+def rest_bone_problem(arm, joints):
+	"""None if the rig's bones are at rest where the game's joints are.
+
+	Else 'missing' (a bone was deleted) or 'moved' (moved in Edit Mode).
+	"""
+	bones = arm.data.bones
+	for name, (head, tail, parent, _) in rest_bones(joints).items():
+		bone = bones.get(name)
+		if bone is None:
+			return 'missing'
+		if (bone.head_local - head).length > 1e-4 or (bone.tail_local - tail).length > 1e-4:
+			return 'moved'
+		if (bone.parent.name if bone.parent else None) != parent:
+			return 'moved'
+	return None
+
+
+def lock_bones(arm):
 	for bone in arm.pose.bones:
-		if bone.name not in MOVABLE_BONES:
+		if bone.name not in MOVABLE_BONES and bone.name.partition('.')[0] not in OFFSET_BONES:
 			bone.lock_location = (True, True, True)
 		if bone.name.partition('.')[0] in RIGID_BONES:
 			bone.lock_rotation = (True, True, True)
 			bone.lock_rotation_w = True
 			bone.lock_scale = (True, True, True)
-	return arm
 
 
 def _mirror(point, sign):

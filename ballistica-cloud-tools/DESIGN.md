@@ -378,7 +378,7 @@ pose (`pose.py`). Bones: `pelvis`, `torso`, `head`, `.R`/`.L` pairs for
 
 - Body parts are **bone-parented** with their rest placement in the parent
   inverse, so their own transform is identity. Moving a part aside to work
-  on it is never exported, and **Reset to T-Pose** puts it back. Export
+  on it is never exported, and **Repair** puts it back. Export
   writes each part's mesh with its **modifiers applied** (as shown in the
   viewport), still in the part's own space.
 - `shoulder_offset` and `eye_offset` are panel values that drive their
@@ -454,7 +454,7 @@ to its target (its own location/rotation, in `YXZ` mode, are exactly the
 joint chain in its parent inverse, the segment transform as its own). The
 handles are the saved placement and live in the Rig collection. Meshes hang
 from the handles with an identity transform, so moving a mesh aside to
-paint it is never saved, and Reset to T-Pose puts it back. Left copies of
+paint it is never saved, and Repair puts it back. Left copies of
 `both`-sided limb attachments follow the right side by drivers. Panel
 numbers and handles stay in sync both ways.
 
@@ -480,6 +480,19 @@ segment (`meshes/<character>_attachment<n>`, written on export).
 - **Pose:** the armature in the Rig collection (the web UI's P view).
 - **Spread:** the Visibility section's slider (the web UI's S view).
 - **Frame Character** frames the rig in the viewport.
+
+### Repair
+
+**Reset to T-Pose** only resets the pose (the rig back onto its root, every
+bone back to rest). **Repair** fixes what drifted in the scene, without
+touching the pose, mesh shapes or paint: parts moved, detached, hidden or
+given another material; scaled attachment anchors (their scale is
+padlocked, softly); a deleted rig or bones moved in Edit Mode; a missing
+root, eyes, guides, attachment handles, group collection or part object.
+The problems show in a *Needs fixing* box under Check, each with its fix
+(and **Keep** for a moved part: apply the move to its mesh), and as notes in
+Check and Export. **Fix Selected** and **Fix Whole Character** fix them all.
+See [UX_DESIGN.md](UX_DESIGN.md).
 
 ### Pre-upload checks
 

@@ -92,6 +92,35 @@ class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 		row = layout.row(align=True)
 		row.label(text=f"{_triangles(collection):,} triangles")
 		row.operator('ballistica.check_character', icon='CHECKMARK')
+		_repair_box(layout, collection)
+
+
+# Problems listed in the Needs fixing box before "and N more".
+SHOWN_ISSUES = 4
+
+
+def _repair_box(layout, collection):
+	"""What drifted in the scene, each with its fix, and the Repair buttons."""
+	from . import repair
+
+	issues = repair.issues(collection)
+	if issues:
+		box = layout.box()
+		box.label(text=f"Needs fixing ({len(issues)})", icon='ERROR')
+		for issue in issues[:SHOWN_ISSUES]:
+			row = box.row(align=True)
+			row.label(text=issue.label)
+			op = row.operator('ballistica.fix_issue', text=issue.button)
+			op.kind, op.name = issue.kind, issue.name
+			if issue.keepable:
+				op = row.operator('ballistica.fix_issue', text="Keep")
+				op.kind, op.name, op.keep = issue.kind, issue.name, True
+		if len(issues) > SHOWN_ISSUES:
+			box.label(text=f"and {len(issues) - SHOWN_ISSUES} more")
+		box.operator('ballistica.repair', text="Fix All", icon='TOOL_SETTINGS')
+	row = layout.row(align=True)
+	row.operator('ballistica.repair', text="Fix Selected", icon='RESTRICT_SELECT_OFF').selected = True
+	row.operator('ballistica.repair', text="Fix Whole Character", icon='TOOL_SETTINGS').selected = False
 
 
 # Button order in the Visibility grid (first column, then second).

@@ -148,6 +148,7 @@ def _build_one(collection, settings, arm, placements, index, attachment):
 		spot = _empty(f'attach{index}{suffix}', rig_group, 'ARROWS', 0.08)
 		scene.parent_to_bone(spot, arm, bone, body)
 		_set_transform(spot, record['translate'], record['rotate'])
+		spot.lock_scale = (True, True, True)  # .bchar can't store it (unlockable; Repair resets it)
 		_tag(spot, ANCHOR, index, side)
 		created.append(spot)
 		chain = Matrix.Identity(4)

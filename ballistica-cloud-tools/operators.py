@@ -44,6 +44,7 @@ def _build(context, root, character_path, character, meshes=None):
 		return materials[key]
 
 	body_material = material_for(settings.color_texture, settings.color_mask_texture)
+	settings.body_material = body_material
 
 	missing = []
 	for part, field, _ in rig.PARTS:
@@ -409,6 +410,11 @@ def check(collection):
 		problem = _uv_problem(obj)
 		if problem:
 			problems.append(problem)
+	# Things that drifted in the scene: export still works, but may not
+	# give what the scene shows (Repair fixes them).
+	from . import repair
+
+	problems += [f"{issue.label}: {issue.explanation}" for issue in repair.issues(collection)]
 	return problems
 
 
@@ -440,10 +446,6 @@ def _exportable_parts(collection):
 		obj for obj in collection.all_objects
 		if obj.type == 'MESH' and obj.ballistica_part.role in rig.ATTACH_TARGETS and obj.ballistica_part.side != 'L'
 	]
-
-
-# Objects Reset Parts puts back: everything placed on the rig except guides.
-RESETTABLE_ROLES = (*(p for p, _, _ in rig.PARTS), 'attachment', 'eye')
 
 
 class BALLISTICA_OT_view_character(bpy.types.Operator):
@@ -531,7 +533,7 @@ def _layer_path(layer, collection):
 
 
 class BALLISTICA_OT_reset_parts(bpy.types.Operator):
-	"""Put the character back in its T-pose: move the rig back onto its root, clear its pose and move body parts, attachments and eyes back onto their bones (only the selected parts if any are selected)"""
+	"""Put the rig back in its T-pose: clear every bone's pose and move the rig back onto its root. Parts moved in Object Mode stay where they are (Repair puts them back)"""
 	bl_idname = 'ballistica.reset_parts'
 	bl_label = "Reset to T-Pose"
 	bl_options = {'REGISTER', 'UNDO'}
@@ -542,20 +544,90 @@ class BALLISTICA_OT_reset_parts(bpy.types.Operator):
 
 	def execute(self, context):
 		collection = active_character(context)
-		parts = [o for o in collection.all_objects if o.ballistica_part.role in RESETTABLE_ROLES]
-		# Rest placement lives in each part's parent inverse, so an identity
-		# transform puts a part back on its bone.
-		selected = [o for o in parts if o.select_get()]
-		for obj in selected or parts:
-			_clear_transform(obj)
-		if not selected:
-			arm = next((o for o in collection.all_objects if o.type == 'ARMATURE'), None)
-			if arm is not None:
-				_clear_transform(arm)  # Back onto the root (the root itself stays put).
-				for bone in arm.pose.bones:
-					_clear_transform(bone)  # Offset bones' location is re-applied by drivers.
+		arm = next((o for o in collection.all_objects if o.type == 'ARMATURE'), None)
+		if arm is None:
+			self.report({'ERROR'}, f"{collection.name} has no rig; Repair rebuilds it.")
+			return {'CANCELLED'}
+		_clear_transform(arm)  # Back onto the root (the root itself stays put).
+		for bone in arm.pose.bones:
+			_clear_transform(bone)  # Offset bones' location is re-applied by drivers.
 		collection.update_tag()  # Re-run drivers (offsets, eye scale).
-		self.report({'INFO'}, f"Reset {len(selected)} part(s)" if selected else f"Reset {collection.name} to its T-pose")
+		self.report({'INFO'}, f"Reset {collection.name} to its T-pose")
+		return {'FINISHED'}
+
+
+class BALLISTICA_OT_repair(bpy.types.Operator):
+	"""Fix what drifted: parts moved in Object Mode, detached or hidden, a deleted rig, missing eyes, guides or handles. Never changes the pose, mesh shapes or paint"""
+	bl_idname = 'ballistica.repair'
+	bl_label = "Repair"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	selected: bpy.props.BoolProperty(
+		name="Only Selected", default=False, options={'SKIP_SAVE'},
+		description="Only the selected parts, eyes and attachment objects")
+
+	@classmethod
+	def description(cls, context, properties):
+		if properties.selected:
+			return "Put the selected parts, eyes and attachment objects back on the rig, and fix their material and visibility"
+		return ("Fix everything that drifted in the character: parts moved in Object Mode, detached or hidden, "
+			"a deleted rig, missing eyes, guides or handles. Never changes the pose, mesh shapes or paint")
+
+	@classmethod
+	def poll(cls, context):
+		if context.mode != 'OBJECT':
+			cls.poll_message_set("Only in Object Mode")
+			return False
+		return active_character(context) is not None
+
+	def execute(self, context):
+		from . import repair
+
+		collection = active_character(context)
+		objects = None
+		if self.selected:
+			objects = [o for o in collection.all_objects if o.select_get()]
+			if not objects:
+				self.report({'WARNING'}, "Select the parts to fix first.")
+				return {'CANCELLED'}
+		fixed = repair.repair(collection, objects)
+		self.report({'INFO'}, f"Fixed {fixed} problem(s)" if fixed else "Nothing to fix")
+		return {'FINISHED'}
+
+
+class BALLISTICA_OT_fix_issue(bpy.types.Operator):
+	"""Fix this problem"""
+	bl_idname = 'ballistica.fix_issue'
+	bl_label = "Fix"
+	bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+	kind: bpy.props.StringProperty(options={'HIDDEN', 'SKIP_SAVE'})
+	name: bpy.props.StringProperty(options={'HIDDEN', 'SKIP_SAVE'})
+	keep: bpy.props.BoolProperty(options={'HIDDEN', 'SKIP_SAVE'})
+
+	@classmethod
+	def description(cls, context, properties):
+		from . import repair
+
+		text = repair.TEXT.get(properties.kind)
+		if text is None:
+			return cls.__doc__
+		if properties.keep:
+			return f"Apply the move to {properties.name}'s mesh, so it is exported as it looks now"
+		return text[2].format(name=properties.name) + '.'
+
+	@classmethod
+	def poll(cls, context):
+		return context.mode == 'OBJECT' and active_character(context) is not None
+
+	def execute(self, context):
+		from . import repair
+
+		collection = active_character(context)
+		issue = next((i for i in repair.issues(collection) if i.kind == self.kind and i.name == self.name), None)
+		if issue is None:
+			return {'CANCELLED'}
+		repair.fix(collection, issue, keep=self.keep)
 		return {'FINISHED'}
 
 
@@ -820,6 +892,8 @@ classes = (
 	BALLISTICA_OT_standard_colors,
 	BALLISTICA_OT_view_character,
 	BALLISTICA_OT_reset_parts,
+	BALLISTICA_OT_repair,
+	BALLISTICA_OT_fix_issue,
 	BALLISTICA_OT_check_character,
 	BALLISTICA_OT_export_character,
 )

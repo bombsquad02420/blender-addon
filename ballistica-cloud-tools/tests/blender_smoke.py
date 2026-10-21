@@ -294,7 +294,8 @@ agent.ballistica_character.eye_style_left = 'none'
 bpy.context.view_layer.update()
 assert agent_eyes['L'].hide_viewport
 
-# Parts start with identity transforms; moving one and resetting puts it back.
+# Parts start with identity transforms. Reset to T-Pose resets only the
+# pose; Repair puts moved parts back (all, or only the selected ones).
 legs = [o for o in agent.all_objects if o.ballistica_part.role in ('upper_leg', 'toes')]
 assert all(o.matrix_basis == __import__('mathutils').Matrix.Identity(4) for o in legs)
 home = {o.name: o.matrix_world.copy() for o in legs}
@@ -309,10 +310,23 @@ make_active(legs[0])
 bpy.context.view_layer.update()
 assert bpy.ops.ballistica.reset_parts() == {'FINISHED'}
 bpy.context.view_layer.update()
-for o in legs:
-	assert all(abs(a - b) < 1e-6 for ra, rb in zip(o.matrix_world, home[o.name]) for a, b in zip(ra, rb)), o.name
 assert tuple(arm.pose.bones['upper_leg.R'].rotation_quaternion) == (1.0, 0.0, 0.0, 0.0)
 assert tuple(arm.location) == (0.0, 0.0, 0.0)
+assert all((o.location - __import__('mathutils').Vector((0.5, 0.2, -0.1))).length < 1e-6 for o in legs)  # parts untouched
+from ballistica_cloud_tools import repair  # noqa: E402
+assert sorted(i.name for i in repair.issues(agent) if i.kind == repair.MOVED) == sorted(o.name for o in legs)
+legs[0].select_set(True)
+assert bpy.ops.ballistica.repair(selected=True) == {'FINISHED'}
+assert legs[0].location.length == 0 and legs[1].location.length > 0.5
+arm.pose.bones['upper_leg.R'].rotation_quaternion = (0.7, 0.7, 0.0, 0.0)  # Repair never changes the pose
+posed = tuple(arm.pose.bones['upper_leg.R'].rotation_quaternion)
+assert bpy.ops.ballistica.repair() == {'FINISHED'}
+assert tuple(arm.pose.bones['upper_leg.R'].rotation_quaternion) == posed, tuple(arm.pose.bones['upper_leg.R'].rotation_quaternion)
+arm.pose.bones['upper_leg.R'].rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+bpy.context.view_layer.update()
+for o in legs:
+	assert all(abs(a - b) < 1e-6 for ra, rb in zip(o.matrix_world, home[o.name]) for a, b in zip(ra, rb)), o.name
+assert repair.issues(agent) == [], repair.issues(agent)
 moved = tuple(round(c, 4) for c in game_head('upper_arm.R') - base['upper_arm.R'])
 assert moved == (0.03, -0.02, 0.01), moved  # driven shoulder offset survives the reset
 
@@ -462,8 +476,12 @@ assert written_attachments(zoe) == zoe_attachments  # untouched: identical
 hair = next(o for o in attach_scene.tagged(zoe, attach_scene.MESH) if o[attach_scene.INDEX_KEY] == 0)
 hair.location.x += 0.5  # moved away to paint it
 assert written_attachments(zoe) == zoe_attachments  # mesh moves aren't placement
+for o in bpy.context.view_layer.objects:
+	o.select_set(False)
+hair.select_set(True)
 make_active(hair)
-assert bpy.ops.ballistica.reset_parts() == {'FINISHED'}
+assert [i.kind for i in repair.issues(zoe)] == [repair.MOVED]
+assert bpy.ops.ballistica.repair(selected=True) == {'FINISHED'}
 assert tuple(hair.location) == (0.0, 0.0, 0.0)
 spot = attach_scene.anchor(zoe, 0)
 spot.location.z += 0.01  # Blender +Z is game +Y: up by 0.01
@@ -768,6 +786,80 @@ assert written.attachments == [{
 }], written.attachments
 assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'cubey.bchar')) == {'FINISHED'}
 assert operators.check(bpy.data.collections['cubey.001']) == []
+
+# Repair: break the character in the ways Blender makes easy, then fix it.
+from ballistica_cloud_tools import scene as bscene  # noqa: E402
+cubey2 = bpy.data.collections['cubey.001']
+scene.ballistica_active_character = cubey2
+bpy.context.view_layer.update()
+
+
+def placed(collection):
+	"""World matrices of the character's parts, eyes and attachment meshes."""
+	return {
+		(o.ballistica_part.role, o.ballistica_part.side, o.name.split('.')[0]): o.matrix_world.copy()
+		for o in collection.all_objects if o.ballistica_part.role not in ('NONE', 'guide')
+	}
+
+
+def same_place(a, b):
+	assert a.keys() == b.keys(), sorted(set(a) ^ set(b))
+	for key in a:
+		assert all(abs(x - y) < 1e-4 for ra, rb in zip(a[key], b[key]) for x, y in zip(ra, rb)), (key, a[key], b[key])
+
+
+home = placed(cubey2)
+rig_obj = repair.armature(cubey2)
+bpy.data.objects.remove(rig_obj)  # the rig deleted
+assert repair.NO_RIG in [i.kind for i in repair.issues(cubey2)]
+draw_panels()  # the Needs fixing box draws
+assert bpy.ops.ballistica.repair() == {'FINISHED'}
+assert repair.issues(cubey2) == [], repair.issues(cubey2)
+bpy.context.view_layer.update()
+same_place(placed(cubey2), home)
+assert len(bscene.group(cubey2, 'Guides').objects) > 0
+
+rig_obj = repair.armature(cubey2)
+with bscene._edit_mode(rig_obj):
+	rig_obj.data.edit_bones['head'].tail.z += 0.3  # a bone dragged in Edit Mode
+assert repair.RIG_MOVED in [i.kind for i in repair.issues(cubey2)]  # (parts on that bone show as detached too)
+assert bpy.ops.ballistica.fix_issue(kind=repair.RIG_MOVED, name='') == {'FINISHED'}
+assert repair.issues(cubey2) == []
+bpy.context.view_layer.update()
+same_place(placed(cubey2), home)
+
+bpy.data.collections.remove(bscene.group(cubey2, 'Legs'))  # its objects drop out of the character
+kinds = {i.kind for i in repair.issues(cubey2)}
+assert {repair.NO_GROUP, repair.NO_PART} <= kinds, kinds
+assert bpy.ops.ballistica.repair() == {'FINISHED'}
+assert repair.issues(cubey2) == [], repair.issues(cubey2)
+bpy.context.view_layer.update()
+same_place(placed(cubey2), home)
+
+spot = attach_scene.anchor(cubey2, 0)
+assert tuple(spot.lock_scale) == (True, True, True)  # soft lock: unlockable
+spot.scale = (2.0, 2.0, 2.0)
+hand = next(o for o in cubey2.all_objects if o.ballistica_part.role == 'hand' and o.ballistica_part.side == 'R')
+hand.hide_set(True)
+torso = next(o for o in cubey2.all_objects if o.ballistica_part.role == 'torso')
+torso.material_slots[0].material = bpy.data.materials.new('kid_paint')
+issues = {(i.kind, i.name) for i in repair.issues(cubey2)}
+assert issues == {(repair.ANCHOR_SCALED, spot.name), (repair.HIDDEN, hand.name), (repair.MATERIAL, torso.name)}, issues
+assert any('anchor' in p for p in operators.check(cubey2))  # Check lists them too
+for kind, name in issues:
+	assert bpy.ops.ballistica.fix_issue(kind=kind, name=name) == {'FINISHED'}
+assert repair.issues(cubey2) == []
+assert tuple(spot.scale) == (1.0, 1.0, 1.0) and hand.visible_get() and torso.material_slots[0].material == cubey2.ballistica_character.body_material
+
+# Keep: an Object Mode scale applied to the mesh, so it is exported.
+head_part = next(o for o in cubey2.all_objects if o.ballistica_part.role == 'head')
+size = head_part.data.vertices[0].co.copy()
+head_part.scale = (2.0, 2.0, 2.0)
+assert [i.keepable for i in repair.issues(cubey2)] == [True]
+assert bpy.ops.ballistica.fix_issue(kind=repair.MOVED, name=head_part.name, keep=True) == {'FINISHED'}
+assert tuple(head_part.scale) == (1.0, 1.0, 1.0)
+assert (head_part.data.vertices[0].co - size * 2).length < 1e-5
+assert repair.issues(cubey2) == []
 
 package.unregister()
 assert nodegroup.LIBRARY_NAME not in [lib.name for lib in bpy.context.preferences.filepaths.asset_libraries]
