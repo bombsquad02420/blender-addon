@@ -153,9 +153,14 @@ def use_object_mesh(row, obj):
 	Only the mesh comes across: the object's own transform and modifiers
 	don't, so the note says so when it has any.
 	"""
+	row.mesh = obj.data
+	return left_behind_note(obj)
+
+
+def left_behind_note(obj):
+	"""A note if taking `obj`'s mesh leaves its transform or modifiers behind."""
 	from .repair import _is_identity, _own_matrix
 
-	row.mesh = obj.data
 	left_behind = []
 	if not _is_identity(_own_matrix(obj)):
 		left_behind.append("location, rotation or scale")

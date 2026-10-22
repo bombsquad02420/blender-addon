@@ -462,10 +462,34 @@ def _tuning(name, field):
 		name=name, default=rig.ATTACHMENT_DEFAULTS[field], min=lo, max=hi, options=_options())
 
 
+def _segment_block_changed(key):
+	"""A segment's mesh or image picker changed: mirror it to its path, rebuild."""
+
+	def update(self, context):
+		if self.get('_loading'):
+			return
+		hook = ATTACHMENT_REBUILD_HOOKS.get('segment_block')
+		if hook is not None:
+			hook(self, key)
+
+	return update
+
+
 class COLLECTION_PG_ballistica_segment(bpy.types.PropertyGroup):
-	mesh: _ref("Mesh", 'mesh', update=_segment_changed)
-	texture: _ref("Texture", 'texture', 'color', update=_segment_changed)
-	mask_texture: _ref("Mask Texture", 'texture', 'mask', update=_segment_changed)
+	# The .bchar's paths. Written from the pickers below whenever one is set;
+	# a path whose file wasn't found keeps the value it was loaded with.
+	mesh: _ref("Mesh Path", 'mesh', update=_segment_changed)
+	texture: _ref("Texture Path", 'texture', 'color', update=_segment_changed)
+	mask_texture: _ref("Mask Path", 'texture', 'mask', update=_segment_changed)
+	mesh_block: bpy.props.PointerProperty(
+		type=bpy.types.Mesh, name="Mesh", poll=_part_mesh_poll, options=_options(), update=_segment_block_changed('mesh'),
+		description="The mesh this segment shows and exports")
+	texture_block: bpy.props.PointerProperty(
+		type=bpy.types.Image, name="Texture", options=_options(), update=_segment_block_changed('texture'),
+		description="This segment's own colour texture. Empty: it uses the body's textures")
+	mask_block: bpy.props.PointerProperty(
+		type=bpy.types.Image, name="Mask", options=_options(), update=_segment_block_changed('mask_texture'),
+		description="This segment's own colour mask (red: player colour, green: highlight). Empty: it uses the body's")
 	translate: bpy.props.FloatVectorProperty(
 		name="Translate", size=3, subtype='XYZ', options=_options(), update=_placement_changed,
 		description="Where the segment's art sits on its body, game axes (Y up, Z forward)")
@@ -506,6 +530,14 @@ class COLLECTION_PG_ballistica_attachment(bpy.types.PropertyGroup):
 	raw_json: bpy.props.StringProperty(
 		name="Raw Attachment", description="This attachment's JSON as loaded; unmodelled keys are kept from here",
 		options={'HIDDEN'})
+
+
+# Segment path -> the picker holding its mesh or image.
+SEGMENT_BLOCKS = {'mesh': 'mesh_block', 'texture': 'texture_block', 'mask_texture': 'mask_block'}
+
+
+def _block_path(block):
+	return block.ballistica_asset.path if isinstance(block, bpy.types.Mesh) else block.ballistica_texture.path
 
 
 ATTACHMENT_VALUES = ('translate', 'rotate', *attach_rules.TUNING, *attach_rules.TUNING_CHANGES)
@@ -569,6 +601,9 @@ def _set_segments(attachment, segments):
 			for key in attach_rules.SEGMENT_REFS:
 				if getattr(item, key) != segment[key]:
 					setattr(item, key, segment[key])
+				block = getattr(item, SEGMENT_BLOCKS[key])
+				if block is not None and _block_path(block) != segment[key]:
+					setattr(item, SEGMENT_BLOCKS[key], None)  # found again from the path on rebuild
 			for key in SEGMENT_VALUES:
 				setattr(item, key, segment[key])
 		finally:

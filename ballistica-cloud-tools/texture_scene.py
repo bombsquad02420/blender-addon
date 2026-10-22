@@ -75,6 +75,11 @@ def show(collection, field, image):
 	material = body_material(collection)
 	if material is None:
 		material = _make_material(collection)
+	set_image(material, field, image)
+
+
+def set_image(material, field, image):
+	"""Show `image` (or nothing: the Colorize defaults) as a material's `field` texture."""
 	group = _group_node(material)
 	node = _texture_node(material, field)
 	if group is None or node is None:

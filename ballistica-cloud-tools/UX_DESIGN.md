@@ -163,8 +163,6 @@ mask stay in Identity.
   broken", whose fix sets them up again. Today both only happen when the
   rig, eyes, guides or attachments are rebuilt.
 
-- Attachment segments keep their path pickers for now; moving them to mesh
-  and image pickers is a follow-up.
 - Brushes and attachment templates (steps 4 and 5).
 - The in-game preview needs an API that isn't documented yet; see
   `bacloud-ts/docs/bacloudstate-proposal.md`.

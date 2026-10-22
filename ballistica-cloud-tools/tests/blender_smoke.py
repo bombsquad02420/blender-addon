@@ -1053,6 +1053,39 @@ assert not sharing.duplicate_paths(pixel_two)
 own.ballistica_asset.path = shared.ballistica_asset.path  # typed the other one's path
 assert any('overwrite each other' in p for p in operators.check(pixel_two))
 
+# Attachment segments: mesh, texture and mask pickers, mirrored to the paths.
+seg = cubey2.ballistica_character.attachments[0].segments[0]
+assert seg.mesh_block is not None and seg.mesh == seg.mesh_block.ballistica_asset.path == 'meshes/cubey_attachment0'
+seg_obj = lambda: next(o for o in attach_scene.tagged(cubey2, attach_scene.MESH, 0))  # noqa: E731
+placeholder = seg.mesh_block
+seg.mesh_block = torso.data  # picked another mesh: shown, and its path written
+assert seg_obj().data == torso.data and seg.mesh == torso.data.ballistica_asset.path
+seg.mesh_block = placeholder
+scene.ballistica_active_character = cubey2
+cubey2.ballistica_character.active_attachment_index = 0
+assert bpy.ops.ballistica.new_segment_block(key='texture') == {'FINISHED'}
+assert seg.texture_block is not None and seg.texture == 'textures/cubey_attachment0'
+assert seg_obj().material_slots[0].material != cubey2.ballistica_character.body_material  # its own texture
+assert bpy.ops.ballistica.new_segment_block(key='mask_texture') == {'FINISHED'}
+assert seg.mask_block.ballistica_texture.role == 'data' and seg.mask_texture == 'textures/cubey_attachment0_mask'
+draw_panels()
+assert bpy.ops.ballistica.export_character() == {'FINISHED'}
+assert os.path.isfile(os.path.join(ws, 'textures', 'cubey_attachment0.png'))
+saved_segment = _bchar.Character.load(os.path.join(ws, 'characters', 'cubey.bchar')).attachments[0]['segments'][0]
+assert saved_segment == {'mesh': 'meshes/cubey_attachment0', 'texture': 'textures/cubey_attachment0', 'mask_texture': 'textures/cubey_attachment0_mask'}, saved_segment
+assert jsonfile.read(os.path.join(ws, 'workspace.json'))['path']['textures/cubey_attachment0_mask.png']['texture_role'] == 'data'
+seg.texture_block = None  # cleared: back to the body's textures
+seg.mask_block = None
+assert seg.texture == '' and seg.mask_texture == '' and seg_obj().material_slots[0].material == cubey2.ballistica_character.body_material
+# A segment mesh shared by two characters: Make Unique gives one its own.
+wing = p2.attachments[0].segments[0]
+assert wing.mesh_block is not None and wing.mesh_block == p1.attachments[0].segments[0].mesh_block
+scene.ballistica_active_character = pixel_two
+p2.active_attachment_index = 0
+assert bpy.ops.ballistica.make_unique(kind='SEGMENT_MESH') == {'FINISHED'}
+assert wing.mesh_block != p1.attachments[0].segments[0].mesh_block and wing.mesh.startswith('meshes/pixel_attachment0')
+assert sharing.users(wing.mesh_block) == [pixel_two]
+
 url = ui.issue_url()
 assert 'template=ballistica_cloud_tools.yml' in url and 'addon_version=' in url and 'blender_version=5.' in url, url
 

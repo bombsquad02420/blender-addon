@@ -383,6 +383,7 @@ def check(collection):
 	problems = []
 	if not root or not os.path.isfile(os.path.join(root, workspace.WORKSPACE_FILE)):
 		return [f"Workspace folder not found: {root or '(none)'}"]
+	attach_scene.mirror_paths(collection)
 	fields = {**part_scene.fields(collection), **texture_scene.fields(collection)}
 	character = props.to_character(settings, fields)
 	part_names = {f: part_scene.label(r) for r in settings.parts for f in [part_scene.field(r)]}
@@ -399,13 +400,14 @@ def check(collection):
 	from . import attachments as attach_rules
 	for index, attachment in enumerate(settings.attachments):
 		problems += attach_rules.problems(props.attachment_record(attachment), index)
+	in_blender = _blocks_in_blender(settings)
 	for field, kind, logical in character.referenced_assets():
 		if field in exported or workspace.file_path(root, logical, kind) is not None:
 			continue
-		if kind == 'mesh' and _loaded_attachment_mesh(root, logical) is not None:
-			continue  # In Blender (made or copied here); export writes it.
-		if kind == 'texture' and (scene.find_image(workspace.new_file_path(root, logical, kind)) or scene.find_texture(root, logical)):
-			continue  # Made in Blender; export writes it.
+		if (kind, logical) in in_blender:
+			continue  # A mesh or image in Blender; export writes it.
+		if kind == 'texture' and scene.find_image(workspace.new_file_path(root, logical, kind)):
+			continue  # Made in Blender (an icon); export writes it.
 		problems.append(f"{field}: {logical} not found in the workspace")
 	path = workspace.file_path(root, character.get('icon_mask_texture') or '', 'texture') if character.get('icon_mask_texture') else None
 	if path and workspace.texture_role(root, path) not in workspace.DATA_ROLES:
@@ -729,12 +731,19 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 				obj = next((o for o in part_scene.objects_of(collection, row) if o.data == row.mesh), None)
 				if obj is not None:
 					_write_mesh(root, row.mesh.ballistica_asset.path, obj, written)
-		# Attachment segment meshes made or edited here.
-		for logical in _attachment_refs(settings, ('mesh',)):
-			mesh = _loaded_attachment_mesh(root, logical)
-			obj = next((o for o in collection.all_objects if o.data == mesh), None) if mesh is not None else None
-			if obj is not None:
-				_write_mesh(root, logical, obj, written)
+		# Attachment segments: their meshes and images to their export paths.
+		attach_scene.mirror_paths(collection)
+		done = set()
+		for index, attachment in enumerate(settings.attachments):
+			for j, segment in enumerate(attachment.segments):
+				if segment.mesh_block is None or segment.mesh in done:
+					continue
+				obj = next((
+					o for o in attach_scene.tagged(collection, attach_scene.MESH, index)
+					if o.get(attach_scene.SEGMENT_KEY) == j and o.get(attach_scene.SIDE_KEY) != 'L'), None)
+				if obj is not None:
+					_write_mesh(root, segment.mesh, obj, written)
+					done.add(segment.mesh)
 
 		# Textures: the body's from the Textures list, with their settings;
 		# icons and attachment textures by path (edited or made in Blender).
@@ -749,10 +758,15 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 		masks = []
 		for field, data in (('icon_texture', False), ('icon_mask_texture', True)):
 			_save_texture(root, getattr(settings, field), data, written, masks)
-		for logical in _attachment_refs(settings, ('texture',)):
-			_save_texture(root, logical, False, written, masks)
-		for logical in _attachment_refs(settings, ('mask_texture',)):
-			_save_texture(root, logical, True, written, masks)
+		for attachment in settings.attachments:
+			for segment in attachment.segments:
+				for image, mask in ((segment.texture_block, False), (segment.mask_block, True)):
+					if image is None:
+						continue
+					if mask and image.ballistica_texture.role not in workspace.DATA_ROLES:
+						image.ballistica_texture.role = 'data'
+					path = _save_image(root, image, written)
+					texture_settings[path] = props.texture_settings_of(image)
 		changed = workspace.set_texture_settings(root, texture_settings) if texture_settings else False
 		if workspace.mark_data_textures(root, masks) or changed:
 			written.append(workspace.WORKSPACE_FILE)
@@ -824,23 +838,23 @@ def _save_texture(root, logical, data, written, masks):
 		masks.append(path)
 
 
-def _attachment_refs(settings, keys):
-	"""Distinct logical paths used by attachment segments for `keys`."""
-	seen = []
+def _blocks_in_blender(settings):
+	"""(kind, export path) of every mesh and image the character's pickers hold."""
+	found = set()
+	for row in settings.parts:
+		if row.mesh is not None:
+			found.add(('mesh', row.mesh.ballistica_asset.path))
+	for item in settings.textures:
+		if item.image is not None:
+			found.add(('texture', item.image.ballistica_texture.path))
 	for attachment in settings.attachments:
 		for segment in attachment.segments:
-			for key in keys:
-				value = getattr(segment, key)
-				if value and value not in seen:
-					seen.append(value)
-	return seen
-
-
-def _loaded_attachment_mesh(root, logical):
-	"""The attachment mesh already in Blender for a path (not loading it)."""
-	return next(
-		(m for m in bpy.data.meshes if m.get(attach_scene.LOGICAL_KEY) == logical and m.get(attach_scene.ROOT_KEY) == root),
-		None)
+			if segment.mesh_block is not None:
+				found.add(('mesh', segment.mesh_block.ballistica_asset.path))
+			for image in (segment.texture_block, segment.mask_block):
+				if image is not None:
+					found.add(('texture', image.ballistica_texture.path))
+	return found
 
 
 def remove_character(collection):
@@ -982,7 +996,10 @@ class BALLISTICA_OT_make_unique(bpy.types.Operator):
 	bl_label = "Make Unique"
 	bl_options = {'REGISTER', 'UNDO'}
 
-	kind: bpy.props.EnumProperty(items=[('PART', "Part", ""), ('TEXTURE', "Texture", "")], options={'HIDDEN', 'SKIP_SAVE'})
+	kind: bpy.props.EnumProperty(items=[
+		('PART', "Part", ""), ('TEXTURE', "Texture", ""),
+		('SEGMENT_MESH', "Segment Mesh", ""), ('SEGMENT_TEXTURE', "Segment Texture", ""), ('SEGMENT_MASK', "Segment Mask", ""),
+	], options={'HIDDEN', 'SKIP_SAVE'})
 
 	@classmethod
 	def poll(cls, context):
@@ -993,7 +1010,13 @@ class BALLISTICA_OT_make_unique(bpy.types.Operator):
 
 		collection = active_character(context)
 		settings = collection.ballistica_character
-		if self.kind == 'PART':
+		if self.kind.startswith('SEGMENT'):
+			segment = active_segment(collection)
+			key = {'SEGMENT_MESH': 'mesh', 'SEGMENT_TEXTURE': 'texture', 'SEGMENT_MASK': 'mask_texture'}[self.kind]
+			if segment is None or getattr(segment, props.SEGMENT_BLOCKS[key]) is None:
+				return {'CANCELLED'}
+			copy = sharing.make_unique_segment(segment, key)
+		elif self.kind == 'PART':
 			if not 0 <= settings.active_part_index < len(settings.parts) or settings.parts[settings.active_part_index].mesh is None:
 				return {'CANCELLED'}
 			copy = sharing.make_unique_mesh(collection, settings.parts[settings.active_part_index])
@@ -1005,19 +1028,31 @@ class BALLISTICA_OT_make_unique(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+def active_segment(collection):
+	"""The selected segment of the selected attachment, or None."""
+	settings = collection.ballistica_character
+	if not 0 <= settings.active_attachment_index < len(settings.attachments):
+		return None
+	attachment = settings.attachments[settings.active_attachment_index]
+	if not 0 <= attachment.active_segment_index < len(attachment.segments):
+		return None
+	return attachment.segments[attachment.active_segment_index]
+
+
 class BALLISTICA_OT_pick_part_mesh(bpy.types.Operator):
-	"""Click an object in the viewport to use its mesh for the selected part"""
+	"""Click an object in the viewport to use its mesh here"""
 	bl_idname = 'ballistica.pick_part_mesh'
 	bl_label = "Take Mesh From Object"
 	bl_options = {'REGISTER', 'UNDO'}
 
+	target: bpy.props.EnumProperty(
+		items=[('PART', "Part", "The selected part"), ('SEGMENT', "Segment", "The selected attachment segment")],
+		options={'HIDDEN', 'SKIP_SAVE'})
+
 	@classmethod
 	def poll(cls, context):
 		collection = active_character(context)
-		if collection is None or context.mode != 'OBJECT':
-			return False
-		settings = collection.ballistica_character
-		return 0 <= settings.active_part_index < len(settings.parts) and settings.parts[settings.active_part_index].enabled
+		return collection is not None and context.mode == 'OBJECT'
 
 	def invoke(self, context, event):
 		context.window.cursor_modal_set('EYEDROPPER')
@@ -1042,9 +1077,18 @@ class BALLISTICA_OT_pick_part_mesh(bpy.types.Operator):
 			return {'CANCELLED'}
 		collection = active_character(context)
 		settings = collection.ballistica_character
-		row = settings.parts[settings.active_part_index]
-		note = part_scene.use_object_mesh(row, obj)
-		self.report({'WARNING'} if note else {'INFO'}, note or f"{part_scene.label(row)} now uses {obj.data.name}")
+		if self.target == 'SEGMENT':
+			segment = active_segment(collection)
+			if segment is None:
+				return {'CANCELLED'}
+			segment.mesh_block = obj.data
+			note, what = part_scene.left_behind_note(obj), "The segment"
+		else:
+			if not 0 <= settings.active_part_index < len(settings.parts):
+				return {'CANCELLED'}
+			row = settings.parts[settings.active_part_index]
+			note, what = part_scene.use_object_mesh(row, obj), part_scene.label(row)
+		self.report({'WARNING'} if note else {'INFO'}, note or f"{what} now uses {obj.data.name}")
 		return {'FINISHED'}
 
 
@@ -1087,6 +1131,39 @@ class BALLISTICA_OT_update_character(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+class BALLISTICA_OT_new_segment_block(bpy.types.Operator):
+	"""Give the selected segment a new mesh (a small box) or a new blank image to paint"""
+	bl_idname = 'ballistica.new_segment_block'
+	bl_label = "New"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	key: bpy.props.EnumProperty(
+		items=[('mesh', "Mesh", ""), ('texture', "Texture", ""), ('mask_texture', "Mask", "")], options={'HIDDEN', 'SKIP_SAVE'})
+
+	@classmethod
+	def poll(cls, context):
+		collection = active_character(context)
+		return collection is not None and context.mode == 'OBJECT' and active_segment(collection) is not None
+
+	def execute(self, context):
+		from . import attach_ops
+
+		collection = active_character(context)
+		segment = active_segment(collection)
+		_, index, j = attach_scene._locate(segment)
+		path = attach_scene.default_path(collection, index, j, self.key)
+		if self.key == 'mesh':
+			mesh = attach_ops.placeholder_mesh(collection, path)
+			mesh.ballistica_asset.path = attach_scene._free(path, mesh)
+			segment.mesh_block = mesh
+			return {'FINISHED'}
+		image = texture_scene.new_image(collection, 'color_mask_texture' if self.key == 'mask_texture' else 'color_texture')
+		image.name = path.rsplit('/', 1)[-1]
+		image.ballistica_texture.path = attach_scene._free(path, image)
+		setattr(segment, props.SEGMENT_BLOCKS[self.key], image)
+		return {'FINISHED'}
+
+
 class BALLISTICA_OT_toggle_group(bpy.types.Operator):
 	"""Show or hide this in the viewport"""
 	bl_idname = 'ballistica.toggle_group'
@@ -1117,6 +1194,7 @@ classes = (
 	BALLISTICA_OT_pick_part_mesh,
 	BALLISTICA_OT_new_texture_image,
 	BALLISTICA_OT_make_unique,
+	BALLISTICA_OT_new_segment_block,
 	BALLISTICA_OT_update_character,
 	BALLISTICA_OT_import_character,
 	BALLISTICA_OT_remove_character,

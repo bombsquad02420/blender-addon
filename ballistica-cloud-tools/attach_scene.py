@@ -96,18 +96,122 @@ def tag_mesh(mesh, root, logical):
 
 
 def _material(collection, settings, segment):
-	if not segment.texture and not segment.mask_texture and settings.body_material is not None:
+	"""The body material, or one with the segment's own texture and mask."""
+	from . import texture_scene
+
+	if segment.texture_block is None and segment.mask_block is None and settings.body_material is not None:
 		return settings.body_material  # the body's textures
-	texture = segment.texture or settings.color_texture
-	mask = segment.mask_texture or settings.color_mask_texture
-	if (texture, mask) == (settings.color_texture, settings.color_mask_texture):
-		name = collection.name
-	else:
-		name = f'{collection.name}_{texture.rsplit("/", 1)[-1]}'
+	body = {item.field: item.image for item in settings.textures}
+	color = segment.texture_block or body.get('color_texture')
+	mask = segment.mask_block or body.get('color_mask_texture')
+	name = f'{collection.name}_{(color or mask).name}'
 	material = bpy.data.materials.get(name)
 	if material is None:
-		material = scene.build_material(name, settings.workspace_root, texture, mask, collection)
+		material = scene.build_material(name, settings.workspace_root, '', '', collection)
+	texture_scene.set_image(material, 'color_texture', color)
+	texture_scene.set_image(material, 'color_mask_texture', mask)
 	return material
+
+
+def resolve_blocks(collection):
+	"""Fill each segment's pickers from its paths (on import, or after a change).
+
+	A path whose file isn't there leaves its picker empty and keeps the path.
+	"""
+	settings = collection.ballistica_character
+	root = settings.workspace_root
+	for attachment in settings.attachments:
+		for segment in attachment.segments:
+			segment['_loading'] = True
+			try:
+				if segment.mesh_block is None and segment.mesh:
+					segment.mesh_block = mesh_for(root, segment.mesh)
+				if segment.texture_block is None and segment.texture:
+					segment.texture_block = scene._image(root, segment.texture, data=False)
+				if segment.mask_block is None and segment.mask_texture:
+					segment.mask_block = scene._image(root, segment.mask_texture, data=True)
+			finally:
+				del segment['_loading']
+
+
+def default_path(collection, index, segment_index, key):
+	"""meshes/<character>_attachment<i>[_<j>], textures/…[_mask], as copies get."""
+	name = collection.name.split('.')[0]
+	segments = collection.ballistica_character.attachments[index].segments
+	base = f'{name}_attachment{index}' + (f'_{segment_index}' if len(segments) > 1 else '')
+	return {'mesh': f'meshes/{base}', 'texture': f'textures/{base}', 'mask_texture': f'textures/{base}_mask'}[key]
+
+
+def _free(path, block):
+	"""`path`, or `path_2`… if another mesh or image already has it."""
+	blocks = bpy.data.meshes if isinstance(block, bpy.types.Mesh) else bpy.data.images
+	from .props import _block_path
+
+	taken = {_block_path(b) for b in blocks if b != block}
+	free, n = path, 2
+	while free in taken:
+		free, n = f'{path}_{n}', n + 1
+	return free
+
+
+def _locate(segment):
+	"""(collection, attachment index, segment index) of a segment."""
+	collection = segment.id_data
+	for i, attachment in enumerate(collection.ballistica_character.attachments):
+		for j, item in enumerate(attachment.segments):
+			if item == segment:
+				return collection, i, j
+	return collection, None, None
+
+
+def mirror_paths(collection):
+	"""Write each set picker's export path into its segment path.
+
+	A mesh or image without an export path gets the segment's default one.
+	"""
+	from .props import SEGMENT_BLOCKS, _block_path
+
+	for i, attachment in enumerate(collection.ballistica_character.attachments):
+		for j, segment in enumerate(attachment.segments):
+			for key, attr in SEGMENT_BLOCKS.items():
+				block = getattr(segment, attr)
+				if block is None:
+					continue
+				path = _block_path(block)
+				if not path:
+					path = _free(default_path(collection, i, j, key), block)
+					if isinstance(block, bpy.types.Mesh):
+						block.ballistica_asset.path = path
+					else:
+						block.ballistica_texture.path = path
+				if getattr(segment, key) != path:
+					segment['_loading'] = True
+					try:
+						setattr(segment, key, path)
+					finally:
+						del segment['_loading']
+
+
+def on_segment_block(segment, key):
+	"""props hook: a segment's mesh, texture or mask picker changed."""
+	from . import workspace
+	from .props import SEGMENT_BLOCKS
+
+	collection, index, _ = _locate(segment)
+	if index is None:
+		return
+	block = getattr(segment, SEGMENT_BLOCKS[key])
+	if block is None:
+		segment['_loading'] = True
+		try:
+			setattr(segment, key, '')  # cleared: no own mesh or texture
+		finally:
+			del segment['_loading']
+	else:
+		if key == 'mask_texture' and block.ballistica_texture.role not in workspace.DATA_ROLES:
+			block.ballistica_texture.role = 'data'
+		mirror_paths(collection)
+	rebuild(collection)
 
 
 # ---- build / clear ----
@@ -124,6 +228,7 @@ def build(collection, placements=None, spread=True):
 		return []
 	if placements is None:
 		placements, _ = pose.compute()
+	resolve_blocks(collection)
 	created = []
 	for index, attachment in enumerate(settings.attachments):
 		created += _build_one(collection, settings, arm, placements, index, attachment)
@@ -166,7 +271,7 @@ def _build_one(collection, settings, arm, placements, index, attachment):
 			_set_transform(grip, segment['translate'], segment['rotate'], segment['scale'])
 			_tag(grip, HANDLE, index, side, j)
 			created.append(grip)
-			mesh = mesh_for(settings.workspace_root, segment['mesh'])
+			mesh = attachment.segments[j].mesh_block
 			if mesh is None:
 				continue
 			obj = bpy.data.objects.new(f'attachment{index}.{j}{suffix}', mesh)
@@ -294,6 +399,7 @@ def rebuild_for(item):
 from . import props as _props  # noqa: E402  (props must not import scene modules)
 
 _props.ATTACHMENT_REBUILD_HOOKS['rebuild'] = rebuild_for
+_props.ATTACHMENT_REBUILD_HOOKS['segment_block'] = on_segment_block
 
 
 # ---- live sync between panel numbers and handles ----

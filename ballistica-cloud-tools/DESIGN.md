@@ -409,7 +409,7 @@ shows them in the web UI form's order, with the same defaults:
 `flippers`, the `left_*` overrides and attachments aren't in the web UI
 form (they're JSON-only there).
 
-- **Reference fields** (icons, textures, attachment segments) are pickers
+- **Reference fields** (icons) are pickers
   over the workspace's own files, like the web UI's dropdowns, with likely
   matches first.
 - **Parts list.** One row per body part in rig order (right side for limbs),
@@ -463,8 +463,12 @@ selected attachment:
 - **Spring** (closed; springy kinds only): stiffness, damping, drag, curl,
   length, radius, and their per-segment `*_change` when there's more than
   one segment.
-- **Segments** (open): the segment list, and the selected segment's mesh,
-  texture and mask. **Art Offset** (closed) holds the segment's own
+- **Segments** (open): the segment list, and the selected segment's mesh
+  (picker, eyedropper, **+** for a small box), texture and mask (pickers,
+  **+** for a blank image; both empty: the body's textures), each with
+  *also used by* / Make Unique and its export path (empty: named after the
+  character and attachment on export). The `.bchar` paths are written from
+  the pickers; a path whose file wasn't found is kept and flagged. **Art Offset** (closed) holds the segment's own
   `transform`: where its mesh sits on its physics segment. For a
   single-segment static attachment it moves the mesh just like Placement;
   for springy kinds Placement moves the pivot and Art Offset moves the mesh

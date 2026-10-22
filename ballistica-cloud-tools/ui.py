@@ -566,9 +566,25 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 		segment = attachment.segments[j]
 		col = body.column()
 		_split(col)
-		col.prop(segment, 'mesh')
-		col.prop(segment, 'texture')
-		col.prop(segment, 'mask_texture')
+		for key, attr, kind in (
+			('mesh', 'mesh_block', 'SEGMENT_MESH'),
+			('texture', 'texture_block', 'SEGMENT_TEXTURE'),
+			('mask_texture', 'mask_block', 'SEGMENT_MASK'),
+		):
+			line = col.row(align=True)
+			line.prop(segment, attr)
+			if key == 'mesh':
+				line.operator('ballistica.pick_part_mesh', text="", icon='EYEDROPPER').target = 'SEGMENT'
+			line.operator('ballistica.new_segment_block', text="", icon='ADD').key = key
+			block = getattr(segment, attr)
+			if block is not None:
+				_shared_note(col, block, collection, kind)
+				asset = block.ballistica_asset if key == 'mesh' else block.ballistica_texture
+				col.prop(asset, 'path', text="Export Path")
+			elif getattr(segment, key):
+				col.label(text=f"{getattr(segment, key)} isn't in the workspace", icon='ERROR')
+		if segment.texture_block is None and segment.mask_block is None:
+			col.label(text="No texture or mask of its own: uses the body's.", icon='INFO')
 		header, art = body.panel('BALLISTICA_attach_art', default_closed=True)
 		header.label(text="Art Offset")
 		if art is not None:
