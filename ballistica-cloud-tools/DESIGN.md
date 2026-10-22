@@ -338,14 +338,15 @@ what's selected:
 - Clicking any object of a character in the viewport (body part, eye,
   attachment) makes it active.
 - New Character and Import make the new character active.
-- With no choice yet (older files) or after the chosen character is
-  deleted, the panel falls back to the active object's character, then the
+- With no choice yet, or after the chosen character is deleted, the panel falls back to the active object's character, then the
   scene's first.
 
-Below the list: **New Character · Import Character · Export Character**,
-the character's workspace folder and `.bchar` path, its triangle count and
-**Check**, then **Frame Character · Reset to T-Pose · Use Standard Colors**
-and **Show All Assets**.
+Beside the list: **+** (New Character) and **−** (Remove Character); below
+it **Import Character · Export Character**, the character's workspace folder
+and `.bchar` path, its triangle count and **Check**, the *Needs fixing* box
+(when something drifted) and the Repair buttons. **Frame Character** and
+**Reset to T-Pose** are in Visibility; the Standard Colors fix is in
+Textures' Colors.
 
 ### Scene layout
 
@@ -443,15 +444,17 @@ form (they're JSON-only there).
   green, Highlight 2 = blue): **Add** adds that channel, keeping other tints;
   **Erase** subtracts it, keeping the others; **Only** paints that channel
   alone with a hard edge. A last *All Tints* row has just **Erase**,
-  subtracting all three. The brush grid shows only while painting the mask. Picking a
-  brush also sets Blender's shared brush color.
+  subtracting all three. The brush grid shows only while painting the mask. The panel's
+  brush buttons also set Blender's shared brush color; the paint box has a
+  **Shared Brush Color** toggle and warns while it's on, since a brush picked
+  from the shelf would paint the shared color instead of its tint.
 - **Shared meshes and images.** When another character uses the selected
   part's mesh or texture, the panel says which, with **Make Unique**: a copy
   (unsaved paint included) with its own export path. Check reports two
   different meshes or images given the same export path in one workspace.
 - **Flippers** only shortens the upper arm under boxing gloves; the engine
   still draws any forearm and hand meshes that are set. If both are set,
-  the Meshes section and Check show a hint (not an error).
+  the Parts list and Check show a hint (not an error).
 - **Unknown fields** (a newer format, e.g. per-part looks and team coloring
   strengths the engine already reads) are kept from the stored raw JSON and
   written back unchanged; untouched characters round-trip byte for byte.

@@ -113,17 +113,6 @@ def placement_matrix(placement):
 	return TO_BLENDER.to_4x4() @ m @ TO_GAME.to_4x4()
 
 
-def transform_matrix(transform):
-	"""Blender-axes matrix for a .bchar {translate, rotate, scale} (game space)."""
-	if not transform:
-		return Matrix.Identity(4)
-	t = Matrix.Translation(game_point(transform.get('translate', (0, 0, 0))))
-	r = Euler(transforms.rotate_to_blender_euler(transform.get('rotate', (0, 0, 0))), transforms.EULER_ORDER).to_matrix().to_4x4()
-	sx, sy, sz = transform.get('scale', (1, 1, 1))
-	s = Matrix.Diagonal((sx, sz, sy, 1.0))  # game (x, y, z) scale -> Blender (x, z, y)
-	return t @ r @ s
-
-
 # ---- meshes ----
 
 def mesh_from_obj(path, name):

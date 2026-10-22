@@ -14,8 +14,8 @@ def active_character(context):
 	"""The character the panel shows and acts on.
 
 	The scene's chosen character (the list at the top of the panel), else
-	the character of the active object or collection (files from before
-	the list), else the scene's first character.
+	the character of the active object or collection (none chosen yet, or
+	the chosen one was deleted), else the scene's first character.
 	"""
 	scene = context.scene
 	chosen = getattr(scene, 'ballistica_active_character', None)
@@ -316,6 +316,12 @@ def _paint_box(layout, context, item, image):
 		box.label(text="Tip: paints on the selected part; pick others in Parts.", icon='INFO')
 	if not texture_scene.is_mask(item) or not (painting and canvas == image):
 		return  # the mask brushes only while painting the mask
+	unified = context.scene.tool_settings.image_paint.unified_paint_settings
+	box.prop(unified, 'use_unified_color', text="Shared Brush Color")
+	if unified.use_unified_color:
+		warning = box.column(align=True)
+		warning.label(text="Brushes picked from the shelf will paint the shared", icon='ERROR')
+		warning.label(text="color, not their tint. Turn Shared Brush Color off.", icon='BLANK1')
 	brush = context.scene.tool_settings.image_paint.brush if painting else None
 
 	def button(layout, key, text, icon):

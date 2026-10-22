@@ -1098,6 +1098,9 @@ assert image_paint.mode == 'IMAGE' and image_paint.canvas == mask_row.image
 assert image_paint.brush.name == 'Ballistica Add Highlight' and image_paint.brush.blend == 'ADD'
 assert tuple(image_paint.unified_paint_settings.color) == (0.0, 1.0, 0.0)
 draw_panels()  # the paint box and brushes draw
+image_paint.unified_paint_settings.use_unified_color = False
+draw_panels()  # the paint box with the shared color off (no warning)
+image_paint.unified_paint_settings.use_unified_color = True
 assert bpy.ops.ballistica.mask_brush(brush='ERASE_ALL') == {'FINISHED'} and image_paint.brush.blend == 'SUB'
 assert bpy.ops.ballistica.mask_brush(brush='ONLY_COLOR') == {'FINISHED'} and image_paint.brush.blend == 'MIX'
 assert image_paint.brush.curve_distance_falloff_preset == 'CONSTANT' and len(paint.BRUSHES) == 10
@@ -1105,7 +1108,7 @@ assert image_paint.brush.curve_distance_falloff_preset == 'CONSTANT' and len(pai
 image_paint.unified_paint_settings.color = (1.0, 0.0, 0.0)
 bpy.ops.brush.asset_activate(asset_library_type='CUSTOM', asset_library_identifier=nodegroup.LIBRARY_NAME,
 	relative_asset_identifier='ballistica_assets.blend/Brush/Ballistica Add Highlight 2')
-paint.match_shared_color()  # the message bus calls this in the UI; background mode has none
+paint.match_shared_color()  # (what the panel's buttons do; the shelf doesn't)
 assert tuple(image_paint.unified_paint_settings.color) == (0.0, 0.0, 1.0)
 cubey2.ballistica_character.active_texture_index = 0
 assert bpy.ops.ballistica.paint_texture() == {'FINISHED'} and image_paint.canvas == color_row.image
@@ -1116,8 +1119,7 @@ url = ui.issue_url()
 assert 'template=ballistica_cloud_tools.yml' in url and 'addon_version=' in url and 'blender_version=5.' in url, url
 
 # Reloading the addon (unregister + register, as Reload Scripts or an
-# addon reloader does) re-adds its asset library, which Blender doesn't
-# load again right away; the panel's brush buttons must still work.
+# addon reloader does) keeps its asset library; the brush buttons still work.
 scene.ballistica_active_character = cubey2
 cubey2.ballistica_character.active_texture_index = 1
 for name in [b.name for b in bpy.data.brushes if b.name.startswith(paint.PREFIX)]:
@@ -1126,16 +1128,10 @@ package.unregister()
 package.register()
 assert bpy.ops.ballistica.mask_brush(brush='ERASE_HIGHLIGHT') == {'FINISHED'}
 assert bpy.context.scene.tool_settings.image_paint.brush.name == 'Ballistica Erase Highlight'
-library_name = nodegroup.LIBRARY_NAME
-nodegroup.LIBRARY_NAME = 'Not Loaded Yet'  # as just after a reload in the UI
-try:
-	assert bpy.ops.ballistica.mask_brush(brush='ONLY_HIGHLIGHT2') == {'FINISHED'}  # from the asset file
-	assert bpy.context.scene.tool_settings.image_paint.brush.name == 'Ballistica Only Highlight 2'
-finally:
-	nodegroup.LIBRARY_NAME = library_name
 bpy.ops.object.mode_set(mode='OBJECT')
 
 package.unregister()
-assert nodegroup.LIBRARY_NAME not in [lib.name for lib in bpy.context.preferences.filepaths.asset_libraries]
+libraries = [lib.name for lib in bpy.context.preferences.filepaths.asset_libraries]
+assert libraries.count(nodegroup.LIBRARY_NAME) == 1, libraries  # kept for reloads, never duplicated
 shutil.rmtree(os.path.dirname(ws))
 print('blender_smoke: OK')

@@ -210,19 +210,22 @@ def _socket(sockets, identifier):
 
 
 def register_library():
-	"""Add the addon's assets folder as an asset library (if not there)."""
+	"""Make sure the addon's assets folder is an asset library.
+
+	The library is never removed when the addon unregisters: reloading the
+	addon would otherwise remove it and add it again, and Blender's brush
+	shelf keeps pointing at the removed one (its brushes vanish and can't be
+	activated until Blender restarts). So an existing entry is kept as it
+	is, only pointed at this install's folder if that moved.
+	"""
 	libraries = bpy.context.preferences.filepaths.asset_libraries
 	path = os.path.normpath(ASSETS_DIR)
 	for library in libraries:
 		if os.path.normpath(bpy.path.abspath(library.path)) == path:
 			return
+	library = next((lib for lib in libraries if lib.name == LIBRARY_NAME), None)
+	if library is not None:
+		library.path = path  # installed somewhere else since
+		return
 	library = libraries.new(name=LIBRARY_NAME, directory=path)
 	library.import_method = 'APPEND'
-
-
-def unregister_library():
-	libraries = bpy.context.preferences.filepaths.asset_libraries
-	path = os.path.normpath(ASSETS_DIR)
-	for library in list(libraries):
-		if os.path.normpath(bpy.path.abspath(library.path)) == path:
-			libraries.remove(library)

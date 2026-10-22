@@ -86,17 +86,9 @@ def use_brush(context, key):
 	from . import nodegroup
 
 	name = PREFIX + BRUSHES[key][0]
-	try:
-		bpy.ops.brush.asset_activate(
-			asset_library_type='CUSTOM', asset_library_identifier=nodegroup.LIBRARY_NAME,
-			relative_asset_identifier=f'{os.path.basename(nodegroup.ASSETS_BLEND)}/Brush/{name}')
-	except RuntimeError:
-		# The library isn't loaded (just after the addon was reloaded, which
-		# re-adds it): take the brush straight from the addon's asset file.
-		if name not in bpy.data.brushes:
-			with bpy.data.libraries.load(nodegroup.ASSETS_BLEND) as (source, target):
-				target.brushes = [name]
-		bpy.ops.brush.asset_activate(asset_library_type='LOCAL', relative_asset_identifier=f'Brush/{name}')
+	bpy.ops.brush.asset_activate(
+		asset_library_type='CUSTOM', asset_library_identifier=nodegroup.LIBRARY_NAME,
+		relative_asset_identifier=f'{os.path.basename(nodegroup.ASSETS_BLEND)}/Brush/{name}')
 	match_shared_color(context)
 	return context.scene.tool_settings.image_paint.brush
 
@@ -105,9 +97,9 @@ def match_shared_color(context=None):
 	"""If one of the addon's brushes is active, give the shared color its tint.
 
 	Blender's brush color is shared between brushes by default (the
-	"unified" toggle beside the color), so a brush picked from the shelf
-	would paint with whatever color was last used. Called whenever the
-	texture paint brush changes, however it was picked.
+	"unified" toggle beside the color). The panel's brush buttons set it;
+	a brush picked from the shelf doesn't, so the paint box offers to turn
+	the shared color off, and warns while it's on.
 	"""
 	context = context or bpy.context
 	scene = getattr(context, 'scene', None)
@@ -120,29 +112,3 @@ def match_shared_color(context=None):
 	unified = settings.unified_paint_settings
 	if unified.use_unified_color and tuple(unified.color) != tuple(brush.color):
 		unified.color = brush.color
-
-
-_OWNER = object()
-
-
-def _subscribe(*_args):
-	bpy.msgbus.clear_by_owner(_OWNER)
-	bpy.msgbus.subscribe_rna(key=(bpy.types.ImagePaint, 'brush'), owner=_OWNER, args=(), notify=match_shared_color)
-
-
-@bpy.app.handlers.persistent
-def _resubscribe(*_args):
-	_subscribe()
-
-
-def register():
-	_subscribe()
-	# Message bus subscriptions are dropped when a file loads.
-	if _resubscribe not in bpy.app.handlers.load_post:
-		bpy.app.handlers.load_post.append(_resubscribe)
-
-
-def unregister():
-	if _resubscribe in bpy.app.handlers.load_post:
-		bpy.app.handlers.load_post.remove(_resubscribe)
-	bpy.msgbus.clear_by_owner(_OWNER)

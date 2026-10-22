@@ -65,11 +65,7 @@ def _objects(collection, part):
 
 
 def fill_rows(collection):
-	"""Make the rows match the character's objects and mesh fields.
-
-	Used after building a character, and by Repair for files from before the
-	Parts list.
-	"""
+	"""Make the rows match the character's objects and mesh fields (after building it)."""
 	global _quiet
 	settings = collection.ballistica_character
 	_quiet = True

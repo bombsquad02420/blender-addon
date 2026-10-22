@@ -270,10 +270,6 @@ class OBJECT_PG_ballistica_part(bpy.types.PropertyGroup):
 # ---- attachments ----
 
 AR = rig.ATTACHMENT_RANGES
-_ATTACH_TUNING_NAMES = {
-	'stiffness': "Stiffness", 'damping': "Damping", 'drag': "Drag",
-	'curl': "Curl", 'length': "Length", 'radius': "Radius",
-}
 
 
 def _id_items(values):
