@@ -1189,8 +1189,17 @@ class BALLISTICA_OT_paint_texture(bpy.types.Operator):
 			self.report({'ERROR'}, "This character has no body part to paint on.")
 			return {'CANCELLED'}
 		if texture_scene.is_mask(item):
-			paint.use_brush(context, 'COLOR')
+			paint.use_brush(context, 'ADD_COLOR')
 		return {'FINISHED'}
+
+
+def _mask_brush_items():
+	from . import paint
+
+	return [(key, value[0], "") for key, value in paint.BRUSHES.items()]
+
+
+_MASK_BRUSH_ITEMS = _mask_brush_items()  # dynamic enum items must stay referenced
 
 
 class BALLISTICA_OT_mask_brush(bpy.types.Operator):
@@ -1200,14 +1209,14 @@ class BALLISTICA_OT_mask_brush(bpy.types.Operator):
 	bl_options = {'REGISTER', 'UNDO'}
 
 	brush: bpy.props.EnumProperty(
-		items=[('COLOR', "Player Colour", ""), ('HIGHLIGHT', "Highlight", ""), ('HIGHLIGHT2', "Highlight 2", ""), ('REMOVE', "Remove Tint", "")],
+		items=lambda self, context: _MASK_BRUSH_ITEMS,
 		options={'HIDDEN', 'SKIP_SAVE'})
 
 	@classmethod
 	def description(cls, context, properties):
 		from . import paint
 
-		return paint.BRUSHES[properties.brush][3]
+		return paint.BRUSHES[properties.brush][4]
 
 	@classmethod
 	def poll(cls, context):

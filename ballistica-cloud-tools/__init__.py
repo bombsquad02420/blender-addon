@@ -5,8 +5,8 @@ _modules = []
 
 
 def register():
-	from . import attach_ops, eye_scene, nodegroup, operators, part_scene, props, ui  # noqa: F401 (part_scene registers a hook)
-	_modules[:] = [props, operators, attach_ops, eye_scene, ui]
+	from . import attach_ops, eye_scene, nodegroup, operators, paint, part_scene, props, ui  # noqa: F401 (part_scene registers a hook)
+	_modules[:] = [props, operators, attach_ops, eye_scene, paint, ui]
 	for module in _modules:
 		module.register()
 	# Lists the bundled "Ballistica Colorize" node group in the Asset

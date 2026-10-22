@@ -236,14 +236,9 @@ class VIEW3D_PT_ballistica_identity(_Section, bpy.types.Panel):
 	bl_label = "Identity"
 	bl_options = set()
 	header_icon = 'USER'
-	# Grouped: who it is, its default color, then each highlight with its
-	# label and whether players may change it.
+	# Who it is: its name and its menu icon. (Its colours are in Textures.)
 	groups = (
 		('name', 'icon_texture', 'icon_mask_texture'),
-		('color',),
-		('highlight', 'highlight_name', 'highlight_editing'),
-		('highlight2', 'highlight2_name', 'highlight2_editing'),
-		('reflection_scale',),
 	)
 	fields = tuple(f for group in groups for f in group)
 
@@ -258,19 +253,38 @@ class VIEW3D_PT_ballistica_identity(_Section, bpy.types.Panel):
 			col = layout.column(align=True)
 			for field in group:
 				col.prop(settings, field)
-		_standard_colors_note(layout, context)
 
 
 def _standard_colors_note(layout, context):
 	"""Whether the viewport shows colors as the game does, with the fix."""
 	from .operators import uses_standard_colors
 
-	box = layout.box()
 	if uses_standard_colors(context.scene):
-		box.label(text="Viewport shows colors as the game does.", icon='CHECKMARK')
-	else:
-		box.label(text="Blender's default view transform washes colors out.", icon='INFO')
-		box.operator('ballistica.standard_colors', icon='COLOR')
+		return  # nothing to fix
+	box = layout.box()
+	box.label(text="Blender's default view transform washes colors out.", icon='INFO')
+	box.operator('ballistica.standard_colors', icon='COLOR')
+
+
+def _colours(layout, context, settings):
+	"""The character's tints and reflection, above the textures they colour."""
+	header, body = layout.panel('BALLISTICA_texture_colours', default_closed=False)
+	header.label(text="Colours", icon='COLOR')
+	if body is None:
+		return
+	row = body.row(align=True)
+	for label, field in (("Colour", 'color'), ("Highlight", 'highlight'), ("Highlight 2", 'highlight2')):
+		col = row.column(align=True)
+		col.label(text=label)
+		col.prop(settings, field, text="")
+	body.prop(settings, 'reflection_scale', slider=True)
+	header, profile = body.panel('BALLISTICA_texture_profile', default_closed=True)
+	header.label(text="Profile Editor")
+	if profile is not None:
+		_split(profile)
+		for field in ('highlight_name', 'highlight_editing', 'highlight2_name', 'highlight2_editing'):
+			profile.prop(settings, field)
+	_standard_colors_note(body, context)
 
 
 def _shared_note(layout, block, collection, kind):
@@ -298,15 +312,31 @@ def _paint_box(layout, context, item, image):
 	row.operator('ballistica.paint_texture', text=label, icon='BRUSH_DATA', depress=painting and canvas == image)
 	if painting:
 		row.operator('object.mode_set', text="Done", icon='OBJECT_DATA').mode = 'OBJECT'
-	if not texture_scene.is_mask(item):
-		return
-	grid = box.grid_flow(columns=2, even_columns=True, align=True)
-	brush = context.scene.tool_settings.image_paint.brush if painting else None
-	for key, (name, _, _, _) in paint.BRUSHES.items():
-		active = brush is not None and brush.name == paint.PREFIX + name
-		grid.operator('ballistica.mask_brush', text=name, icon='REMOVE' if key == 'REMOVE' else 'ADD', depress=active).brush = key
-	if painting:
+	if painting and canvas == image:
 		box.label(text="Tip: paints on the selected part; pick others in Parts.", icon='INFO')
+	if not texture_scene.is_mask(item) or not (painting and canvas == image):
+		return  # the mask brushes only while painting the mask
+	brush = context.scene.tool_settings.image_paint.brush if painting else None
+
+	def button(layout, key, text, icon):
+		active = brush is not None and brush.name == paint.PREFIX + paint.BRUSHES[key][0]
+		layout.operator('ballistica.mask_brush', text=text, icon=icon, depress=active).brush = key
+
+	col = box.column(align=True)
+	for tint, (tint_name, _) in paint.TINTS.items():
+		split = col.split(factor=0.38, align=True)
+		split.label(text=tint_name)
+		row = split.row(align=True)
+		button(row, f'ADD_{tint}', "Add", 'ADD')
+		button(row, f'ERASE_{tint}', "Erase", 'REMOVE')
+		button(row, f'ONLY_{tint}', "Only", 'SNAP_FACE')
+	# Erasing every tint is one more brush: the Erase column's last row.
+	split = col.split(factor=0.38, align=True)
+	split.label(text="All Tints")
+	row = split.row(align=True)
+	row.label(text="")
+	button(row, 'ERASE_ALL', "Erase", 'REMOVE')
+	row.label(text="")
 
 
 class BALLISTICA_UL_textures(bpy.types.UIList):
@@ -332,6 +362,7 @@ class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 		collection = active_character(context)
 		settings = collection.ballistica_character
 		layout = self.layout
+		_colours(layout, context, settings)
 		layout.template_list(
 			'BALLISTICA_UL_textures', '', settings, 'textures', settings, 'active_texture_index', rows=2, maxrows=2)
 		index = settings.active_texture_index

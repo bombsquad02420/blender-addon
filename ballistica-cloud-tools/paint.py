@@ -6,33 +6,45 @@ mask brushes add (or remove) one channel at a time, instead of painting a
 colour: going over a red area with Highlight makes it red + green, tinted
 by both, as the game does.
 
-Brushes are local assets in the file (Blender 4.3+ activates brushes as
-assets), made the first time they're used.
+The brushes ship in the addon's asset file (assets/build_assets.py), in
+the "Ballistica Cloud Tools" library's Mask Brushes catalog, so they're
+always in the brush shelf; activating one appends it to the file.
 """
+
+import os
 
 import bpy
 
 PREFIX = "Ballistica "
-# Key -> (name, blend mode, colour, description).
-BRUSHES = {
-	'COLOR': ("Player Colour", 'ADD', (1.0, 0.0, 0.0), "Tint with the player's colour (adds red to the mask)"),
-	'HIGHLIGHT': ("Highlight", 'ADD', (0.0, 1.0, 0.0), "Tint with the highlight colour (adds green to the mask)"),
-	'HIGHLIGHT2': ("Highlight 2", 'ADD', (0.0, 0.0, 1.0), "Tint with the second highlight colour (adds blue to the mask)"),
-	'REMOVE': ("Remove Tint", 'SUB', (1.0, 1.0, 1.0), "Take every tint away: back to the colour texture's own colours"),
+# Mask channel per tint: key -> (name, colour).
+TINTS = {
+	'COLOR': ("Player Colour", (1.0, 0.0, 0.0)),
+	'HIGHLIGHT': ("Highlight", (0.0, 1.0, 0.0)),
+	'HIGHLIGHT2': ("Highlight 2", (0.0, 0.0, 1.0)),
 }
+# What a brush does to its channel: key -> (word, blend mode, hard edge, description).
+ACTIONS = {
+	'ADD': ("Add", 'ADD', False, "Tint with {tint}, keeping other tints (adds {channel} to the mask)"),
+	'ERASE': ("Erase", 'SUB', False, "Erase {tint}, keeping other tints (removes {channel} from the mask)"),
+	'ONLY': ("Only", 'MIX', True, "Tint with {tint} and nothing else, with a hard edge (paints pure {channel})"),
+}
+CHANNELS = {'COLOR': "red", 'HIGHLIGHT': "green", 'HIGHLIGHT2': "blue"}
 
 
-def brush(key):
-	"""The addon's brush for `key`, made (and marked as an asset) if missing."""
-	label, blend, color, _ = BRUSHES[key]
-	name = PREFIX + label
-	found = bpy.data.brushes.get(name)
-	if found is None:
-		found = bpy.data.brushes.new(name, mode='TEXTURE_PAINT')
-		found.asset_mark()
-	found.blend = blend
-	found.color = color
-	return found
+def _brushes():
+	"""Key -> (name, blend mode, colour, hard edge, description)."""
+	brushes = {}
+	for tint, (tint_name, color) in TINTS.items():
+		for action, (word, blend, hard, description) in ACTIONS.items():
+			brushes[f'{action}_{tint}'] = (
+				f"{word} {tint_name}", blend, color, hard,
+				description.format(tint=f"the {tint_name.lower()}", channel=CHANNELS[tint]))
+	brushes['ERASE_ALL'] = ("Erase All Tints", 'SUB', (1.0, 1.0, 1.0), False,
+		"Erase every tint: back to the colour texture's own colours")
+	return brushes
+
+
+BRUSHES = _brushes()
 
 
 def part_object(collection):
@@ -71,10 +83,66 @@ def start(context, collection, image):
 
 def use_brush(context, key):
 	"""Make the addon's brush for `key` the active texture paint brush."""
-	found = brush(key)
-	bpy.ops.brush.asset_activate(asset_library_type='LOCAL', relative_asset_identifier=f'Brush/{found.name}')
-	# Brush colour is shared between brushes by default: set that too.
-	unified = context.scene.tool_settings.image_paint.unified_paint_settings
-	if unified.use_unified_color:
-		unified.color = found.color
-	return found
+	from . import nodegroup
+
+	name = PREFIX + BRUSHES[key][0]
+	try:
+		bpy.ops.brush.asset_activate(
+			asset_library_type='CUSTOM', asset_library_identifier=nodegroup.LIBRARY_NAME,
+			relative_asset_identifier=f'{os.path.basename(nodegroup.ASSETS_BLEND)}/Brush/{name}')
+	except RuntimeError:
+		# The library isn't loaded (just after the addon was reloaded, which
+		# re-adds it): take the brush straight from the addon's asset file.
+		if name not in bpy.data.brushes:
+			with bpy.data.libraries.load(nodegroup.ASSETS_BLEND) as (source, target):
+				target.brushes = [name]
+		bpy.ops.brush.asset_activate(asset_library_type='LOCAL', relative_asset_identifier=f'Brush/{name}')
+	match_shared_color(context)
+	return context.scene.tool_settings.image_paint.brush
+
+
+def match_shared_color(context=None):
+	"""If one of the addon's brushes is active, give the shared colour its tint.
+
+	Blender's brush colour is shared between brushes by default (the
+	"unified" toggle beside the colour), so a brush picked from the shelf
+	would paint with whatever colour was last used. Called whenever the
+	texture paint brush changes, however it was picked.
+	"""
+	context = context or bpy.context
+	scene = getattr(context, 'scene', None)
+	if scene is None:
+		return
+	settings = scene.tool_settings.image_paint
+	brush = settings.brush
+	if brush is None or not brush.name.startswith(PREFIX):
+		return
+	unified = settings.unified_paint_settings
+	if unified.use_unified_color and tuple(unified.color) != tuple(brush.color):
+		unified.color = brush.color
+
+
+_OWNER = object()
+
+
+def _subscribe(*_args):
+	bpy.msgbus.clear_by_owner(_OWNER)
+	bpy.msgbus.subscribe_rna(key=(bpy.types.ImagePaint, 'brush'), owner=_OWNER, args=(), notify=match_shared_color)
+
+
+@bpy.app.handlers.persistent
+def _resubscribe(*_args):
+	_subscribe()
+
+
+def register():
+	_subscribe()
+	# Message bus subscriptions are dropped when a file loads.
+	if _resubscribe not in bpy.app.handlers.load_post:
+		bpy.app.handlers.load_post.append(_resubscribe)
+
+
+def unregister():
+	if _resubscribe in bpy.app.handlers.load_post:
+		bpy.app.handlers.load_post.remove(_resubscribe)
+	bpy.msgbus.clear_by_owner(_OWNER)

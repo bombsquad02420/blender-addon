@@ -397,13 +397,12 @@ shows them in the web UI form's order, with the same defaults:
 
 | Section | Fields |
 | --- | --- |
-| Identity | `name` (translation key), `icon_texture`, `icon_mask_texture`, `color`, `highlight`, `highlight_name`, `highlight_editing`, `highlight2`, `highlight2_name`, `highlight2_editing` |
-| Textures | the Textures list (below): `color_texture`, `color_mask_texture` |
+| Identity | `name` (translation key), `icon_texture`, `icon_mask_texture` |
+| Textures | **Colours** first (`color`, `highlight`, `highlight2` as swatches, `reflection_scale`, a closed *Profile Editor* with `highlight_name`, `highlight_editing`, `highlight2_name`, `highlight2_editing`, and the Standard Colors fix when needed), then the Textures list (below): `color_texture`, `color_mask_texture` |
 | Parts | the Parts list (below): `head_mesh` … `toes_mesh`, the `left_*_mesh` overrides, `flippers` |
 | Sounds | the Sounds list: six fixed rows (jump, attack, impact, death, pickup, fall), each showing how many sounds it has and how many are missing; the selected one as comma-separated audio paths, with a picker to add one from the workspace |
 | Physique | `torso_radius`, `shoulder_offset`, `thigh_radius`, `ankle_radius`, `step_separation`, `idle_arm_stiffness`, `arm_swing`, `idle_sway` |
 | Eyes | `eye_style_left/right`, Size and Position (`eye_scale`, `eye_offset`; see below), `eye_color`, `eyeball_color`, `eyelid_color`, `eyelid_angle` |
-| Surface | `reflection_scale` |
 | Attachments | see below |
 
 `flippers`, the `left_*` overrides and attachments aren't in the web UI
@@ -437,11 +436,15 @@ form (they're JSON-only there).
   picked from elsewhere is saved under its export path.
 - **Painting.** **Paint** (under the selected texture) switches to Texture
   Paint on the selected part (or the torso), painting that image whatever
-  the material shows; **Done** goes back to Object Mode. The mask has four
-  brushes (local brush assets, made when first used): **Player Colour**,
-  **Highlight** and **Highlight 2** each *add* one channel (red, green,
-  blue), so tints combine as in the game, and **Remove Tint** subtracts all
-  three. Picking a brush also sets Blender's shared brush colour.
+  the material shows; **Done** goes back to Object Mode. The mask has ten
+  brushes, shipped in the addon's asset file (always in the brush shelf,
+  under the "Ballistica Cloud Tools" library's Mask Brushes catalog, with
+  thumbnails), shown as one row per tint (Player Colour = red, Highlight =
+  green, Highlight 2 = blue): **Add** adds that channel, keeping other tints;
+  **Erase** subtracts it, keeping the others; **Only** paints that channel
+  alone with a hard edge. A last *All Tints* row has just **Erase**,
+  subtracting all three. The brush grid shows only while painting the mask. Picking a
+  brush also sets Blender's shared brush colour.
 - **Shared meshes and images.** When another character uses the selected
   part's mesh or texture, the panel says which, with **Make Unique**: a copy
   (unsaved paint included) with its own export path. Check reports two
