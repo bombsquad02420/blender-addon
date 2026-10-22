@@ -1086,6 +1086,24 @@ assert bpy.ops.ballistica.make_unique(kind='SEGMENT_MESH') == {'FINISHED'}
 assert wing.mesh_block != p1.attachments[0].segments[0].mesh_block and wing.mesh.startswith('meshes/pixel_attachment0')
 assert sharing.users(wing.mesh_block) == [pixel_two]
 
+# Painting: the mask brushes add or remove one tint channel each.
+from ballistica_cloud_tools import paint  # noqa: E402
+
+scene.ballistica_active_character = cubey2
+cubey2.ballistica_character.active_texture_index = 1
+assert bpy.ops.ballistica.mask_brush(brush='HIGHLIGHT') == {'FINISHED'}
+assert bpy.context.mode == 'PAINT_TEXTURE'
+image_paint = bpy.context.scene.tool_settings.image_paint
+assert image_paint.mode == 'IMAGE' and image_paint.canvas == mask_row.image
+assert image_paint.brush.name == 'Ballistica Highlight' and image_paint.brush.blend == 'ADD'
+assert tuple(image_paint.unified_paint_settings.color) == (0.0, 1.0, 0.0)
+draw_panels()  # the paint box and brushes draw
+assert bpy.ops.ballistica.mask_brush(brush='REMOVE') == {'FINISHED'} and image_paint.brush.blend == 'SUB'
+cubey2.ballistica_character.active_texture_index = 0
+assert bpy.ops.ballistica.paint_texture() == {'FINISHED'} and image_paint.canvas == color_row.image
+bpy.ops.object.mode_set(mode='OBJECT')
+assert len([b for b in bpy.data.brushes if b.name.startswith(paint.PREFIX)]) == 2  # made once, when used
+
 url = ui.issue_url()
 assert 'template=ballistica_cloud_tools.yml' in url and 'addon_version=' in url and 'blender_version=5.' in url, url
 

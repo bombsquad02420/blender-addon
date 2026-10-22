@@ -1164,6 +1164,71 @@ class BALLISTICA_OT_new_segment_block(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+class BALLISTICA_OT_paint_texture(bpy.types.Operator):
+	"""Paint the selected texture in Texture Paint mode, on the selected part (or the torso)"""
+	bl_idname = 'ballistica.paint_texture'
+	bl_label = "Paint"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	@classmethod
+	def poll(cls, context):
+		collection = active_character(context)
+		if collection is None:
+			return False
+		settings = collection.ballistica_character
+		index = settings.active_texture_index
+		return 0 <= index < len(settings.textures) and settings.textures[index].image is not None
+
+	def execute(self, context):
+		from . import paint
+
+		collection = active_character(context)
+		settings = collection.ballistica_character
+		item = settings.textures[settings.active_texture_index]
+		if not paint.start(context, collection, item.image):
+			self.report({'ERROR'}, "This character has no body part to paint on.")
+			return {'CANCELLED'}
+		if texture_scene.is_mask(item):
+			paint.use_brush(context, 'COLOR')
+		return {'FINISHED'}
+
+
+class BALLISTICA_OT_mask_brush(bpy.types.Operator):
+	"""Paint the colour mask with this brush"""
+	bl_idname = 'ballistica.mask_brush'
+	bl_label = "Mask Brush"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	brush: bpy.props.EnumProperty(
+		items=[('COLOR', "Player Colour", ""), ('HIGHLIGHT', "Highlight", ""), ('HIGHLIGHT2', "Highlight 2", ""), ('REMOVE', "Remove Tint", "")],
+		options={'HIDDEN', 'SKIP_SAVE'})
+
+	@classmethod
+	def description(cls, context, properties):
+		from . import paint
+
+		return paint.BRUSHES[properties.brush][3]
+
+	@classmethod
+	def poll(cls, context):
+		collection = active_character(context)
+		if collection is None:
+			return False
+		mask = texture_scene.row(collection.ballistica_character, 'color_mask_texture')
+		return mask is not None and mask.image is not None
+
+	def execute(self, context):
+		from . import paint
+
+		collection = active_character(context)
+		mask = texture_scene.row(collection.ballistica_character, 'color_mask_texture')
+		if not paint.start(context, collection, mask.image):
+			self.report({'ERROR'}, "This character has no body part to paint on.")
+			return {'CANCELLED'}
+		paint.use_brush(context, self.brush)
+		return {'FINISHED'}
+
+
 class BALLISTICA_OT_toggle_group(bpy.types.Operator):
 	"""Show or hide this in the viewport"""
 	bl_idname = 'ballistica.toggle_group'
@@ -1195,6 +1260,8 @@ classes = (
 	BALLISTICA_OT_new_texture_image,
 	BALLISTICA_OT_make_unique,
 	BALLISTICA_OT_new_segment_block,
+	BALLISTICA_OT_paint_texture,
+	BALLISTICA_OT_mask_brush,
 	BALLISTICA_OT_update_character,
 	BALLISTICA_OT_import_character,
 	BALLISTICA_OT_remove_character,

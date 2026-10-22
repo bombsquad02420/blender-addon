@@ -286,6 +286,29 @@ def _shared_note(layout, block, collection, kind):
 	row.operator('ballistica.make_unique', text="Make Unique").kind = kind
 
 
+def _paint_box(layout, context, item, image):
+	"""Paint the selected texture; for the mask, its channel brushes."""
+	from . import paint, texture_scene
+
+	box = layout.box()
+	painting = context.mode == 'PAINT_TEXTURE'
+	canvas = context.scene.tool_settings.image_paint.canvas
+	row = box.row(align=True)
+	label = "Painting" if painting and canvas == image else "Paint"
+	row.operator('ballistica.paint_texture', text=label, icon='BRUSH_DATA', depress=painting and canvas == image)
+	if painting:
+		row.operator('object.mode_set', text="Done", icon='OBJECT_DATA').mode = 'OBJECT'
+	if not texture_scene.is_mask(item):
+		return
+	grid = box.grid_flow(columns=2, even_columns=True, align=True)
+	brush = context.scene.tool_settings.image_paint.brush if painting else None
+	for key, (name, _, _, _) in paint.BRUSHES.items():
+		active = brush is not None and brush.name == paint.PREFIX + name
+		grid.operator('ballistica.mask_brush', text=name, icon='REMOVE' if key == 'REMOVE' else 'ADD', depress=active).brush = key
+	if painting:
+		box.label(text="Tip: paints on the selected part; pick others in Parts.", icon='INFO')
+
+
 class BALLISTICA_UL_textures(bpy.types.UIList):
 	"""The body's two textures: colour and colour mask."""
 
@@ -325,6 +348,7 @@ class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 		image = item.image
 		if image is None:
 			return
+		_paint_box(layout, context, item, image)
 		_shared_note(col, image, collection, 'TEXTURE')
 		texture = image.ballistica_texture
 		col.prop(texture, 'path', placeholder=texture_scene.default_path(collection, item.field))

@@ -28,7 +28,7 @@ Principles:
 3. Data model: parts and textures lists with pickers, export paths on
    meshes and images, Make unique, duplicate-path check, per-character eye
    toggle.
-4. *(later)* Paint brushes for the colour mask.
+4. Paint brushes for the colour mask (built).
 5. *(later)* Attachment templates.
 
 ## 1. Repair, soft locks and warnings
@@ -163,6 +163,6 @@ mask stay in Identity.
   broken", whose fix sets them up again. Today both only happen when the
   rig, eyes, guides or attachments are rebuilt.
 
-- Brushes and attachment templates (steps 4 and 5).
+- Attachment templates (step 5).
 - The in-game preview needs an API that isn't documented yet; see
   `bacloud-ts/docs/bacloudstate-proposal.md`.

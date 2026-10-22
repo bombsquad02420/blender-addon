@@ -435,6 +435,13 @@ form (they're JSON-only there).
   **Build Settings** (role, quality, wrapping, alpha), read from and written
   to `workspace.json`. A mask always gets a Data role on export. An image
   picked from elsewhere is saved under its export path.
+- **Painting.** **Paint** (under the selected texture) switches to Texture
+  Paint on the selected part (or the torso), painting that image whatever
+  the material shows; **Done** goes back to Object Mode. The mask has four
+  brushes (local brush assets, made when first used): **Player Colour**,
+  **Highlight** and **Highlight 2** each *add* one channel (red, green,
+  blue), so tints combine as in the game, and **Remove Tint** subtracts all
+  three. Picking a brush also sets Blender's shared brush colour.
 - **Shared meshes and images.** When another character uses the selected
   part's mesh or texture, the panel says which, with **Make Unique**: a copy
   (unsaved paint included) with its own export path. Check reports two
