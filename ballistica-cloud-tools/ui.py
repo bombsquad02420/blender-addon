@@ -279,7 +279,7 @@ def _colors(layout, context, settings):
 		col.prop(settings, field, text="")
 	body.prop(settings, 'reflection_scale', slider=True)
 	header, profile = body.panel('BALLISTICA_texture_profile', default_closed=True)
-	header.label(text="Profile Editor")
+	header.label(text="Profile Editor", icon='GREASEPENCIL')
 	if profile is not None:
 		_split(profile)
 		for field in ('highlight_name', 'highlight_editing', 'highlight2_name', 'highlight2_editing'):
@@ -369,6 +369,7 @@ class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 		settings = collection.ballistica_character
 		layout = self.layout
 		_colors(layout, context, settings)
+		layout.separator()
 		layout.template_list(
 			'BALLISTICA_UL_textures', '', settings, 'textures', settings, 'active_texture_index', rows=2, maxrows=2)
 		index = settings.active_texture_index
