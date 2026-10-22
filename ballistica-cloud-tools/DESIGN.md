@@ -556,7 +556,10 @@ version 1, the first release.
 
 ### Pre-upload checks
 
-**Check** (also run on export) reports: required fields; referenced files
+**Check** (also run on export) reports errors (the build would fail or the
+character would be broken) and warnings, then a summary as the last message
+("3 errors and 5 warnings. Click to view all": the status bar shows only the
+last one). It reports: required fields; referenced files
 missing from the workspace (meshes and textures made in Blender count, since
 export writes them); masks not marked `texture_role: data`; meshes without
 UVs; attachment rule problems; and the Flippers hint. There are no known

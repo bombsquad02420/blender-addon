@@ -376,30 +376,61 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+ERROR, WARNING = 'ERROR', 'WARNING'
+
+
+class Problem(str):
+	"""A Check message, with its level: ERROR (the cloud build would fail or
+	the character would be broken) or WARNING (works, but may not look or
+	behave as it does in Blender)."""
+
+	def __new__(cls, text, level=ERROR):
+		problem = super().__new__(cls, text)
+		problem.level = level
+		return problem
+
+
+def report_problems(operator, problems):
+	"""Report each problem, then a summary last (the status bar shows only the
+	last report; clicking it lists them all)."""
+	for problem in problems:
+		operator.report({problem.level}, problem)
+	if len(problems) > 1:
+		operator.report({ERROR if any(p.level == ERROR for p in problems) else WARNING}, summary(problems))
+
+
+def summary(problems):
+	"""'3 errors and 5 warnings. Click to view all'."""
+	errors = sum(1 for p in problems if p.level == ERROR)
+	warnings = len(problems) - errors
+	counts = [f"{n} {word}{'s' if n != 1 else ''}" for n, word in ((errors, "error"), (warnings, "warning")) if n]
+	return f"{' and '.join(counts)}. Click to view all"
+
+
 def check(collection):
-	"""Problems that would make the cloud build fail or look wrong."""
+	"""Problems that would make the cloud build fail (errors) or look wrong (warnings)."""
 	settings = collection.ballistica_character
 	root = settings.workspace_root
 	problems = []
 	if not root or not os.path.isfile(os.path.join(root, workspace.WORKSPACE_FILE)):
-		return [f"Workspace folder not found: {root or '(none)'}"]
+		return [Problem(f"Workspace folder not found: {root or '(none)'}")]
 	attach_scene.mirror_paths(collection)
 	fields = {**part_scene.fields(collection), **texture_scene.fields(collection)}
 	character = props.to_character(settings, fields)
 	part_names = {f: part_scene.label(r) for r in settings.parts for f in [part_scene.field(r)]}
 	for field in rig.REQUIRED_REFS:
 		if not character.get(field):
-			problems.append(f"{part_names[field]} needs a mesh" if field in part_names else f"{field} is required")
+			problems.append(Problem(f"{part_names[field]} needs a mesh" if field in part_names else f"{field} is required"))
 	for row in settings.parts:
 		if row.enabled and row.mesh is None and row.side != 'L':
-			problems.append(f"{part_scene.label(row)}: no mesh picked (pick one, press + for a box, or turn the part off)")
+			problems.append(Problem(f"{part_scene.label(row)}: no mesh picked (pick one, press + for a box, or turn the part off)"))
 	hint = rig.flippers_hint(settings.flippers, character.get('forearm_mesh'), character.get('hand_mesh'))
 	if hint:
-		problems.append(hint)
+		problems.append(Problem(hint, WARNING))
 	exported = {f for p, f, _ in rig.PARTS if any(o.ballistica_part.role == p for o in _exportable_parts(collection))}
 	from . import attachments as attach_rules
 	for index, attachment in enumerate(settings.attachments):
-		problems += attach_rules.problems(props.attachment_record(attachment), index)
+		problems += [Problem(p) for p in attach_rules.problems(props.attachment_record(attachment), index)]
 	in_blender = _blocks_in_blender(settings)
 	for field, kind, logical in character.referenced_assets():
 		if field in exported or workspace.file_path(root, logical, kind) is not None:
@@ -408,33 +439,33 @@ def check(collection):
 			continue  # A mesh or image in Blender; export writes it.
 		if kind == 'texture' and scene.find_image(workspace.new_file_path(root, logical, kind)):
 			continue  # Made in Blender (an icon); export writes it.
-		problems.append(f"{field}: {logical} not found in the workspace")
+		problems.append(Problem(f"{field}: {logical} not found in the workspace"))
 	path = workspace.file_path(root, character.get('icon_mask_texture') or '', 'texture') if character.get('icon_mask_texture') else None
 	if path and workspace.texture_role(root, path) not in workspace.DATA_ROLES:
-		problems.append(f"icon_mask_texture: {character.get('icon_mask_texture')} is not marked texture_role: data (export will fix this)")
+		problems.append(Problem(f"icon_mask_texture: {character.get('icon_mask_texture')} is not marked texture_role: data (export will fix this)", WARNING))
 	mask = texture_scene.row(settings, 'color_mask_texture')
 	if mask is not None and mask.image is not None and mask.image.ballistica_texture.role not in workspace.DATA_ROLES:
-		problems.append(f"Color Mask: {mask.image.name} should have the Data role (export will set it)")
+		problems.append(Problem(f"Color Mask: {mask.image.name} should have the Data role (export will set it)", WARNING))
 	for obj in _exportable_parts(collection):
 		if not obj.data.polygons:
-			problems.append(f"{obj.name}: mesh is empty (model it, or clear its field if the part is optional)")
+			problems.append(Problem(f"{obj.name}: mesh is empty (model it, or turn the part off if it's optional)"))
 		elif not obj.data.uv_layers:
-			problems.append(f"{obj.name}: mesh has no UVs")
+			problems.append(Problem(f"{obj.name}: mesh has no UVs"))
 	# What export writes (modifiers applied): body parts and attachment
 	# segments. Left copies share the right side's mesh.
 	attachment_meshes = [o for o in attach_scene.tagged(collection, attach_scene.MESH) if o.get(attach_scene.SIDE_KEY) != 'L']
 	for obj in _exportable_parts(collection) + attachment_meshes:
 		problem = _uv_problem(obj)
 		if problem:
-			problems.append(problem)
+			problems.append(Problem(problem))
 	from . import sharing
 
-	problems += sharing.duplicate_paths(collection)
+	problems += [Problem(p) for p in sharing.duplicate_paths(collection)]
 	# Things that drifted in the scene: export still works, but may not
 	# give what the scene shows (Repair fixes them).
 	from . import repair
 
-	problems += [f"{issue.label}: {issue.explanation}" for issue in repair.issues(collection)]
+	problems += [Problem(f"{issue.label}: {issue.explanation}", WARNING) for issue in repair.issues(collection)]
 	return problems
 
 
@@ -694,8 +725,7 @@ class BALLISTICA_OT_check_character(bpy.types.Operator):
 
 	def execute(self, context):
 		problems = check(active_character(context))
-		for problem in problems:
-			self.report({'WARNING'}, problem)
+		report_problems(self, problems)
 		if not problems:
 			self.report({'INFO'}, "No problems found.")
 		return {'FINISHED'}
@@ -779,9 +809,8 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 		for attachment, raw in zip(settings.attachments, character.attachments):
 			attachment.raw_json = json.dumps(raw)
 
-		for problem in check(collection):
-			self.report({'WARNING'}, problem)
 		self.report({'INFO'}, f"Wrote {len(written)} file(s)" + (f": {', '.join(written)}" if written else " (nothing changed)"))
+		report_problems(self, check(collection))
 		return {'FINISHED'}
 
 

@@ -1115,6 +1115,11 @@ assert bpy.ops.ballistica.paint_texture() == {'FINISHED'} and image_paint.canvas
 bpy.ops.object.mode_set(mode='OBJECT')
 assert {b.name for b in bpy.data.brushes if b.name.startswith(paint.PREFIX)} == {'Ballistica Add Highlight', 'Ballistica Add Highlight 2', 'Ballistica Erase All Tints', 'Ballistica Only Player Color'}  # appended from the library when used
 
+# Check sorts problems into errors and warnings and ends with a summary.
+assert ops.summary([ops.Problem('a'), ops.Problem('b', ops.WARNING), ops.Problem('c', ops.WARNING)]) == "1 error and 2 warnings. Click to view all"
+assert ops.summary([ops.Problem('a', ops.WARNING)] * 3) == "3 warnings. Click to view all"
+assert all(p.level in (ops.ERROR, ops.WARNING) for p in operators.check(cubey2))
+
 url = ui.issue_url()
 assert 'template=ballistica_cloud_tools.yml' in url and 'addon_version=' in url and 'blender_version=5.' in url, url
 
