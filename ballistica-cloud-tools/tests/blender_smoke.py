@@ -1119,6 +1119,11 @@ assert {b.name for b in bpy.data.brushes if b.name.startswith(paint.PREFIX)} == 
 assert ops.summary([ops.Problem('a'), ops.Problem('b', ops.WARNING), ops.Problem('c', ops.WARNING)]) == "1 error and 2 warnings. Click to view all"
 assert ops.summary([ops.Problem('a', ops.WARNING)] * 3) == "3 warnings. Click to view all"
 assert all(p.level in (ops.ERROR, ops.WARNING) for p in operators.check(cubey2))
+cubey2.ballistica_character.highlight_name = 'Hat'  # typed the words, not a key
+assert any('isn\'t a translation key' in p and p.level == ops.WARNING for p in operators.check(cubey2))
+cubey2.ballistica_character.highlight_name = 'strings/characters/cubey_hat'
+assert not any('translation key' in p for p in operators.check(cubey2))
+cubey2.ballistica_character.highlight_name = ''
 
 url = ui.issue_url()
 assert 'template=ballistica_cloud_tools.yml' in url and 'addon_version=' in url and 'blender_version=5.' in url, url

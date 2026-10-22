@@ -424,6 +424,16 @@ def check(collection):
 	for row in settings.parts:
 		if row.enabled and row.mesh is None and row.side != 'L':
 			problems.append(Problem(f"{part_scene.label(row)}: no mesh picked (pick one, press + for a box, or turn the part off)"))
+	base = collection.name.split('.')[0]
+	for field, label, example in (
+		('name', "Name", f"strings/characters/{base}"),
+		('highlight_name', "Highlight Label", f"strings/characters/{base}_highlight"),
+		('highlight2_name', "Highlight 2 Label", f"strings/characters/{base}_highlight2"),
+	):
+		key = getattr(settings, field).strip()
+		if key and not key.startswith('strings/'):
+			problems.append(Problem(
+				f"{label} \"{key}\" isn't a translation key; it should name a string, like {example}", WARNING))
 	hint = rig.flippers_hint(settings.flippers, character.get('forearm_mesh'), character.get('hand_mesh'))
 	if hint:
 		problems.append(Problem(hint, WARNING))

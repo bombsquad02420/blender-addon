@@ -252,7 +252,10 @@ class VIEW3D_PT_ballistica_identity(_Section, bpy.types.Panel):
 				layout.separator()
 			col = layout.column(align=True)
 			for field in group:
-				col.prop(settings, field)
+				if field == 'name':  # a translation key, not the words themselves
+					col.prop(settings, field, placeholder=f"strings/characters/{active_character(context).name.split('.')[0]}")
+				else:
+					col.prop(settings, field)
 
 
 def _standard_colors_note(layout, context):
@@ -282,8 +285,13 @@ def _colors(layout, context, settings):
 	header.label(text="Profile Editor", icon='GREASEPENCIL')
 	if profile is not None:
 		_split(profile)
+		name = active_character(context).name.split('.')[0]
 		for field in ('highlight_name', 'highlight_editing', 'highlight2_name', 'highlight2_editing'):
-			profile.prop(settings, field)
+			if field.endswith('_name'):
+				# A translation key, not the words themselves: show the shape.
+				profile.prop(settings, field, placeholder=f"strings/characters/{name}_{field[:-5]}")
+			else:
+				profile.prop(settings, field)
 	_standard_colors_note(body, context)
 
 

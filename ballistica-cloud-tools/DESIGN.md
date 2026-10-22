@@ -562,7 +562,8 @@ character would be broken) and warnings, then a summary as the last message
 last one). It reports: required fields; referenced files
 missing from the workspace (meshes and textures made in Blender count, since
 export writes them); masks not marked `texture_role: data`; meshes without
-UVs; attachment rule problems; and the Flippers hint. There are no known
+UVs; attachment rule problems; the Flippers hint; and a name or highlight labels that aren't translation keys (the
+fields show the expected shape as a placeholder). There are no known
 server limits on vertex counts or texture sizes, so the checks don't invent
 any.
 
