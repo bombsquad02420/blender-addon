@@ -31,6 +31,8 @@ Principles:
 4. Paint brushes for the color mask (built).
 5. *(later)* Attachment templates.
 
+See **Still planned** at the end for what's left.
+
 ## 1. Repair, soft locks and warnings
 
 **Reset to T-Pose** only resets the **pose**: the rig back onto its root,
@@ -152,8 +154,12 @@ mask stay in Identity.
 5. Textures
 6. Physique, Eyes, Attachments, Sounds
 
-### Not in steps 1–3
+### Still planned
 
+- **Attachment templates** (step 5): a small library (hat, crown,
+  backpack, tail, wings, cape, horns), each with a starter mesh, a texture
+  cell and sensible anchor, spring and visibility settings. Pick one, it
+  appears, drag one handle.
 - **Repair re-locks and re-links.** Fix Whole Character should quietly
   re-apply the soft locks (anchor scale, eye handle rotation axes, bone
   locks) without listing them as problems, since unlocking may have been
@@ -162,7 +168,15 @@ mask stay in Identity.
   following the right) should show as one Needs fixing item, "Preview links
   broken", whose fix sets them up again. Today both only happen when the
   rig, eyes, guides or attachments are rebuilt.
-
-- Attachment templates (step 5).
-- The in-game preview needs an API that isn't documented yet; see
+- **Paint Whole Body.** Blender paints one object at a time. A button could
+  join copies of every part (as placed on the rig) into a temporary
+  stand-in, hide the real parts and paint the stand-in: same image and UVs,
+  so strokes land in the real texture. Done deletes it; Repair cleans up a
+  stand-in left behind.
+- **Shelf brushes after a reload.** Blender's notice of a brush picked from
+  the asset shelf (which sets the shared brush color to its tint) stops
+  arriving after the addon is reloaded. Re-subscribing whenever paint mode
+  starts might fix it; until then the paint box offers the Shared Brush
+  Color toggle and warns while it's on.
+- **In-game preview.** Needs an API that isn't documented yet; see
   `bacloud-ts/docs/bacloudstate-proposal.md`.
