@@ -179,7 +179,7 @@ ahead of the builder in this checkout; the schema's real home is the
 master server (`bamaster baserver/character.py`), which isn't public:
 
 - `highlight_team_coloring_strength`, `highlight2_team_coloring_strength`:
-  how strongly team colours tone each highlight (0–1; unset = the standard
+  how strongly team colors tone each highlight (0–1; unset = the standard
   strength). `characterranges.py` has the span as `team_coloring_strength`.
 - Per-part looks: a part's own texture and tint mask (standing in for the
   character's on that part alone), and for paired parts a left mesh,

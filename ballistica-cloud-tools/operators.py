@@ -414,7 +414,7 @@ def check(collection):
 		problems.append(f"icon_mask_texture: {character.get('icon_mask_texture')} is not marked texture_role: data (export will fix this)")
 	mask = texture_scene.row(settings, 'color_mask_texture')
 	if mask is not None and mask.image is not None and mask.image.ballistica_texture.role not in workspace.DATA_ROLES:
-		problems.append(f"Colour Mask: {mask.image.name} should have the Data role (export will set it)")
+		problems.append(f"Color Mask: {mask.image.name} should have the Data role (export will set it)")
 	for obj in _exportable_parts(collection):
 		if not obj.data.polygons:
 			problems.append(f"{obj.name}: mesh is empty (model it, or clear its field if the part is optional)")
@@ -969,7 +969,7 @@ class BALLISTICA_OT_new_part_mesh(bpy.types.Operator):
 
 
 class BALLISTICA_OT_new_texture_image(bpy.types.Operator):
-	"""Give the selected texture a new blank image to paint: white for the colour texture, black (no tint) for the mask"""
+	"""Give the selected texture a new blank image to paint: white for the color texture, black (no tint) for the mask"""
 	bl_idname = 'ballistica.new_texture_image'
 	bl_label = "New Image"
 	bl_options = {'REGISTER', 'UNDO'}
@@ -1203,7 +1203,7 @@ _MASK_BRUSH_ITEMS = _mask_brush_items()  # dynamic enum items must stay referenc
 
 
 class BALLISTICA_OT_mask_brush(bpy.types.Operator):
-	"""Paint the colour mask with this brush"""
+	"""Paint the color mask with this brush"""
 	bl_idname = 'ballistica.mask_brush'
 	bl_label = "Mask Brush"
 	bl_options = {'REGISTER', 'UNDO'}

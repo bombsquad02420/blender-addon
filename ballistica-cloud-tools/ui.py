@@ -236,7 +236,7 @@ class VIEW3D_PT_ballistica_identity(_Section, bpy.types.Panel):
 	bl_label = "Identity"
 	bl_options = set()
 	header_icon = 'USER'
-	# Who it is: its name and its menu icon. (Its colours are in Textures.)
+	# Who it is: its name and its menu icon. (Its colors are in Textures.)
 	groups = (
 		('name', 'icon_texture', 'icon_mask_texture'),
 	)
@@ -266,14 +266,14 @@ def _standard_colors_note(layout, context):
 	box.operator('ballistica.standard_colors', icon='COLOR')
 
 
-def _colours(layout, context, settings):
-	"""The character's tints and reflection, above the textures they colour."""
-	header, body = layout.panel('BALLISTICA_texture_colours', default_closed=False)
-	header.label(text="Colours", icon='COLOR')
+def _colors(layout, context, settings):
+	"""The character's tints and reflection, above the textures they color."""
+	header, body = layout.panel('BALLISTICA_texture_colors', default_closed=False)
+	header.label(text="Colors", icon='COLOR')
 	if body is None:
 		return
 	row = body.row(align=True)
-	for label, field in (("Colour", 'color'), ("Highlight", 'highlight'), ("Highlight 2", 'highlight2')):
+	for label, field in (("Player Color", 'color'), ("Highlight", 'highlight'), ("Highlight 2", 'highlight2')):
 		col = row.column(align=True)
 		col.label(text=label)
 		col.prop(settings, field, text="")
@@ -340,7 +340,7 @@ def _paint_box(layout, context, item, image):
 
 
 class BALLISTICA_UL_textures(bpy.types.UIList):
-	"""The body's two textures: colour and colour mask."""
+	"""The body's two textures: color and color mask."""
 
 	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
 		from . import texture_scene
@@ -362,7 +362,7 @@ class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 		collection = active_character(context)
 		settings = collection.ballistica_character
 		layout = self.layout
-		_colours(layout, context, settings)
+		_colors(layout, context, settings)
 		layout.template_list(
 			'BALLISTICA_UL_textures', '', settings, 'textures', settings, 'active_texture_index', rows=2, maxrows=2)
 		index = settings.active_texture_index
@@ -371,8 +371,6 @@ class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 		item = settings.textures[index]
 		col = layout.column()
 		_split(col)
-		if texture_scene.is_mask(item):
-			col.label(text="Red: player colour · Green: highlight · Blue: highlight 2", icon='INFO')
 		line = col.row(align=True)
 		line.prop(item, 'image')
 		line.operator('ballistica.new_texture_image', text="", icon='ADD')

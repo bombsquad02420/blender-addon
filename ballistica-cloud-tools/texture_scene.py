@@ -1,6 +1,6 @@
 """Body textures: the Textures list and the material that follows it.
 
-Two fixed rows, the character's colour texture and colour mask, each
+Two fixed rows, the character's color texture and color mask, each
 holding a Blender image. Picking an image shows it on the body material
 (made if the character has none); clearing one unlinks it, so the
 Colorize group's defaults show (plain white, untinted) instead of a broken
@@ -12,7 +12,7 @@ import bpy
 from . import scene, workspace
 
 ROWS = ('color_texture', 'color_mask_texture')
-LABELS = {'color_texture': "Colour", 'color_mask_texture': "Colour Mask"}
+LABELS = {'color_texture': "Color", 'color_mask_texture': "Color Mask"}
 SUFFIXES = {'color_texture': 'color', 'color_mask_texture': 'color_mask'}
 # Row -> the Colorize group input its image feeds, and its texture node's name.
 SOCKETS = {'color_texture': 'Color', 'color_mask_texture': 'Color Mask'}
@@ -121,7 +121,7 @@ def on_row_changed(item):
 
 
 def new_image(collection, field):
-	"""A blank image for a row: white colour, or a black (untinted) mask."""
+	"""A blank image for a row: white color, or a black (untinted) mask."""
 	name = f'{collection.name}_{SUFFIXES[field]}'
 	mask = field == 'color_mask_texture'
 	image = bpy.data.images.new(name, NEW_SIZE, NEW_SIZE, alpha=True)

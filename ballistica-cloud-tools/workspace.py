@@ -108,7 +108,7 @@ TEXTURE_SETTINGS = {
 	'texture_wrapping_v': (('clamp', 'repeat'), 'clamp'),
 	'texture_alpha': (('auto', 'yes', 'no'), 'auto'),
 }
-# Roles for masks: their channels are data, not colour.
+# Roles for masks: their channels are data, not color.
 DATA_ROLES = ('data', 'premultiplied_data')
 
 

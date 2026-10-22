@@ -520,9 +520,9 @@ def find_texture(root, logical):
 
 
 def set_colorspace(image, name):
-	"""Change how Blender reads an image's colours, keeping unsaved paint.
+	"""Change how Blender reads an image's colors, keeping unsaved paint.
 
-	Changing a generated or edited image's colour space regenerates or
+	Changing a generated or edited image's color space regenerates or
 	reloads it, which would wipe what was painted, so its pixels are kept.
 	"""
 	if image.colorspace_settings.name == name:

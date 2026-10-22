@@ -1,9 +1,9 @@
-"""Painting the body textures, and brushes for the colour mask.
+"""Painting the body textures, and brushes for the color mask.
 
-The colour mask is three separate channels: red tints with the player's
-colour, green with the highlight, blue with the second highlight. So the
+The color mask is three separate channels: red tints with the player's
+color, green with the highlight, blue with the second highlight. So the
 mask brushes add (or remove) one channel at a time, instead of painting a
-colour: going over a red area with Highlight makes it red + green, tinted
+color: going over a red area with Highlight makes it red + green, tinted
 by both, as the game does.
 
 The brushes ship in the addon's asset file (assets/build_assets.py), in
@@ -16,9 +16,9 @@ import os
 import bpy
 
 PREFIX = "Ballistica "
-# Mask channel per tint: key -> (name, colour).
+# Mask channel per tint: key -> (name, color).
 TINTS = {
-	'COLOR': ("Player Colour", (1.0, 0.0, 0.0)),
+	'COLOR': ("Player Color", (1.0, 0.0, 0.0)),
 	'HIGHLIGHT': ("Highlight", (0.0, 1.0, 0.0)),
 	'HIGHLIGHT2': ("Highlight 2", (0.0, 0.0, 1.0)),
 }
@@ -32,7 +32,7 @@ CHANNELS = {'COLOR': "red", 'HIGHLIGHT': "green", 'HIGHLIGHT2': "blue"}
 
 
 def _brushes():
-	"""Key -> (name, blend mode, colour, hard edge, description)."""
+	"""Key -> (name, blend mode, color, hard edge, description)."""
 	brushes = {}
 	for tint, (tint_name, color) in TINTS.items():
 		for action, (word, blend, hard, description) in ACTIONS.items():
@@ -40,7 +40,7 @@ def _brushes():
 				f"{word} {tint_name}", blend, color, hard,
 				description.format(tint=f"the {tint_name.lower()}", channel=CHANNELS[tint]))
 	brushes['ERASE_ALL'] = ("Erase All Tints", 'SUB', (1.0, 1.0, 1.0), False,
-		"Erase every tint: back to the colour texture's own colours")
+		"Erase every tint: back to the color texture's own colors")
 	return brushes
 
 
@@ -102,11 +102,11 @@ def use_brush(context, key):
 
 
 def match_shared_color(context=None):
-	"""If one of the addon's brushes is active, give the shared colour its tint.
+	"""If one of the addon's brushes is active, give the shared color its tint.
 
-	Blender's brush colour is shared between brushes by default (the
-	"unified" toggle beside the colour), so a brush picked from the shelf
-	would paint with whatever colour was last used. Called whenever the
+	Blender's brush color is shared between brushes by default (the
+	"unified" toggle beside the color), so a brush picked from the shelf
+	would paint with whatever color was last used. Called whenever the
 	texture paint brush changes, however it was picked.
 	"""
 	context = context or bpy.context

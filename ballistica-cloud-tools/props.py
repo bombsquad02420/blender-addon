@@ -216,7 +216,7 @@ def _texture_enum(name, key, description, update=None):
 
 
 def _role_changed(self, context):
-	"""Masks are data: show them without colour management, as the game does."""
+	"""Masks are data: show them without color management, as the game does."""
 	hook = ATTACHMENT_REBUILD_HOOKS.get('colorspace')
 	if hook is not None:
 		hook(self.id_data, 'Non-Color' if self.role in workspace.DATA_ROLES else 'sRGB')
@@ -226,7 +226,7 @@ class IMAGE_PG_ballistica_texture(bpy.types.PropertyGroup):
 	path: _path_prop("Where export writes this texture in the workspace, without .png (e.g. textures/zoe_color). Empty: named after the character on export")
 	role: _texture_enum(
 		"Role", 'texture_role', "How the cloud build treats the pixels. Masks are Data: their red, green and blue "
-		"are separate channels, not a colour", update=_role_changed)
+		"are separate channels, not a color", update=_role_changed)
 	quality: _texture_enum("Quality", 'texture_quality', "Compression quality in the game")
 	wrap_h: _texture_enum("Wrapping H", 'texture_wrapping_h', "What the texture does past its left and right edges")
 	wrap_v: _texture_enum("Wrapping V", 'texture_wrapping_v', "What the texture does past its top and bottom edges")
@@ -243,7 +243,7 @@ def load_texture_settings(image, settings):
 		value = settings.get(key, workspace.TEXTURE_SETTINGS[key][1])
 		if value in workspace.TEXTURE_SETTINGS[key][0]:
 			if attr == 'role':
-				texture['role'] = workspace.TEXTURE_SETTINGS[key][0].index(value)  # no colour space change here
+				texture['role'] = workspace.TEXTURE_SETTINGS[key][0].index(value)  # no color space change here
 			else:
 				setattr(texture, attr, value)
 		else:
@@ -486,10 +486,10 @@ class COLLECTION_PG_ballistica_segment(bpy.types.PropertyGroup):
 		description="The mesh this segment shows and exports")
 	texture_block: bpy.props.PointerProperty(
 		type=bpy.types.Image, name="Texture", options=_options(), update=_segment_block_changed('texture'),
-		description="This segment's own colour texture. Empty: it uses the body's textures")
+		description="This segment's own color texture. Empty: it uses the body's textures")
 	mask_block: bpy.props.PointerProperty(
 		type=bpy.types.Image, name="Mask", options=_options(), update=_segment_block_changed('mask_texture'),
-		description="This segment's own colour mask (red: player colour, green: highlight). Empty: it uses the body's")
+		description="This segment's own color mask (red: player color, green: highlight). Empty: it uses the body's")
 	translate: bpy.props.FloatVectorProperty(
 		name="Translate", size=3, subtype='XYZ', options=_options(), update=_placement_changed,
 		description="Where the segment's art sits on its body, game axes (Y up, Z forward)")
@@ -636,7 +636,7 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 		options=_options())
 	icon_texture: _ref("Icon Texture", 'texture', 'icon')
 	icon_mask_texture: _ref("Icon Mask Texture", 'texture', 'icon_mask')
-	color: _vec("Color", 'color', color=True, default=(0.5, 0.5, 0.5), update=_tag_collection)
+	color: _vec("Player Color", 'color', color=True, default=(0.5, 0.5, 0.5), update=_tag_collection)
 	highlight: _vec("Highlight", 'highlight', color=True, default=(0.5, 0.5, 0.5), update=_tag_collection)
 	highlight_name: bpy.props.StringProperty(
 		name="Highlight Label",
@@ -716,7 +716,9 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	eyelid_angle: _float("Eyelid Angle", 'eyelid_angle', update=_eye_changed)
 
 	# Surface
-	reflection_scale: _float("Reflection Scale", 'reflection_scale', update=_tag_collection)
+	reflection_scale: _float(
+		"Reflection Strength", 'reflection_scale', update=_tag_collection,
+		description="How strongly the character reflects its surroundings (the .bchar's reflection_scale)")
 
 	# Parts list (the mesh fields are written from it on export)
 	parts: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_part_row)
@@ -729,7 +731,7 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 		name="Add Sound", search=_asset_search('sound'), update=_sound_picked, options=_options(),
 		description="Pick a sound from the workspace to add to this list")
 
-	# Textures list (the colour texture fields are written from it on export)
+	# Textures list (the color texture fields are written from it on export)
 	textures: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_texture_row)
 	active_texture_index: bpy.props.IntProperty(name="Active Texture", options=_options())
 

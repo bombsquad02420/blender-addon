@@ -221,7 +221,7 @@ def _brush_preview(brush, color, kind, size=128):
 	preview.image_pixels_float.foreach_set(pixels)
 
 
-# The colour mask brushes (paint.BRUSHES), in their own catalog.
+# The color mask brushes (paint.BRUSHES), in their own catalog.
 for brush in list(bpy.data.brushes):
 	bpy.data.brushes.remove(brush)
 for label, blend, color, hard, description in paint.BRUSHES.values():

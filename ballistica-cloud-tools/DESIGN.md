@@ -398,7 +398,7 @@ shows them in the web UI form's order, with the same defaults:
 | Section | Fields |
 | --- | --- |
 | Identity | `name` (translation key), `icon_texture`, `icon_mask_texture` |
-| Textures | **Colours** first (`color`, `highlight`, `highlight2` as swatches, `reflection_scale`, a closed *Profile Editor* with `highlight_name`, `highlight_editing`, `highlight2_name`, `highlight2_editing`, and the Standard Colors fix when needed), then the Textures list (below): `color_texture`, `color_mask_texture` |
+| Textures | **Colors** first (`color`, `highlight`, `highlight2` as swatches, `reflection_scale`, a closed *Profile Editor* with `highlight_name`, `highlight_editing`, `highlight2_name`, `highlight2_editing`, and the Standard Colors fix when needed), then the Textures list (below): `color_texture`, `color_mask_texture` |
 | Parts | the Parts list (below): `head_mesh` … `toes_mesh`, the `left_*_mesh` overrides, `flippers` |
 | Sounds | the Sounds list: six fixed rows (jump, attack, impact, death, pickup, fall), each showing how many sounds it has and how many are missing; the selected one as comma-separated audio paths, with a picker to add one from the workspace |
 | Physique | `torso_radius`, `shoulder_offset`, `thigh_radius`, `ankle_radius`, `step_separation`, `idle_arm_stiffness`, `arm_swing`, `idle_sway` |
@@ -426,7 +426,7 @@ form (they're JSON-only there).
   Clicking a row selects the part; clicking a part picks its row. The mesh
   fields are written from the rows on export; a row without a mesh (a file
   that wasn't found) keeps its field.
-- **Textures list.** Two rows, Colour and Colour Mask, each holding a
+- **Textures list.** Two rows, Color and Color Mask, each holding a
   Blender image (picked, or **+** for a blank one: white, or a black mask
   that tints nothing). Picking one shows it on the body material (made if
   the character has none); clearing one unlinks it, so the body shows plain
@@ -439,12 +439,12 @@ form (they're JSON-only there).
   the material shows; **Done** goes back to Object Mode. The mask has ten
   brushes, shipped in the addon's asset file (always in the brush shelf,
   under the "Ballistica Cloud Tools" library's Mask Brushes catalog, with
-  thumbnails), shown as one row per tint (Player Colour = red, Highlight =
+  thumbnails), shown as one row per tint (Player Color = red, Highlight =
   green, Highlight 2 = blue): **Add** adds that channel, keeping other tints;
   **Erase** subtracts it, keeping the others; **Only** paints that channel
   alone with a hard edge. A last *All Tints* row has just **Erase**,
   subtracting all three. The brush grid shows only while painting the mask. Picking a
-  brush also sets Blender's shared brush colour.
+  brush also sets Blender's shared brush color.
 - **Shared meshes and images.** When another character uses the selected
   part's mesh or texture, the panel says which, with **Make Unique**: a copy
   (unsaved paint included) with its own export path. Check reports two
@@ -519,13 +519,13 @@ group and selects it. Export reads it, like attachment handles.
 
 - **Material:** the bundled "Ballistica Colorize" node group, with
   `color`, `highlight` and `highlight2` driven by the panel. **Use Standard
-  Colors** sets the scene's view transform to Standard so colours match the
+  Colors** sets the scene's view transform to Standard so colors match the
   web UI (Blender's default AgX washes them out).
 - **Guides:** head and torso balls, pelvis box, arm-segment and leg
   capsules, toes balls and the roller, sized from the rig and the
   character's radii (the web UI's B view).
 - **Eyes:** the game's own eyeball, iris and eyelid meshes and textures,
-  bundled with the addon, placed and coloured from the Eyes settings.
+  bundled with the addon, placed and colored from the Eyes settings.
 - **Pose:** the armature in the Rig collection (the web UI's P view).
 - **Spread:** the Visibility section's slider (the web UI's S view).
 - **Frame Character** frames the rig in the viewport.
@@ -610,7 +610,7 @@ unless you `workspace get` and re-import first. Then sync with
 creates the collection, rig, guides, eyes and a cuboid body: one box per
 part, with limbs as long as the default Spaz's and about as thick as the
 game's collision capsules, the head a cube inside the head ball. A generated
-atlas, colour mask (body takes the player colour, forearms and shins the
+atlas, color mask (body takes the player color, forearms and shins the
 highlight) and icon go with it. All files are named after the character
 (`characters/<name>.bchar`, `meshes/<name>_<part>.obj`,
 `textures/<name>_color.png`, …). It refuses names already used in the
@@ -680,7 +680,7 @@ Answered 2026-10-17:
   build time, so build releases with the minimum supported Blender.
 - ~~Attachments, `left_*`, `flippers`~~: JSON-only in the web UI; the addon
   edits them in its Meshes and Attachments sections.
-- ~~`team_coloring_strength`~~: how strongly team colours tone a highlight;
+- ~~`team_coloring_strength`~~: how strongly team colors tone a highlight;
   the engine reads it per highlight (`highlight_team_coloring_strength`,
   `highlight2_team_coloring_strength`). Not in the form; preserved on
   import and export along with every other unmodelled field.

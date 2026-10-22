@@ -28,7 +28,7 @@ Principles:
 3. Data model: parts and textures lists with pickers, export paths on
    meshes and images, Make unique, duplicate-path check, per-character eye
    toggle.
-4. Paint brushes for the colour mask (built).
+4. Paint brushes for the color mask (built).
 5. *(later)* Attachment templates.
 
 ## 1. Repair, soft locks and warnings
@@ -94,7 +94,7 @@ settings, from `workspace.json` (`assets_v1` `tex_v1` entries):
 
 Loaded from `workspace.json` when the image is loaded; written back on export
 (non-default values set, default ones removed, every other key untouched).
-Colour and icon masks must be a data role; export sets `data` if not.
+Color and icon masks must be a data role; export sets `data` if not.
 
 ### Characters: only what's loaded
 
@@ -128,7 +128,7 @@ Under the list, the selected part's:
 
 ### Textures list
 
-A fixed list of two: **Colour** and **Colour mask**. Under it, the selected
+A fixed list of two: **Color** and **Color mask**. Under it, the selected
 texture's **image picker** with **New** (a blank image at a sensible size;
 Non-Color for the mask), *used by N characters* / **Make unique**, export
 path and the texture settings above. Picking an image updates the

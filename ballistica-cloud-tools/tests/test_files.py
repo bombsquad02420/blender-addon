@@ -68,7 +68,7 @@ class WorkspaceTest(TempWorkspace):
 		entries = jsonfile.read(os.path.join(self.root, 'workspace.json'))['path']
 		self.assertEqual(entries['textures/a_color.png'], {'type': 'tex_v1', 'texture_wrapping_h': 'repeat'})
 		self.assertEqual(entries['textures/a_mask.png'], {'type': 'tex_v1', 'texture_role': 'data', 'texture_alpha': 'no'})
-		# Back to defaults: the colour texture's entry goes; nothing else is touched.
+		# Back to defaults: the color texture's entry goes; nothing else is touched.
 		self.assertTrue(workspace.set_texture_settings(self.root, {color: {'texture_wrapping_h': 'clamp'}}))
 		entries = jsonfile.read(os.path.join(self.root, 'workspace.json'))['path']
 		self.assertNotIn('textures/a_color.png', entries)

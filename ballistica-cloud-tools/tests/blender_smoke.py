@@ -984,7 +984,7 @@ assert tuple(head_part.scale) == (1.0, 1.0, 1.0)
 assert (head_part.data.vertices[0].co - size * 2).length < 1e-5
 assert repair.issues(cubey2) == []
 
-# Textures list: the body's colour texture and mask, with their settings.
+# Textures list: the body's color texture and mask, with their settings.
 from ballistica_cloud_tools import texture_scene  # noqa: E402
 
 cs = cubey2.ballistica_character
@@ -1101,7 +1101,7 @@ draw_panels()  # the paint box and brushes draw
 assert bpy.ops.ballistica.mask_brush(brush='ERASE_ALL') == {'FINISHED'} and image_paint.brush.blend == 'SUB'
 assert bpy.ops.ballistica.mask_brush(brush='ONLY_COLOR') == {'FINISHED'} and image_paint.brush.blend == 'MIX'
 assert image_paint.brush.curve_distance_falloff_preset == 'CONSTANT' and len(paint.BRUSHES) == 10
-# Picked from the shelf instead: the shared colour follows the brush too.
+# Picked from the shelf instead: the shared color follows the brush too.
 image_paint.unified_paint_settings.color = (1.0, 0.0, 0.0)
 bpy.ops.brush.asset_activate(asset_library_type='CUSTOM', asset_library_identifier=nodegroup.LIBRARY_NAME,
 	relative_asset_identifier='ballistica_assets.blend/Brush/Ballistica Add Highlight 2')
@@ -1110,7 +1110,7 @@ assert tuple(image_paint.unified_paint_settings.color) == (0.0, 0.0, 1.0)
 cubey2.ballistica_character.active_texture_index = 0
 assert bpy.ops.ballistica.paint_texture() == {'FINISHED'} and image_paint.canvas == color_row.image
 bpy.ops.object.mode_set(mode='OBJECT')
-assert {b.name for b in bpy.data.brushes if b.name.startswith(paint.PREFIX)} == {'Ballistica Add Highlight', 'Ballistica Add Highlight 2', 'Ballistica Erase All Tints', 'Ballistica Only Player Colour'}  # appended from the library when used
+assert {b.name for b in bpy.data.brushes if b.name.startswith(paint.PREFIX)} == {'Ballistica Add Highlight', 'Ballistica Add Highlight 2', 'Ballistica Erase All Tints', 'Ballistica Only Player Color'}  # appended from the library when used
 
 url = ui.issue_url()
 assert 'template=ballistica_cloud_tools.yml' in url and 'addon_version=' in url and 'blender_version=5.' in url, url
