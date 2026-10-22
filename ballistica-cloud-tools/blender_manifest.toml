@@ -1,0 +1,38 @@
+schema_version = "1.0.0"
+
+id = "ballistica_cloud_tools"
+version = "0.1.0"
+name = "Ballistica Cloud Tools"
+tagline = "Create BombSquad characters for Ballistica cloud workspaces"
+maintainer = "aryan02420 <aryan02420@gmail.com>"
+type = "add-on"
+website = "https://github.com/bombsquad02420/blender-addon"
+tags = ["Import-Export", "Rigging"]
+blender_version_min = "5.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+copyright = [
+	"2026 aryan02420",
+]
+
+[permissions]
+files = "Read and write character files in a workspace folder"
+
+[build]
+paths_exclude_pattern = [
+	"__pycache__/",
+	"/.git/",
+	"/*.zip",
+	"/DESIGN.md",
+	"/BCHAR_FORMAT.md",
+	"/UX_DESIGN.md",
+	"/webui/",
+	"/tests/",
+	"/Makefile",
+	"/CHANGELOG.md",
+	"/assets/build_assets.py",
+	"/assets/build_template.py",
+	"/assets/extract_eye_assets.py",
+	"/assets/source/",
+	"*.blend1",
+]

@@ -6,6 +6,10 @@ wheels/
 
 # generated files
 bombsquad_tools-*.zip
+ballistica_cloud_tools-*.zip
+ballistica-cloud-tools/assets/*.blend
+ballistica-cloud-tools/assets/*.blend1
+ballistica-cloud-tools/assets/blender_assets.cats.txt
 CHANGELOG.md
 
 # developer specific
