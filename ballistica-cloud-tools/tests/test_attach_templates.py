@@ -8,9 +8,13 @@ templates = load('attach_templates')
 
 
 class TemplateTest(unittest.TestCase):
-	def test_ten_templates_with_unique_keys(self):
-		self.assertEqual(len(templates.TEMPLATES), 10)
-		self.assertEqual(len(templates.BY_KEY), 10)
+	def test_templates_have_unique_keys(self):
+		self.assertEqual(len(templates.TEMPLATES), 13)
+		self.assertEqual(len(templates.BY_KEY), len(templates.TEMPLATES))
+
+	def test_hand_items_go_on_the_expected_hands(self):
+		sides = {t.key: t.side for t in templates.TEMPLATES if t.target == 'hand'}
+		self.assertEqual(sides, {'sword': 'right', 'shield': 'left', 'claws': 'both'})
 
 	def test_records_follow_the_attachment_rules(self):
 		for template in templates.TEMPLATES:

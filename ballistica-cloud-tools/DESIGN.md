@@ -504,8 +504,9 @@ objects and then select the active attachment's new meshes.
 
 The **+** beside the list is a menu: **Empty** (an `antenna` on top of the
 head with a placeholder box segment, `meshes/<character>_attachment<n>`) or
-one of ten **templates** (`attach_templates.py`): Hat, Crown, Horns, Bobble
-Antenna, Ponytail, Backpack, Cape, Tail, Wings, Shoulder Pads. A template
+one of the **templates** (`attach_templates.py`): Hat, Crown, Horns, Bobble
+Antenna, Ponytail, Backpack, Cape, Tail, Wings, Shoulder Pads, and for the
+hands a Sword (right), Shield (left) and Claws (both). A template
 sets the target, kind, placement and spring tuning, and copies in its own
 generated low-poly mesh per segment and a small color texture and mask
 (tinted with the player color or a highlight, or not), named

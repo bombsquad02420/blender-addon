@@ -293,5 +293,31 @@ TEMPLATES = [
 		'upper_arm', 'static', (0.0, 0.03, -0.08), (0.0, 0.0, 0.0),
 		[lambda: _mesh(lambda b: sphere(b, (0.0, 0.0, 0.0), 0.105, squash=(1.15, 0.8, 1.1)))],
 		color=(1.0, 1.0, 1.0), tint='highlight'),
+	# Hands: modelled on the right hand (the left mirrors it). The fist runs
+	# along +Z from the wrist; the knuckles face +Y, the outside is -X.
+	Template(
+		'sword', "Sword", 'MOD_LINEART', "A sword held in the right hand",
+		'hand', 'static', (0.0, 0.0, 0.04), (0.0, 0.0, 0.0),
+		[lambda: _mesh(
+			lambda b: box(b, (-0.01, 0.08, -0.035), (0.01, 0.48, 0.035)),
+			lambda b: frustum(b, (0.0, 0.48, 0.0), (0.0, 0.55, 0.0), 0.035, 0.0, segments=4),
+			lambda b: box(b, (-0.02, 0.06, -0.09), (0.02, 0.085, 0.09)),
+			lambda b: frustum(b, (0.0, -0.1, 0.0), (0.0, 0.07, 0.0), 0.018, 0.018, segments=8),
+			lambda b: sphere(b, (0.0, -0.11, 0.0), 0.03))],
+		color=(0.8, 0.82, 0.86), side='right'),
+	Template(
+		'shield', "Shield", 'FAKE_USER_ON', "A round shield on the left arm, tinted with the player color",
+		'hand', 'static', (0.0, 0.0, 0.0), (0.0, 0.0, 0.0),
+		[lambda: _mesh(
+			lambda b: frustum(b, (-0.06, 0.0, 0.0), (-0.09, 0.0, 0.0), 0.2, 0.19, segments=16),
+			lambda b: sphere(b, (-0.09, 0.0, 0.0), 0.05, squash=(0.6, 1.0, 1.0)))],
+		color=(1.0, 1.0, 1.0), tint='color', side='left'),
+	Template(
+		'claws', "Claws", 'MOD_DECIM', "Three claws out of each fist",
+		'hand', 'static', (0.0, 0.0, 0.0), (0.0, 0.0, 0.0),
+		[lambda: _mesh(*[
+			(lambda x: lambda b: frustum(b, (x, 0.03, 0.06), (x, 0.06, 0.28), 0.014, 0.0, segments=6))(x)
+			for x in (-0.035, 0.0, 0.035)])],
+		color=(0.85, 0.85, 0.9)),
 ]
 BY_KEY = {t.key: t for t in TEMPLATES}
