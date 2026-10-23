@@ -57,15 +57,39 @@ def tagged(collection, role=None, index=None):
 	]
 
 
+def follows_right(collection, obj):
+	"""Whether `obj` is a left copy that follows a right-side one.
+
+	Attachments on both sides are edited on the right; the left copies
+	follow by drivers. A left-only attachment (side 'left') has no right
+	side, so its left objects are the ones edited and exported.
+	"""
+	if obj.get(SIDE_KEY) != 'L':
+		return False
+	return any(
+		o.get(SIDE_KEY) == 'R' and o.get(SEGMENT_KEY) == obj.get(SEGMENT_KEY)
+		for o in tagged(collection, obj[ROLE_KEY], obj.get(INDEX_KEY)))
+
+
+def _editable(collection, role, index, segment=None):
+	return next(
+		(o for o in tagged(collection, role, index)
+			if (segment is None or o.get(SEGMENT_KEY) == segment) and not follows_right(collection, o)),
+		None)
+
+
 def anchor(collection, index):
-	"""The editable (right or centre) anchor of attachment `index`."""
-	return next((o for o in tagged(collection, ANCHOR, index) if o.get(SIDE_KEY) != 'L'), None)
+	"""The editable anchor of attachment `index` (right, centre, or a left-only one)."""
+	return _editable(collection, ANCHOR, index)
 
 
 def handle(collection, index, segment):
-	return next(
-		(o for o in tagged(collection, HANDLE, index) if o.get(SEGMENT_KEY) == segment and o.get(SIDE_KEY) != 'L'),
-		None)
+	return _editable(collection, HANDLE, index, segment)
+
+
+def edited_meshes(collection):
+	"""Attachment mesh objects that aren't left copies following the right."""
+	return [o for o in tagged(collection, MESH) if not follows_right(collection, o)]
 
 
 # ---- meshes and materials ----
@@ -448,7 +472,7 @@ def on_depsgraph_update(scene, depsgraph):
 		if not update.is_updated_transform or not isinstance(update.id, bpy.types.Object):
 			continue
 		obj = update.id.original
-		if obj.get(ROLE_KEY) in (ANCHOR, HANDLE) and obj.get(SIDE_KEY) != 'L':
+		if obj.get(ROLE_KEY) in (ANCHOR, HANDLE):
 			moved[obj.name] = obj
 	if not moved:
 		return
@@ -456,7 +480,7 @@ def on_depsgraph_update(scene, depsgraph):
 	try:
 		for obj in moved.values():
 			collection = character_of(obj)
-			if collection is not None:
+			if collection is not None and not follows_right(collection, obj):
 				sync_from_handles(collection, only=obj[INDEX_KEY])
 	finally:
 		_syncing = False

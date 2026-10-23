@@ -1142,6 +1142,18 @@ for attachment, item in zip(ds.attachments, attach_templates.TEMPLATES):
 		assert segment.mesh.startswith(f'meshes/dressy_{item.key}') and segment.mask_block.ballistica_texture.role == 'data'
 	assert attach_scene.tagged(dressy, attach_scene.MESH, list(ds.attachments).index(attachment)), item.key
 assert len([o for o in attach_scene.tagged(dressy, attach_scene.MESH) if o.ballistica_part.role == 'attachment' and 'wings' in o.data.name]) == 2  # both sides
+# A left-only attachment (the shield) is edited on its left objects.
+shield_index = [t.key for t in attach_templates.TEMPLATES].index('shield')
+ds.active_attachment_index = shield_index
+shield_anchor = attach_scene.anchor(dressy, shield_index)
+assert shield_anchor is not None and shield_anchor[attach_scene.SIDE_KEY] == 'L'
+assert bpy.ops.ballistica.attachment_select(segment=-1) == {'FINISHED'}
+shield_anchor.location.x += 0.05  # dragged in the viewport
+bpy.context.view_layer.update()
+assert abs(ds.attachments[shield_index].translate[0] - 0.05) < 1e-5, tuple(ds.attachments[shield_index].translate)
+shield_anchor.location.x -= 0.05
+bpy.context.view_layer.update()
+assert any(o.get(attach_scene.INDEX_KEY) == shield_index for o in attach_scene.edited_meshes(dressy))
 assert bpy.ops.ballistica.attachment_add(template='hat') == {'FINISHED'}  # a second hat gets its own files
 assert ds.attachments[-1].segments[0].mesh == 'meshes/dressy_hat_2'
 bpy.ops.ballistica.attachment_remove()
@@ -1152,6 +1164,7 @@ saved = _bchar.Character.load(os.path.join(ws, 'characters', 'dressy.bchar'))
 assert [a['target'] for a in saved.attachments] == [t.target for t in attach_templates.TEMPLATES]
 for item in attach_templates.TEMPLATES:
 	assert os.path.isfile(os.path.join(ws, 'textures', f'dressy_{item.key}.png')), item.key
+	assert any(f.startswith(f'dressy_{item.key}') for f in os.listdir(os.path.join(ws, 'meshes'))), item.key  # left-only ones too
 draw_panels()
 
 url = ui.issue_url()

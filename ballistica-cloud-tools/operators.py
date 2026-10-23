@@ -468,7 +468,7 @@ def check(collection):
 			problems.append(Problem(f"{obj.name}: mesh has no UVs"))
 	# What export writes (modifiers applied): body parts and attachment
 	# segments. Left copies share the right side's mesh.
-	attachment_meshes = [o for o in attach_scene.tagged(collection, attach_scene.MESH) if o.get(attach_scene.SIDE_KEY) != 'L']
+	attachment_meshes = attach_scene.edited_meshes(collection)
 	for obj in _exportable_parts(collection) + attachment_meshes:
 		problem = _uv_problem(obj)
 		if problem:
@@ -784,8 +784,8 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 				if segment.mesh_block is None or segment.mesh in done:
 					continue
 				obj = next((
-					o for o in attach_scene.tagged(collection, attach_scene.MESH, index)
-					if o.get(attach_scene.SEGMENT_KEY) == j and o.get(attach_scene.SIDE_KEY) != 'L'), None)
+					o for o in attach_scene.edited_meshes(collection)
+					if o.get(attach_scene.INDEX_KEY) == index and o.get(attach_scene.SEGMENT_KEY) == j), None)
 				if obj is not None:
 					_write_mesh(root, segment.mesh, obj, written)
 					done.add(segment.mesh)

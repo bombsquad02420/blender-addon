@@ -205,7 +205,7 @@ class BALLISTICA_OT_attachment_select(_AttachmentOperator, bpy.types.Operator):
 		index = collection.ballistica_character.active_attachment_index
 		obj = attach_scene.anchor(collection, index) if self.segment < 0 else attach_scene.handle(collection, index, self.segment)
 		if obj is None:
-			self.report({'ERROR'}, "This attachment has no handle; check its mesh.")
+			self.report({'ERROR'}, "This attachment has no handle; Repair rebuilds it.")
 			return {'CANCELLED'}
 		rig_group = obj.users_collection[0]
 		_show(context.view_layer.layer_collection, rig_group)

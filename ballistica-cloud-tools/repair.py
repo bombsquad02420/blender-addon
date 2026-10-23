@@ -169,7 +169,7 @@ def _object_issues(collection, obj, arm, material):
 	role = obj.ballistica_part.role
 	tag = obj.get(attach_scene.ROLE_KEY)
 	if tag == attach_scene.ANCHOR:
-		if obj.get(attach_scene.SIDE_KEY) != 'L' and any(abs(s - 1.0) > 1e-5 for s in obj.scale):
+		if not attach_scene.follows_right(collection, obj) and any(abs(s - 1.0) > 1e-5 for s in obj.scale):
 			issues.append(Issue(ANCHOR_SCALED, obj=obj))
 		return issues
 	if tag == attach_scene.HANDLE:
