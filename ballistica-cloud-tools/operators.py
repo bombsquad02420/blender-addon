@@ -392,11 +392,16 @@ class Problem(str):
 
 def report_problems(operator, problems):
 	"""Report each problem, then a summary last (the status bar shows only the
-	last report; clicking it lists them all)."""
+	last report; clicking it lists them all).
+
+	All at Blender's WARNING level, errors prefixed "Error:": an ERROR report
+	makes the operator raise when it's run from a script (exporting still
+	happened, but the script would stop).
+	"""
 	for problem in problems:
-		operator.report({problem.level}, problem)
+		operator.report({'WARNING'}, f"Error: {problem}" if problem.level == ERROR else problem)
 	if len(problems) > 1:
-		operator.report({ERROR if any(p.level == ERROR for p in problems) else WARNING}, summary(problems))
+		operator.report({'WARNING'}, summary(problems))
 
 
 def summary(problems):
