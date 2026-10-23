@@ -2,12 +2,13 @@ import json
 import os
 import unittest
 
+import _sample
 from _addon import load
 
 attachments = load('attachments')
 rig = load('rig')
 
-SAMPLE = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'ClassicCharacterAssets')
+SAMPLE = _sample.path() or ''
 ZOE_HAIR = {
 	'damping': 0.7, 'kind': 'antenna', 'radius': 0.375,
 	'segments': [{'mesh': 'meshes/hair_tuft1', 'transform': {'translate': [0.02, 0.16, 0.05]}}],
@@ -58,7 +59,7 @@ class RoundTripTest(unittest.TestCase):
 		record['segments'][0]['translate'] = (0.0, 0.0, 0.0)
 		self.assertEqual(attachments.to_json(record, raw)['segments'][0], {'mesh': 'm', 'transform': {'translate': [0.0, 0.0, 0.0]}})
 
-	@unittest.skipUnless(os.path.isdir(SAMPLE), 'ClassicCharacterAssets not cloned next to the addon repo')
+	@unittest.skipUnless(SAMPLE, _sample.MISSING)
 	def test_classic_attachments_round_trip(self):
 		count = 0
 		for name in sorted(os.listdir(os.path.join(SAMPLE, 'characters'))):

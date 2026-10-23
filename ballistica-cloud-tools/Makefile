@@ -51,9 +51,14 @@ template:
 test:
 	python3 -m unittest discover -s tests
 
-# End-to-end in Blender; needs ClassicCharacterAssets next to the repo.
+# End-to-end in Blender, on the sample workspace extracted fresh from its
+# zip into a temporary folder (deleted afterwards; see tests/_sample.py).
+SAMPLE_ZIP ?= $(or $(BCT_SAMPLE_ZIP),tests/fixtures/ClassicCharacterAssets.zip)
 blender-test:
-	$(BLENDER) -b --factory-startup --python tests/blender_smoke.py -- ../../ClassicCharacterAssets
+	@test -f "$(SAMPLE_ZIP)" || { echo "Sample workspace zip not found: $(SAMPLE_ZIP)" >&2; exit 1; }
+	@tmp=$$(mktemp -d) && unzip -q "$(SAMPLE_ZIP)" -d "$$tmp" && \
+		$(BLENDER) -b --factory-startup --python tests/blender_smoke.py -- "$$tmp"; \
+		status=$$?; rm -rf "$$tmp"; exit $$status
 
 clean:
 	rm -f $(NAME)-*.zip

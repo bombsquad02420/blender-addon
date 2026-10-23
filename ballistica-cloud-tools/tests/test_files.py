@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import unittest
 
+import _sample
 from _addon import load
 
 bchar = load('bchar')
@@ -12,7 +13,7 @@ jsonfile = load('jsonfile')
 transforms = load('transforms')
 workspace = load('workspace')
 
-SAMPLE = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'ClassicCharacterAssets')
+SAMPLE = _sample.path() or ''
 
 
 def _mul(a, b):
@@ -115,7 +116,7 @@ class CharacterTest(unittest.TestCase):
 		with self.assertRaises(ValueError):
 			bchar.Character({'path': {}})
 
-	@unittest.skipUnless(os.path.isdir(SAMPLE), 'ClassicCharacterAssets not cloned next to the addon repo')
+	@unittest.skipUnless(SAMPLE, _sample.MISSING)
 	def test_classic_characters_round_trip_byte_for_byte(self):
 		chars = os.path.join(SAMPLE, 'characters')
 		tmp = tempfile.mkdtemp()
@@ -131,7 +132,7 @@ class CharacterTest(unittest.TestCase):
 			with open(src) as a, open(dst) as b:
 				self.assertEqual(a.read(), b.read(), name)
 
-	@unittest.skipUnless(os.path.isdir(SAMPLE), 'ClassicCharacterAssets not cloned next to the addon repo')
+	@unittest.skipUnless(SAMPLE, _sample.MISSING)
 	def test_classic_references_resolve(self):
 		for name in os.listdir(os.path.join(SAMPLE, 'characters')):
 			c = bchar.Character.load(os.path.join(SAMPLE, 'characters', name))

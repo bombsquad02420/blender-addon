@@ -1,12 +1,13 @@
 import os
 import unittest
 
+import _sample
 from _addon import load
 
 bchar = load('bchar')
 clone = load('clone')
 
-SAMPLE = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'ClassicCharacterAssets')
+SAMPLE = _sample.path() or ''
 
 
 class PlanTest(unittest.TestCase):
@@ -45,7 +46,7 @@ class PlanTest(unittest.TestCase):
 			'textures/robo_color_mask', 'textures/robo_icon_color_mask', 'textures/robo_attachment1_mask'})
 		self.assertEqual(source.data['head_mesh'], 'meshes/zoe_head')  # source untouched
 
-	@unittest.skipUnless(os.path.isdir(SAMPLE), 'ClassicCharacterAssets not cloned next to the addon repo')
+	@unittest.skipUnless(SAMPLE, _sample.MISSING)
 	def test_classic_characters_copy_cleanly(self):
 		for name in sorted(os.listdir(os.path.join(SAMPLE, 'characters'))):
 			source = bchar.Character.load(os.path.join(SAMPLE, 'characters', name))
