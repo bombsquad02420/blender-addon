@@ -1125,6 +1125,35 @@ cubey2.ballistica_character.highlight_name = 'strings/characters/cubey_hat'
 assert not any('translation key' in p for p in operators.check(cubey2))
 cubey2.ballistica_character.highlight_name = ''
 
+# Attachment templates: each adds ready to use, with its own mesh and textures.
+from ballistica_cloud_tools import attach_templates  # noqa: E402
+
+assert bpy.ops.ballistica.new_character(directory=ws, name='dressy', start_from='BLANK') == {'FINISHED'}
+dressy = bpy.data.collections['dressy']
+scene.ballistica_active_character = dressy
+for item in attach_templates.TEMPLATES:
+	assert bpy.ops.ballistica.attachment_add(template=item.key) == {'FINISHED'}, item.key
+ds = dressy.ballistica_character
+assert len(ds.attachments) == len(attach_templates.TEMPLATES)
+for attachment, item in zip(ds.attachments, attach_templates.TEMPLATES):
+	assert (attachment.target, attachment.kind) == (item.target, item.kind), item.key
+	for segment in attachment.segments:
+		assert segment.mesh_block is not None and segment.texture_block is not None and segment.mask_block is not None, item.key
+		assert segment.mesh.startswith(f'meshes/dressy_{item.key}') and segment.mask_block.ballistica_texture.role == 'data'
+	assert attach_scene.tagged(dressy, attach_scene.MESH, list(ds.attachments).index(attachment)), item.key
+assert len([o for o in attach_scene.tagged(dressy, attach_scene.MESH) if o.ballistica_part.role == 'attachment' and 'wings' in o.data.name]) == 2  # both sides
+assert bpy.ops.ballistica.attachment_add(template='hat') == {'FINISHED'}  # a second hat gets its own files
+assert ds.attachments[-1].segments[0].mesh == 'meshes/dressy_hat_2'
+bpy.ops.ballistica.attachment_remove()
+problems = operators.check(dressy)
+assert [p for p in problems if p.level == ops.ERROR and 'pixie_torso' not in p] == [], problems  # (pixel's duplicate is an earlier test's)
+assert bpy.ops.ballistica.export_character() == {'FINISHED'}
+saved = _bchar.Character.load(os.path.join(ws, 'characters', 'dressy.bchar'))
+assert [a['target'] for a in saved.attachments] == [t.target for t in attach_templates.TEMPLATES]
+for item in attach_templates.TEMPLATES:
+	assert os.path.isfile(os.path.join(ws, 'textures', f'dressy_{item.key}.png')), item.key
+draw_panels()
+
 url = ui.issue_url()
 assert 'template=ballistica_cloud_tools.yml' in url and 'addon_version=' in url and 'blender_version=5.' in url, url
 

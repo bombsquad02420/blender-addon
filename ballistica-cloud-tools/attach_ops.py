@@ -57,19 +57,89 @@ class _AttachmentOperator:
 		return context.mode == 'OBJECT' and active_character(context) is not None
 
 
+def _template_items():
+	from . import attach_templates
+
+	items = [('EMPTY', "Empty", "A placeholder antenna on the head, to make your own", 'ADD', 0)]
+	for number, item in enumerate(attach_templates.TEMPLATES, start=1):
+		items.append((item.key, item.label, item.description, item.icon, number))
+	return items
+
+
+_TEMPLATE_ITEMS = _template_items()  # dynamic-free, but keep a reference anyway
+
+
+def _free_path(collection, kind, base):
+	"""`base`, or `base_2`… if a file or something in Blender already uses it."""
+	from . import scene, workspace
+
+	root = collection.ballistica_character.workspace_root
+	blocks = bpy.data.meshes if kind == 'mesh' else bpy.data.images
+	taken = {b.get(attach_scene.LOGICAL_KEY) for b in blocks}
+	path, n = base, 2
+	while path in taken or workspace.file_path(root, path, kind) or (kind == 'texture' and scene.find_image(workspace.new_file_path(root, path, kind))):
+		path, n = f'{base}_{n}', n + 1
+	return path
+
+
+def template_record(collection, item):
+	"""Copy a template's meshes and textures into the character; its record."""
+	from . import attach_templates, scene
+	from .operators import _new_image
+
+	root = collection.ballistica_character.workspace_root
+	name = collection.name.split('.')[0]
+	count = len(item.segments)
+	meshes = []
+	for index in range(count):
+		base = f'meshes/{name}_{item.key}' + (f'_{index}' if count > 1 else '')
+		logical = _free_path(collection, 'mesh', base)
+		mesh = scene.mesh_from_obj(attach_templates.obj_path(item.key, index, count), logical)
+		attach_scene.tag_mesh(mesh, root, logical)
+		meshes.append(logical)
+	textures = []
+	for is_mask in (False, True):
+		logical = _free_path(collection, 'texture', f'textures/{name}_{item.key}' + ('_mask' if is_mask else ''))
+		source = bpy.data.images.load(attach_templates.texture_path(item.key, is_mask))
+		try:
+			if is_mask:
+				source.colorspace_settings.name = 'Non-Color'
+			width, height = source.size
+			pixels = [0.0] * (width * height * 4)
+			source.pixels.foreach_get(pixels)
+		finally:
+			bpy.data.images.remove(source)
+		_new_image(root, logical, pixels, width, data=is_mask, height=height)
+		textures.append(logical)
+	return item.record(meshes, *textures)
+
+
 class BALLISTICA_OT_attachment_add(_AttachmentOperator, bpy.types.Operator):
-	"""Add an attachment: a placeholder antenna on the head"""
+	"""Add an attachment: a ready-made one (hat, tail, wings…) or an empty placeholder to make your own"""
 	bl_idname = 'ballistica.attachment_add'
 	bl_label = "Add Attachment"
 
+	template: bpy.props.EnumProperty(
+		name="Template", items=_TEMPLATE_ITEMS, default='EMPTY', options={'SKIP_SAVE'},
+		description="What to add")
+
+	@classmethod
+	def description(cls, context, properties):
+		return next((i[2] for i in _TEMPLATE_ITEMS if i[0] == properties.template), cls.__doc__)
+
 	def execute(self, context):
+		from . import attach_templates
+
 		collection = active_character(context)
 		settings = collection.ballistica_character
-		logical = _new_mesh_path(collection)
-		placeholder_mesh(collection, logical)
-		record = attachments.new_attachment('head', 'antenna', logical)
-		record['translate'] = (0.0, 0.25, 0.0)  # on top of the head
-		record['rotate'] = (0.0, 90.0, 0.0)  # pointing up
+		if self.template != 'EMPTY':
+			record = template_record(collection, attach_templates.BY_KEY[self.template])
+		else:
+			logical = _new_mesh_path(collection)
+			placeholder_mesh(collection, logical)
+			record = attachments.new_attachment('head', 'antenna', logical)
+			record['translate'] = (0.0, 0.25, 0.0)  # on top of the head
+			record['rotate'] = (0.0, 90.0, 0.0)  # pointing up
 
 		def add(settings):
 			props.set_attachment(settings.attachments.add(), record)

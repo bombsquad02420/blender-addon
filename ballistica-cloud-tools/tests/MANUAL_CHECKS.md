@@ -23,6 +23,11 @@ a fresh install (`make install`) and a restarted Blender.
   objects; clicking a part or attachment mesh in the viewport selects its row
   and makes its character active.
 
+- [ ] **Attachment templates.** Attachments → + → each template: it
+  appears in a sensible spot on the body, already selected; springy ones
+  (antenna, ponytail, cape, tail) look right once uploaded and moving in the
+  game.
+
 ## Painting
 
 - [ ] **Paint / Done.** Textures → Color → Paint: Texture Paint on the

@@ -578,7 +578,7 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 		row.template_list(
 			'BALLISTICA_UL_attachments', '', settings, 'attachments', settings, 'active_attachment_index', rows=3)
 		col = row.column(align=True)
-		col.operator('ballistica.attachment_add', icon='ADD', text="")
+		col.operator_menu_enum('ballistica.attachment_add', 'template', icon='ADD', text="")
 		col.operator('ballistica.attachment_remove', icon='REMOVE', text="")
 		col.separator()
 		col.operator('ballistica.attachment_move', icon='TRIA_UP', text="").direction = 'UP'

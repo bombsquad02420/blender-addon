@@ -502,8 +502,16 @@ Object Mode); clicking an attachment mesh in the viewport selects its row.
 Add, remove, reorder and kind/target/side changes rebuild the attachment
 objects and then select the active attachment's new meshes.
 
-New attachments are an `antenna` on top of the head with a placeholder box
-segment (`meshes/<character>_attachment<n>`, written on export).
+The **+** beside the list is a menu: **Empty** (an `antenna` on top of the
+head with a placeholder box segment, `meshes/<character>_attachment<n>`) or
+one of ten **templates** (`attach_templates.py`): Hat, Crown, Horns, Bobble
+Antenna, Ponytail, Backpack, Cape, Tail, Wings, Shoulder Pads. A template
+sets the target, kind, placement and spring tuning, and copies in its own
+generated low-poly mesh per segment and a small color texture and mask
+(tinted with the player color or a highlight, or not), named
+`meshes/<character>_<template>` and `textures/<character>_<template>`. The
+files ship in `assets/attachments/` (written by `make template`), so they
+can be replaced by hand-made ones.
 
 ### Eye handle
 

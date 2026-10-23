@@ -29,7 +29,7 @@ Principles:
    meshes and images, Make unique, duplicate-path check, per-character eye
    toggle.
 4. Paint brushes for the color mask (built).
-5. *(later)* Attachment templates.
+5. Attachment templates (built).
 
 See **Still planned** at the end for what's left.
 
@@ -156,10 +156,6 @@ mask stay in Identity.
 
 ### Still planned
 
-- **Attachment templates** (step 5): a small library (hat, crown,
-  backpack, tail, wings, cape, horns), each with a starter mesh, a texture
-  cell and sensible anchor, spring and visibility settings. Pick one, it
-  appears, drag one handle.
 - **Repair re-locks and re-links.** Fix Whole Character should quietly
   re-apply the soft locks (anchor scale, eye handle rotation axes, bone
   locks) without listing them as problems, since unlocking may have been
