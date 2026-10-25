@@ -323,6 +323,9 @@ def _attachment_changed(self, context):
 	"""Target, side or kind changed: keep the attachment valid, then rebuild it."""
 	if self.get('_fixing'):
 		return
+	mirror = ATTACHMENT_REBUILD_HOOKS.get('mirror')
+	if mirror is not None:
+		mirror(self.id_data)  # paths up to date with renamed meshes and images
 	self['_fixing'] = True
 	try:
 		record = attachment_record(self)
@@ -648,9 +651,10 @@ def _set_segments(attachment, segments):
 			for key in attach_rules.SEGMENT_REFS:
 				if getattr(item, key) != segment[key]:
 					setattr(item, key, segment[key])
-				block = getattr(item, SEGMENT_BLOCKS[key])
-				if block is not None and _block_path(block) != segment[key]:
-					setattr(item, SEGMENT_BLOCKS[key], None)  # found again from the path on rebuild
+					# A different path: its picker is found again from it on rebuild.
+					# (Renaming a picked mesh or image isn't a change: the paths are
+					# refreshed from the pickers before records are made.)
+					setattr(item, SEGMENT_BLOCKS[key], None)
 			for key in SEGMENT_VALUES:
 				setattr(item, key, segment[key])
 		finally:

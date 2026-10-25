@@ -1195,6 +1195,18 @@ assert image_paint.canvas == hat_segment.mask_block and image_paint.brush.name =
 assert bpy.ops.ballistica.paint_image(image=hat_segment.texture_block.name) == {'FINISHED'} and image_paint.canvas == hat_segment.texture_block
 bpy.ops.object.mode_set(mode='OBJECT')
 
+# Renaming a segment's mesh or image (outliner, image editor) keeps it picked
+# through rebuilds and kind changes; its path follows the name.
+hat_segment.mesh_block.name = 'renamed_hat'
+hat_segment.mask_block.name = 'renamed_hat_mask'
+attach_scene.rebuild(dressy)
+assert hat_segment.mesh_block.name == 'renamed_hat' and hat_segment.mesh == 'meshes/renamed_hat'
+assert hat_segment.mask_block.name == 'renamed_hat_mask' and hat_segment.mask_texture == 'textures/renamed_hat_mask'
+hat_segment.mesh_block.name = 'renamed_hat_2'
+ds.attachments[hat_index].target = 'torso'  # a target change rewrites the record
+assert ds.attachments[hat_index].segments[0].mesh_block.name == 'renamed_hat_2'
+ds.attachments[hat_index].target = 'head'
+
 # Icons are image pickers; any picker can take a file from the workspace.
 assert ds.icon_block is not None and ds.icon_block.ballistica_texture.path == 'textures/dressy_icon'
 assert ds.icon_mask_block.ballistica_texture.role == 'data'

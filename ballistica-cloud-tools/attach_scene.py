@@ -363,9 +363,14 @@ def clear(collection):
 
 
 def sync_from_handles(collection, only=None):
-	"""Write the handles' placement into the attachment settings."""
+	"""Write the handles' placement into the attachment settings.
+
+	The segments' paths are refreshed from their pickers first, so a mesh or
+	image renamed since keeps its picker when the settings are rewritten.
+	"""
 	from . import props
 
+	mirror_paths(collection)
 	settings = collection.ballistica_character
 	for index, attachment in enumerate(settings.attachments):
 		if only is not None and index != only:
@@ -423,6 +428,7 @@ from . import props as _props  # noqa: E402  (props must not import scene module
 
 _props.ATTACHMENT_REBUILD_HOOKS['rebuild'] = rebuild_for
 _props.ATTACHMENT_REBUILD_HOOKS['segment_block'] = on_segment_block
+_props.ATTACHMENT_REBUILD_HOOKS['mirror'] = lambda collection: mirror_paths(collection)
 
 
 # ---- live sync between panel numbers and handles ----
