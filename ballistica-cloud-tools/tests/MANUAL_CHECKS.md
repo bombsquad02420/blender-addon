@@ -33,14 +33,19 @@ a fresh install (`make install`) and a restarted Blender.
 
 ## Painting
 
-- [ ] **Paint / Done.** Textures → Color → Paint: Texture Paint on the
-  selected part, painting the color texture. Done returns to Object Mode.
-- [ ] **Mask brushes.** Color Mask → Paint: the brush grid appears. Paint
+- [ ] **Paint / Done.** Colors → the brush button beside Color: Texture
+  Paint on the selected part, painting the color texture; the Textures list
+  selects it and the Paint panel shows Painting. Done returns to Object Mode.
+- [ ] **Textures panel.** Lists only the character's exported images (body,
+  icons, attachment textures), each with what uses it; selecting one shows
+  its build settings.
+- [ ] **Mask brushes.** The brush button beside Color Mask: the Paint panel's
+  brush grid appears. Paint
   over each other with Add (tints combine: red + green looks yellow in the
   mask), Erase (only that tint goes), Only (hard edge, other tints gone) and
   All Tints → Erase (back to black).
-- [ ] **Attachment painting.** A template's segment → Paint Mask: the
-  attachment is painted, with the brush grid; Paint Texture switches image.
+- [ ] **Attachment painting.** A template's segment → the brush button on
+  its mask: the attachment is painted, with the brush grid.
 - [ ] **Shelf brushes.** Ballistica Cloud Tools library → Mask Brushes:
   thumbnails show. With Shared Brush Color off, each brush paints its own
   tint. With it on, the paint box warns.

@@ -399,7 +399,7 @@ shows them in the web UI form's order, with the same defaults:
 | Section | Fields |
 | --- | --- |
 | Identity | `name` (translation key), the icon and icon mask (image pickers: `icon_texture`, `icon_mask_texture`) |
-| Textures | **Colors** first (`color`, `highlight`, `highlight2` as swatches, `reflection_scale`, a closed *Profile Editor* with `highlight_name`, `highlight_editing`, `highlight2_name`, `highlight2_editing`, and the Standard Colors fix when needed), then the Textures list (below): `color_texture`, `color_mask_texture` |
+| Colors | `color`, `highlight`, `highlight2` as swatches, `reflection_scale`, the Color and Color Mask pickers (`color_texture`, `color_mask_texture`), the profile editor's `highlight_name`, `highlight_editing`, `highlight2_name`, `highlight2_editing`, and the Standard Colors fix when needed |
 | Parts | the Parts list (below): `head_mesh` … `toes_mesh`, the `left_*_mesh` overrides, `flippers` |
 | Sounds | the Sounds list: six fixed rows (jump, attack, impact, death, pickup, fall), each showing how many sounds it has and how many are missing; the selected one as comma-separated audio paths, with a picker to add one from the workspace |
 | Physique | `torso_radius`, `shoulder_offset`, `thigh_radius`, `ankle_radius`, `step_separation`, `idle_arm_stiffness`, `arm_swing`, `idle_sway` |
@@ -438,27 +438,35 @@ form (they're JSON-only there).
   Clicking a row selects the part; clicking a part picks its row. The mesh
   fields are written from the rows on export; a row without a mesh (a file
   that wasn't found) keeps its field.
-- **Textures list.** Two rows, Color and Color Mask, each holding a
-  Blender image (picked, or **+** for a blank one: white, or a black mask
+- **Body textures.** The Colors section's Color and Color Mask pickers each
+  hold a Blender image (or **+** for a blank one: white, or a black mask
   that tints nothing). Picking one shows it on the body material (made if
   the character has none); clearing one unlinks it, so the body shows plain
-  white rather than a broken texture. Below: the image's
-  **Build Settings** (role, quality, wrapping, alpha), read from and written
-  to `workspace.json`. A mask always gets a Data role on export. An image
-  picked from elsewhere is saved under its name in `textures/`.
-- **Painting.** **Paint** (under the selected texture) switches to Texture
-  Paint on the selected part (or the torso), painting that image whatever
-  the material shows; **Done** goes back to Object Mode. The mask has ten
-  brushes, shipped in the addon's asset file (always in the brush shelf,
-  under the "Ballistica Cloud Tools" library's Mask Brushes catalog, with
-  thumbnails), shown as one row per tint (Player Color = red, Highlight =
+  white rather than a broken texture. A mask always gets a Data role on
+  export. An image picked from elsewhere is saved under its name in
+  `textures/`.
+- **Textures panel** (top level, after Characters). Lists every image the
+  character's `.bchar` points at, and nothing else (no baking sources or
+  render results): body color and mask, icon and icon mask, and attachment
+  segments' own textures and masks, each with what uses it. Below: the
+  selected image's **build settings** (role, quality, wrapping, alpha), read
+  from and written to `workspace.json`.
+- **Paint panel** (top level, after Textures). Paints the image selected in
+  Textures: **Paint** switches to Texture Paint on what shows it (the
+  attachment that uses it, or for body textures the part selected in Parts,
+  else the torso), painting that image whatever the material shows; **Done**
+  goes back. Icons are flat: paint them in an Image Editor. While painting a
+  mask, ten brushes ship in the addon's asset file (always in the brush
+  shelf under the "Ballistica Cloud Tools" library's Mask Brushes catalog,
+  with thumbnails), shown one row per tint (Player Color = red, Highlight =
   green, Highlight 2 = blue): **Add** adds that channel, keeping other tints;
   **Erase** subtracts it, keeping the others; **Only** paints that channel
-  alone with a hard edge. A last *All Tints* row has just **Erase**,
-  subtracting all three. The brush grid shows only while painting the mask. The panel's
-  brush buttons also set Blender's shared brush color; the paint box has a
-  **Shared Brush Color** toggle and warns while it's on, since a brush picked
-  from the shelf would paint the shared color instead of its tint.
+  alone with a hard edge; *All Tints* **Erase** subtracts all three. The
+  panel's brush buttons also set Blender's shared brush color, and there's a
+  **Shared Brush Color** toggle with a warning while it's on (a brush picked
+  from the shelf would paint the shared color instead of its tint).
+- **Brush buttons** beside every image picker (Colors, attachment segments)
+  select that image in Textures and start painting it.
 - **Shared meshes and images.** When another character uses the selected
   part's mesh or texture, the panel says which, with **Make Unique**: a copy
   (unsaved paint included) with its own name. Check reports two meshes or
@@ -490,9 +498,7 @@ selected attachment:
 - **Segments** (open): the segment list, and the selected segment's mesh
   (picker, eyedropper, **+** for a small box), texture and mask (pickers,
   **+** for a blank image; both empty: the body's textures), each with
-  *also used by* / Make Unique. Below them, **Paint Texture** / **Paint Mask** paint
-  the segment's images (or the body's, if it has none) on the attachment
-  itself, with the mask brushes while painting a mask. The `.bchar` paths are written from
+  *also used by* / Make Unique, and a brush button on the texture and mask. The `.bchar` paths are written from
   the pickers; a path whose file wasn't found is kept and flagged. **Art Offset** (closed) holds the segment's own
   `transform`: where its mesh sits on its physics segment. For a
   single-segment static attachment it moves the mesh just like Placement;

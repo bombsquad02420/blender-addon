@@ -450,6 +450,20 @@ def _icon_changed(field):
 	return update
 
 
+def _image_index_get(settings):
+	"""Row of the selected texture in bpy.data.images (the list's index)."""
+	if settings.active_image is not None:
+		for i, image in enumerate(bpy.data.images):
+			if image == settings.active_image:
+				return i
+	return -1
+
+
+def _image_index_set(settings, value):
+	if 0 <= value < len(bpy.data.images):
+		settings.active_image = bpy.data.images[value]
+
+
 def _texture_row_changed(self, context):
 	hook = ATTACHMENT_REBUILD_HOOKS.get('texture')
 	if hook is not None:
@@ -774,6 +788,11 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	# Textures list (the color texture fields are written from it on export)
 	textures: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_texture_row)
 	active_texture_index: bpy.props.IntProperty(name="Active Texture", options=_options())
+	# The Textures panel's selection (and what the Paint panel paints).
+	active_image: bpy.props.PointerProperty(type=bpy.types.Image, name="Selected Texture", options=_options())
+	active_image_index: bpy.props.IntProperty(
+		name="Selected Texture", get=lambda self: _image_index_get(self), set=lambda self, v: _image_index_set(self, v),
+		options=_options())
 
 	# Advanced (not in the web UI form)
 	flippers: bpy.props.BoolProperty(

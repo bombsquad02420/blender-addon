@@ -225,6 +225,55 @@ def on_icon_changed(settings, field):
 		mirror_icons(collection)
 
 
+# ---- every image the character exports (the Textures panel) ----
+
+def exported_images(collection):
+	"""[(image, label)] the character's .bchar points at, in panel order.
+
+	Body textures, icons, then each attachment segment's own images. An
+	image used in several places is listed once, its uses joined.
+	"""
+	settings = collection.ballistica_character
+	uses = {}
+	for item in settings.textures:
+		if item.image is not None:
+			uses.setdefault(item.image, []).append(f"Body {LABELS[item.field]}")
+	for field, attr in ICON_BLOCKS.items():
+		image = getattr(settings, attr)
+		if image is not None:
+			uses.setdefault(image, []).append("Icon Mask" if field in MASKS else "Icon")
+	for index, attachment in enumerate(settings.attachments):
+		name = f"{attachment.target.replace('_', ' ').title()} attachment {index + 1}"
+		for segment in attachment.segments:
+			for image, what in ((segment.texture_block, "Texture"), (segment.mask_block, "Mask")):
+				if image is not None:
+					uses.setdefault(image, []).append(f"{name} {what}")
+	return [(image, ", ".join(dict.fromkeys(labels))) for image, labels in uses.items()]
+
+
+def is_mask_image(collection, image):
+	"""Whether an image is used as a color mask (its channels are tints)."""
+	settings = collection.ballistica_character
+	masks = [r.image for r in settings.textures if r.field == 'color_mask_texture'] + [settings.icon_mask_block]
+	masks += [s.mask_block for a in settings.attachments for s in a.segments]
+	return image in masks
+
+
+def paint_target(collection, image):
+	"""What to paint `image` on: an attachment's mesh object, 'BODY', or None (icons)."""
+	from . import attach_scene
+
+	settings = collection.ballistica_character
+	for index, attachment in enumerate(settings.attachments):
+		for j, segment in enumerate(attachment.segments):
+			if image in (segment.texture_block, segment.mask_block):
+				return next((o for o in attach_scene.edited_meshes(collection)
+					if o.get(attach_scene.INDEX_KEY) == index and o.get(attach_scene.SEGMENT_KEY) == j), None)
+	if any(r.image == image for r in settings.textures):
+		return 'BODY'
+	return None
+
+
 from . import props as _props  # noqa: E402
 
 _props.ATTACHMENT_REBUILD_HOOKS['texture'] = on_row_changed

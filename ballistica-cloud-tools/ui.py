@@ -74,7 +74,10 @@ class BALLISTICA_UL_characters(bpy.types.UIList):
 
 
 class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
-	bl_label = "Ballistica Character"
+	bl_label = "Characters"
+
+	def draw_header(self, context):
+		self.layout.label(icon='ARMATURE_DATA')
 
 	def draw(self, context):
 		layout = self.layout
@@ -272,38 +275,12 @@ def _standard_colors_note(layout, context):
 	box.operator('ballistica.standard_colors', icon='COLOR')
 
 
-def _colors(layout, context, settings):
-	"""The character's tints and reflection, above the textures they color."""
-	header, body = layout.panel('BALLISTICA_texture_colors', default_closed=False)
-	header.label(text="Colors", icon='COLOR')
-	if body is None:
-		return
-	row = body.row(align=True)
-	for label, field in (("Player Color", 'color'), ("Highlight", 'highlight'), ("Highlight 2", 'highlight2')):
-		col = row.column(align=True)
-		col.label(text=label)
-		col.prop(settings, field, text="")
-	body.prop(settings, 'reflection_scale', slider=True)
-	header, profile = body.panel('BALLISTICA_texture_profile', default_closed=True)
-	header.label(text="Profile Editor", icon='GREASEPENCIL')
-	if profile is not None:
-		_split(profile)
-		name = active_character(context).name.split('.')[0]
-		for field in ('highlight_name', 'highlight_editing', 'highlight2_name', 'highlight2_editing'):
-			if field.endswith('_name'):
-				# A translation key, not the words themselves: show the shape.
-				profile.prop(settings, field, placeholder=f"strings/characters/{name}_{field[:-5]}")
-			else:
-				profile.prop(settings, field)
-	_standard_colors_note(body, context)
-
-
 def _pick_button(layout, target):
 	"""The folder button: pick a mesh or image from the workspace folder."""
 	layout.operator('ballistica.pick_from_workspace', text="", icon='FILE_FOLDER').target = target
 
 
-def _shared_note(layout, block, collection, kind):
+def _shared_note(layout, block, collection, kind, field=''):
 	"""'Used by N characters' with Make Unique, when another character uses it too."""
 	from . import sharing
 
@@ -313,26 +290,8 @@ def _shared_note(layout, block, collection, kind):
 	row = layout.row(align=True)
 	others = ', '.join(c.name for c in users if c != collection)
 	row.label(text=f"Also used by {others}", icon='LINKED')
-	row.operator('ballistica.make_unique', text="Make Unique").kind = kind
-
-
-def _paint_box(layout, context, item, image):
-	"""Paint the selected texture; for the mask, its channel brushes."""
-	from . import paint, texture_scene
-
-	box = layout.box()
-	painting = context.mode == 'PAINT_TEXTURE'
-	canvas = context.scene.tool_settings.image_paint.canvas
-	row = box.row(align=True)
-	label = "Painting" if painting and canvas == image else "Paint"
-	row.operator('ballistica.paint_texture', text=label, icon='BRUSH_DATA', depress=painting and canvas == image)
-	if painting:
-		row.operator('object.mode_set', text="Done", icon='OBJECT_DATA').mode = 'OBJECT'
-	if painting and canvas == image:
-		box.label(text="Tip: paints on the selected part; pick others in Parts.", icon='INFO')
-	if not texture_scene.is_mask(item) or not (painting and canvas == image):
-		return  # the mask brushes only while painting the mask
-	_brush_grid(box, context)
+	op = row.operator('ballistica.make_unique', text="Make Unique")
+	op.kind, op.field = kind, field
 
 
 def _brush_grid(box, context):
@@ -369,82 +328,51 @@ def _brush_grid(box, context):
 	row.label(text="")
 
 
-def _segment_paint_box(layout, context, collection, segment):
-	"""Paint a segment's texture or mask on the attachment; the brushes for the mask."""
-	from .operators import segment_images
-
-	texture, mask = segment_images(collection, segment)
-	if texture is None and mask is None:
-		return
-	box = layout.box()
-	painting = context.mode == 'PAINT_TEXTURE'
-	canvas = context.scene.tool_settings.image_paint.canvas
-	row = box.row(align=True)
-	for which, image, label in (('TEXTURE', texture, "Texture"), ('MASK', mask, "Mask")):
-		on = painting and image is not None and canvas == image
-		sub = row.row(align=True)
-		sub.enabled = image is not None
-		sub.operator('ballistica.paint_segment', text=f"Painting {label}" if on else f"Paint {label}", icon='BRUSH_DATA', depress=on).which = which
-	if painting:
-		row.operator('object.mode_set', text="Done", icon='OBJECT_DATA').mode = 'OBJECT'
-	if segment.texture_block is None and segment.mask_block is None:
-		box.label(text="No texture of its own: paints the body's.", icon='INFO')
-	if painting and mask is not None and canvas == mask:
-		_brush_grid(box, context)
-
-
-class BALLISTICA_UL_textures(bpy.types.UIList):
-	"""The body's two textures: color and color mask."""
-
-	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
-		from . import texture_scene
-
-		row = layout.row()
-		row.label(text=texture_scene.LABELS[item.field], icon='IMAGE_DATA' if item.image else 'ERROR')
-		sub = row.row()
-		sub.active = False
-		sub.label(text=item.image.name if item.image else "(none)")
-
-
 class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
-	bl_label = "Textures"
-	header_icon = 'TEXTURE'
+	"""The character's colors, its two body textures and the profile editor's labels."""
+	bl_label = "Colors"
+	header_icon = 'COLOR'
 
 	def draw(self, context):
-		from . import texture_scene, workspace
-
 		collection = active_character(context)
 		settings = collection.ballistica_character
 		layout = self.layout
-		_colors(layout, context, settings)
+		row = layout.row(align=True)
+		for label, field in (("Player Color", 'color'), ("Highlight", 'highlight'), ("Highlight 2", 'highlight2')):
+			col = row.column(align=True)
+			col.label(text=label)
+			col.prop(settings, field, text="")
+		layout.prop(settings, 'reflection_scale', slider=True)
 		layout.separator()
-		layout.template_list(
-			'BALLISTICA_UL_textures', '', settings, 'textures', settings, 'active_texture_index', rows=2, maxrows=2)
-		index = settings.active_texture_index
-		if not 0 <= index < len(settings.textures):
-			return
-		item = settings.textures[index]
 		col = layout.column()
 		_split(col)
-		line = col.row(align=True)
-		line.prop(item, 'image')
-		_pick_button(line, 'TEXTURE')
-		line.operator('ballistica.new_texture_image', text="", icon='ADD')
-		image = item.image
-		if image is None:
-			return
-		_paint_box(layout, context, item, image)
-		_shared_note(col, image, collection, 'TEXTURE')
-		texture = image.ballistica_texture
-		header, body = layout.panel('BALLISTICA_texture_settings', default_closed=True)
-		header.label(text="Build Settings")
-		if body is not None:
-			_split(body)
-			body.prop(texture, 'role')
-			if texture_scene.is_mask(item) and texture.role not in workspace.DATA_ROLES:
-				body.label(text="Masks need a Data role (export sets it).", icon='ERROR')
-			for name in ('quality', 'wrap_h', 'wrap_v', 'alpha'):
-				body.prop(texture, name)
+		for item in settings.textures:
+			line = col.row(align=True)
+			line.prop(item, 'image', text="Color" if item.field == 'color_texture' else "Color Mask")
+			op = line.operator('ballistica.pick_from_workspace', text="", icon='FILE_FOLDER')
+			op.target, op.field = 'TEXTURE', item.field
+			line.operator('ballistica.new_texture_image', text="", icon='ADD').field = item.field
+			_paint_button(line, item.image)
+			if item.image is not None:
+				_shared_note(col, item.image, collection, 'TEXTURE', item.field)
+		layout.separator()
+		col = layout.column()
+		_split(col)
+		name = collection.name.split('.')[0]
+		for field in ('highlight_name', 'highlight_editing', 'highlight2_name', 'highlight2_editing'):
+			if field.endswith('_name'):
+				# A translation key, not the words themselves: show the shape.
+				col.prop(settings, field, placeholder=f"strings/characters/{name}_{field[:-5]}")
+			else:
+				col.prop(settings, field)
+		_standard_colors_note(layout, context)
+
+
+def _paint_button(layout, image):
+	"""The brush button: paint this image (and select it in Textures)."""
+	sub = layout.row(align=True)
+	sub.enabled = image is not None
+	sub.operator('ballistica.paint_image', text="", icon='BRUSH_DATA').image = image.name if image else ""
 
 
 class BALLISTICA_UL_parts(bpy.types.UIList):
@@ -685,12 +613,13 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 				line.operator('ballistica.pick_part_mesh', text="", icon='EYEDROPPER').target = 'SEGMENT'
 			_pick_button(line, kind)
 			line.operator('ballistica.new_segment_block', text="", icon='ADD').key = key
+			if key != 'mesh':
+				_paint_button(line, getattr(segment, attr))
 			block = getattr(segment, attr)
 			if block is not None:
 				_shared_note(col, block, collection, kind)
 			elif getattr(segment, key):
 				col.label(text=f"{getattr(segment, key)} isn't in the workspace", icon='ERROR')
-		_segment_paint_box(col, context, collection, segment)
 		header, art = body.panel('BALLISTICA_attach_art', default_closed=True)
 		header.label(text="Art Offset")
 		if art is not None:
@@ -754,10 +683,114 @@ def _addon_version():
 	return found.group(1) if found else "unknown"
 
 
+class BALLISTICA_UL_images(bpy.types.UIList):
+	"""Every image the active character exports, from bpy.data.images."""
+
+	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
+		from . import texture_scene
+
+		collection = active_character(context)
+		labels = dict(texture_scene.exported_images(collection)) if collection else {}
+		mask = collection is not None and texture_scene.is_mask_image(collection, item)
+		row = layout.row()
+		row.label(text=item.name, icon='NODE_TEXTURE' if mask else 'IMAGE_DATA')
+		sub = row.row()
+		sub.active = False
+		sub.label(text=labels.get(item, ""))
+
+	def filter_items(self, context, data, property):
+		from . import texture_scene
+
+		images = getattr(data, property)
+		collection = active_character(context)
+		exported = [image for image, _ in texture_scene.exported_images(collection)] if collection else []
+		position = {image: i for i, image in enumerate(exported)}
+		flags = [self.bitflag_filter_item if image in position else 0 for image in images]
+		if self.filter_name:
+			needle = self.filter_name.lower()
+			flags = [f if needle in image.name.lower() else 0 for f, image in zip(flags, images)]
+		# Exported images in panel order (body, icons, attachments), the rest after.
+		rest = iter(range(len(exported), len(images)))
+		order = [position[image] if image in position else next(rest) for image in images]
+		return flags, order
+
+
+class VIEW3D_PT_ballistica_images(_Panel, bpy.types.Panel):
+	"""Every texture the character exports, with its build settings."""
+	bl_label = "Textures"
+
+	@classmethod
+	def poll(cls, context):
+		return _current_character(context) is not None
+
+	def draw_header(self, context):
+		self.layout.label(icon='TEXTURE')
+
+	def draw(self, context):
+		from . import texture_scene, workspace
+
+		collection = active_character(context)
+		settings = collection.ballistica_character
+		layout = self.layout
+		layout.template_list(
+			'BALLISTICA_UL_images', '', bpy.data, 'images', settings, 'active_image_index', rows=3, maxrows=10)
+		image = settings.active_image
+		if image is None or image not in dict(texture_scene.exported_images(collection)):
+			layout.label(text="Select a texture to see its build settings.", icon='INFO')
+			return
+		col = layout.column()
+		_split(col)
+		texture = image.ballistica_texture
+		col.prop(texture, 'role')
+		if texture_scene.is_mask_image(collection, image) and texture.role not in workspace.DATA_ROLES:
+			col.label(text="Masks need a Data role (export sets it).", icon='ERROR')
+		for name in ('quality', 'wrap_h', 'wrap_v', 'alpha'):
+			col.prop(texture, name)
+
+
+class VIEW3D_PT_ballistica_paint(_Panel, bpy.types.Panel):
+	"""Paint the texture selected in Textures."""
+	bl_label = "Paint"
+
+	@classmethod
+	def poll(cls, context):
+		return _current_character(context) is not None
+
+	def draw_header(self, context):
+		self.layout.label(icon='BRUSH_DATA')
+
+	def draw(self, context):
+		from . import texture_scene
+
+		collection = active_character(context)
+		settings = collection.ballistica_character
+		layout = self.layout
+		image = settings.active_image
+		labels = dict(texture_scene.exported_images(collection))
+		if image is None or image not in labels:
+			layout.label(text="Select a texture in Textures, or press a brush button.", icon='INFO')
+			return
+		layout.label(text=f"{image.name} · {labels[image]}", icon='IMAGE_DATA')
+		target = texture_scene.paint_target(collection, image)
+		if target is None:
+			layout.label(text="Icons are flat: paint them in an Image Editor.", icon='INFO')
+			return
+		painting = context.mode == 'PAINT_TEXTURE'
+		canvas = context.scene.tool_settings.image_paint.canvas
+		on = painting and canvas == image
+		row = layout.row(align=True)
+		row.operator('ballistica.paint_image', text="Painting" if on else "Paint", icon='BRUSH_DATA', depress=on).image = image.name
+		if painting:
+			row.operator('object.mode_set', text="Done", icon='OBJECT_DATA').mode = 'OBJECT'
+		if on and target == 'BODY':
+			layout.label(text="Tip: paints on the selected part; pick others in Parts.", icon='INFO')
+		if on and texture_scene.is_mask_image(collection, image):
+			_brush_grid(layout.box(), context)
+
+
 class VIEW3D_PT_ballistica_help(_Panel, bpy.types.Panel):
 	"""Where to ask for help or report a problem (always last)."""
 	bl_label = "Help"
-	bl_parent_id = 'VIEW3D_PT_ballistica_character'
 	bl_options = {'DEFAULT_CLOSED'}
 	header_icon = 'HELP'
 
@@ -777,7 +810,7 @@ class VIEW3D_PT_ballistica_help(_Panel, bpy.types.Panel):
 classes = (
 	BALLISTICA_UL_characters,
 	BALLISTICA_UL_sounds,
-	BALLISTICA_UL_textures,
+	BALLISTICA_UL_images,
 	BALLISTICA_UL_parts,
 	BALLISTICA_UL_attachments,
 	BALLISTICA_UL_segments,
@@ -791,6 +824,9 @@ classes = (
 	VIEW3D_PT_ballistica_eyes,
 	VIEW3D_PT_ballistica_attachments,
 	VIEW3D_PT_ballistica_sounds,
+	# Top-level panels after Characters, in this order.
+	VIEW3D_PT_ballistica_images,
+	VIEW3D_PT_ballistica_paint,
 	VIEW3D_PT_ballistica_help,  # last: at the very bottom
 )
 

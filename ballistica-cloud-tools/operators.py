@@ -1009,18 +1009,18 @@ class BALLISTICA_OT_new_texture_image(bpy.types.Operator):
 	bl_label = "New Image"
 	bl_options = {'REGISTER', 'UNDO'}
 
+	field: bpy.props.StringProperty(options={'HIDDEN', 'SKIP_SAVE'})
+
 	@classmethod
 	def poll(cls, context):
-		collection = active_character(context)
-		if collection is None:
-			return False
-		settings = collection.ballistica_character
-		return 0 <= settings.active_texture_index < len(settings.textures)
+		return active_character(context) is not None
 
 	def execute(self, context):
 		collection = active_character(context)
 		settings = collection.ballistica_character
-		item = settings.textures[settings.active_texture_index]
+		item = _texture_row(self, settings)
+		if item is None:
+			return {'CANCELLED'}
 		item.image = texture_scene.new_image(collection, item.field)
 		return {'FINISHED'}
 
@@ -1035,6 +1035,7 @@ class BALLISTICA_OT_make_unique(bpy.types.Operator):
 		('PART', "Part", ""), ('TEXTURE', "Texture", ""),
 		('SEGMENT_MESH', "Segment Mesh", ""), ('SEGMENT_TEXTURE', "Segment Texture", ""), ('SEGMENT_MASK', "Segment Mask", ""),
 	], options={'HIDDEN', 'SKIP_SAVE'})
+	field: bpy.props.StringProperty(options={'HIDDEN', 'SKIP_SAVE'})
 
 	@classmethod
 	def poll(cls, context):
@@ -1056,9 +1057,10 @@ class BALLISTICA_OT_make_unique(bpy.types.Operator):
 				return {'CANCELLED'}
 			copy = sharing.make_unique_mesh(collection, settings.parts[settings.active_part_index])
 		else:
-			if not 0 <= settings.active_texture_index < len(settings.textures) or settings.textures[settings.active_texture_index].image is None:
+			item = _texture_row(self, settings)
+			if item is None or item.image is None:
 				return {'CANCELLED'}
-			copy = sharing.make_unique_image(collection, settings.textures[settings.active_texture_index])
+			copy = sharing.make_unique_image(collection, item)
 		self.report({'INFO'}, f"{copy.name} is {collection.name}'s own now")
 		return {'FINISHED'}
 
@@ -1199,35 +1201,6 @@ class BALLISTICA_OT_new_segment_block(bpy.types.Operator):
 		return {'FINISHED'}
 
 
-class BALLISTICA_OT_paint_texture(bpy.types.Operator):
-	"""Paint the selected texture in Texture Paint mode, on the selected part (or the torso)"""
-	bl_idname = 'ballistica.paint_texture'
-	bl_label = "Paint"
-	bl_options = {'REGISTER', 'UNDO'}
-
-	@classmethod
-	def poll(cls, context):
-		collection = active_character(context)
-		if collection is None:
-			return False
-		settings = collection.ballistica_character
-		index = settings.active_texture_index
-		return 0 <= index < len(settings.textures) and settings.textures[index].image is not None
-
-	def execute(self, context):
-		from . import paint
-
-		collection = active_character(context)
-		settings = collection.ballistica_character
-		item = settings.textures[settings.active_texture_index]
-		if not paint.start(context, collection, item.image):
-			self.report({'ERROR'}, "This character has no body part to paint on.")
-			return {'CANCELLED'}
-		if texture_scene.is_mask(item):
-			paint.use_brush(context, 'ADD_COLOR')
-		return {'FINISHED'}
-
-
 def _mask_brush_items():
 	from . import paint
 
@@ -1274,45 +1247,50 @@ class BALLISTICA_OT_mask_brush(bpy.types.Operator):
 		return {'FINISHED'}
 
 
-def segment_images(collection, segment):
-	"""(texture, mask) a segment shows: its own, else the body's."""
-	settings = collection.ballistica_character
-	body = {item.field: item.image for item in settings.textures}
-	return segment.texture_block or body.get('color_texture'), segment.mask_block or body.get('color_mask_texture')
-
-
-class BALLISTICA_OT_paint_segment(bpy.types.Operator):
-	"""Paint the selected attachment segment's texture or mask, on the attachment itself"""
-	bl_idname = 'ballistica.paint_segment'
-	bl_label = "Paint Segment"
+class BALLISTICA_OT_paint_image(bpy.types.Operator):
+	"""Paint this texture: on the attachment that uses it, or on the selected part for the body's"""
+	bl_idname = 'ballistica.paint_image'
+	bl_label = "Paint"
 	bl_options = {'REGISTER', 'UNDO'}
 
-	which: bpy.props.EnumProperty(items=[('TEXTURE', "Texture", ""), ('MASK', "Mask", "")], options={'HIDDEN', 'SKIP_SAVE'})
+	image: bpy.props.StringProperty(
+		options={'HIDDEN', 'SKIP_SAVE'}, description="The image to paint; empty: the one selected in Textures")
 
 	@classmethod
 	def poll(cls, context):
-		collection = active_character(context)
-		return collection is not None and active_segment(collection) is not None
+		return active_character(context) is not None
 
 	def execute(self, context):
 		from . import paint
 
 		collection = active_character(context)
 		settings = collection.ballistica_character
-		segment = active_segment(collection)
-		index = settings.active_attachment_index
-		j = settings.attachments[index].active_segment_index
-		obj = next((o for o in attach_scene.edited_meshes(collection)
-			if o.get(attach_scene.INDEX_KEY) == index and o.get(attach_scene.SEGMENT_KEY) == j), None)
-		texture, mask = segment_images(collection, segment)
-		image = mask if self.which == 'MASK' else texture
-		if obj is None or image is None:
-			self.report({'ERROR'}, "This segment has no mesh or image to paint.")
+		image = bpy.data.images.get(self.image) if self.image else settings.active_image
+		if image is None:
 			return {'CANCELLED'}
-		paint.start(context, collection, image, target=obj)
-		if self.which == 'MASK':
+		settings.active_image = image  # the Textures and Paint panels follow
+		target = texture_scene.paint_target(collection, image)
+		if target is None:
+			self.report({'WARNING'}, f"{image.name} is flat (an icon): paint it in an Image Editor.")
+			return {'CANCELLED'}
+		if not paint.start(context, collection, image, target=None if target == 'BODY' else target):
+			self.report({'ERROR'}, "There's nothing to paint it on.")
+			return {'CANCELLED'}
+		if texture_scene.is_mask_image(collection, image):
 			paint.use_brush(context, 'ADD_COLOR')
 		return {'FINISHED'}
+
+
+def _texture_row(operator, settings):
+	"""The Textures row an operator acts on: its `field`, else the active one."""
+	if operator.field:
+		for index, item in enumerate(settings.textures):
+			if item.field == operator.field:
+				settings.active_texture_index = index
+				return item
+	if 0 <= settings.active_texture_index < len(settings.textures):
+		return settings.textures[settings.active_texture_index]
+	return None
 
 
 class BALLISTICA_OT_new_icon_image(bpy.types.Operator):
@@ -1367,6 +1345,7 @@ class BALLISTICA_OT_pick_from_workspace(bpy.types.Operator):
 	bl_property = 'asset'
 
 	target: bpy.props.EnumProperty(items=[(k, k, "") for k in PICK_TARGETS], options={'HIDDEN', 'SKIP_SAVE'})
+	field: bpy.props.StringProperty(options={'HIDDEN', 'SKIP_SAVE'})
 	asset: bpy.props.EnumProperty(name="Workspace File", items=_workspace_items, options={'SKIP_SAVE'})
 
 	@classmethod
@@ -1389,8 +1368,8 @@ class BALLISTICA_OT_pick_from_workspace(bpy.types.Operator):
 			return {'CANCELLED'}
 		kind = PICK_TARGETS[self.target][0]
 		root = settings.workspace_root
-		mask = self.target in ('SEGMENT_MASK', 'ICON_MASK') or (
-			self.target == 'TEXTURE' and settings.textures[settings.active_texture_index].field == 'color_mask_texture')
+		row = _texture_row(self, settings) if self.target == 'TEXTURE' else None
+		mask = self.target in ('SEGMENT_MASK', 'ICON_MASK') or (row is not None and row.field == 'color_mask_texture')
 		block = attach_scene.mesh_for(root, self.asset) if kind == 'mesh' else scene._image(root, self.asset, data=mask)
 		if block is None:
 			self.report({'ERROR'}, f"Couldn't load {self.asset}.")
@@ -1398,7 +1377,7 @@ class BALLISTICA_OT_pick_from_workspace(bpy.types.Operator):
 		if self.target == 'PART':
 			settings.parts[settings.active_part_index].mesh = block
 		elif self.target == 'TEXTURE':
-			settings.textures[settings.active_texture_index].image = block
+			row.image = block
 		elif self.target in ('ICON', 'ICON_MASK'):
 			setattr(settings, 'icon_block' if self.target == 'ICON' else 'icon_mask_block', block)
 		else:
@@ -1442,9 +1421,8 @@ classes = (
 	BALLISTICA_OT_new_icon_image,
 	BALLISTICA_OT_pick_from_workspace,
 	BALLISTICA_OT_new_segment_block,
-	BALLISTICA_OT_paint_texture,
 	BALLISTICA_OT_mask_brush,
-	BALLISTICA_OT_paint_segment,
+	BALLISTICA_OT_paint_image,
 	BALLISTICA_OT_update_character,
 	BALLISTICA_OT_import_character,
 	BALLISTICA_OT_remove_character,

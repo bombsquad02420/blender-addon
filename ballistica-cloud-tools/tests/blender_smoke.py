@@ -1119,7 +1119,8 @@ bpy.ops.brush.asset_activate(asset_library_type='CUSTOM', asset_library_identifi
 paint.match_shared_color()  # (what the panel's buttons do; the shelf doesn't)
 assert tuple(image_paint.unified_paint_settings.color) == (0.0, 0.0, 1.0)
 cubey2.ballistica_character.active_texture_index = 0
-assert bpy.ops.ballistica.paint_texture() == {'FINISHED'} and image_paint.canvas == color_row.image
+assert bpy.ops.ballistica.paint_image(image=color_row.image.name) == {'FINISHED'} and image_paint.canvas == color_row.image
+assert cubey2.ballistica_character.active_image == color_row.image  # the Textures and Paint panels follow
 bpy.ops.object.mode_set(mode='OBJECT')
 assert {b.name for b in bpy.data.brushes if b.name.startswith(paint.PREFIX)} == {'Ballistica Add Highlight', 'Ballistica Add Highlight 2', 'Ballistica Erase All Tints', 'Ballistica Only Player Color'}  # appended from the library when used
 
@@ -1179,14 +1180,19 @@ draw_panels()
 hat_index = [t.key for t in attach_templates.TEMPLATES].index('hat')
 ds.active_attachment_index = hat_index
 hat_segment = ds.attachments[hat_index].segments[0]
-assert bpy.ops.ballistica.paint_segment(which='MASK') == {'FINISHED'}
+assert bpy.ops.ballistica.paint_image(image=hat_segment.mask_block.name) == {'FINISHED'}
 image_paint = bpy.context.scene.tool_settings.image_paint
 assert bpy.context.mode == 'PAINT_TEXTURE' and image_paint.canvas == hat_segment.mask_block
 assert bpy.context.active_object.get(attach_scene.INDEX_KEY) == hat_index
-draw_panels()  # the segment's paint box with the brush grid
+draw_panels()  # the Paint panel with the brush grid
+from ballistica_cloud_tools import texture_scene as _ts  # noqa: E402
+listed = dict(_ts.exported_images(dressy))
+assert listed[hat_segment.mask_block].endswith('Mask') and listed[ds.icon_block] == 'Icon' and listed[ds.textures[0].image] == 'Body Color'
+assert ds.active_image == hat_segment.mask_block
+assert bpy.ops.ballistica.paint_image(image=ds.icon_block.name) == {'CANCELLED'}  # icons are flat
 assert bpy.ops.ballistica.mask_brush(brush='ERASE_HIGHLIGHT') == {'FINISHED'}
 assert image_paint.canvas == hat_segment.mask_block and image_paint.brush.name == 'Ballistica Erase Highlight'  # still the hat's mask
-assert bpy.ops.ballistica.paint_segment(which='TEXTURE') == {'FINISHED'} and image_paint.canvas == hat_segment.texture_block
+assert bpy.ops.ballistica.paint_image(image=hat_segment.texture_block.name) == {'FINISHED'} and image_paint.canvas == hat_segment.texture_block
 bpy.ops.object.mode_set(mode='OBJECT')
 
 # Icons are image pickers; any picker can take a file from the workspace.
