@@ -490,7 +490,9 @@ selected attachment:
 - **Segments** (open): the segment list, and the selected segment's mesh
   (picker, eyedropper, **+** for a small box), texture and mask (pickers,
   **+** for a blank image; both empty: the body's textures), each with
-  *also used by* / Make Unique. The `.bchar` paths are written from
+  *also used by* / Make Unique. Below them, **Paint Texture** / **Paint Mask** paint
+  the segment's images (or the body's, if it has none) on the attachment
+  itself, with the mask brushes while painting a mask. The `.bchar` paths are written from
   the pickers; a path whose file wasn't found is kept and flagged. **Art Offset** (closed) holds the segment's own
   `transform`: where its mesh sits on its physics segment. For a
   single-segment static attachment it moves the mesh just like Placement;

@@ -332,6 +332,14 @@ def _paint_box(layout, context, item, image):
 		box.label(text="Tip: paints on the selected part; pick others in Parts.", icon='INFO')
 	if not texture_scene.is_mask(item) or not (painting and canvas == image):
 		return  # the mask brushes only while painting the mask
+	_brush_grid(box, context)
+
+
+def _brush_grid(box, context):
+	"""The mask brushes, one row per tint (while painting a mask)."""
+	from . import paint
+
+	painting = context.mode == 'PAINT_TEXTURE'
 	unified = context.scene.tool_settings.image_paint.unified_paint_settings
 	box.prop(unified, 'use_unified_color', text="Shared Brush Color")
 	if unified.use_unified_color:
@@ -359,6 +367,30 @@ def _paint_box(layout, context, item, image):
 	row.label(text="")
 	button(row, 'ERASE_ALL', "Erase", 'REMOVE')
 	row.label(text="")
+
+
+def _segment_paint_box(layout, context, collection, segment):
+	"""Paint a segment's texture or mask on the attachment; the brushes for the mask."""
+	from .operators import segment_images
+
+	texture, mask = segment_images(collection, segment)
+	if texture is None and mask is None:
+		return
+	box = layout.box()
+	painting = context.mode == 'PAINT_TEXTURE'
+	canvas = context.scene.tool_settings.image_paint.canvas
+	row = box.row(align=True)
+	for which, image, label in (('TEXTURE', texture, "Texture"), ('MASK', mask, "Mask")):
+		on = painting and image is not None and canvas == image
+		sub = row.row(align=True)
+		sub.enabled = image is not None
+		sub.operator('ballistica.paint_segment', text=f"Painting {label}" if on else f"Paint {label}", icon='BRUSH_DATA', depress=on).which = which
+	if painting:
+		row.operator('object.mode_set', text="Done", icon='OBJECT_DATA').mode = 'OBJECT'
+	if segment.texture_block is None and segment.mask_block is None:
+		box.label(text="No texture of its own: paints the body's.", icon='INFO')
+	if painting and mask is not None and canvas == mask:
+		_brush_grid(box, context)
 
 
 class BALLISTICA_UL_textures(bpy.types.UIList):
@@ -658,8 +690,7 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 				_shared_note(col, block, collection, kind)
 			elif getattr(segment, key):
 				col.label(text=f"{getattr(segment, key)} isn't in the workspace", icon='ERROR')
-		if segment.texture_block is None and segment.mask_block is None:
-			col.label(text="No texture or mask of its own: uses the body's.", icon='INFO')
+		_segment_paint_box(col, context, collection, segment)
 		header, art = body.panel('BALLISTICA_attach_art', default_closed=True)
 		header.label(text="Art Offset")
 		if art is not None:

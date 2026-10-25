@@ -59,12 +59,15 @@ def part_object(collection):
 	return next((o for o in parts if o.ballistica_part.role == 'torso'), parts[0] if parts else None)
 
 
-def start(context, collection, image):
-	"""Texture Paint on a body part, painting `image` (whatever the material shows)."""
+def start(context, collection, image, target=None):
+	"""Texture Paint on `target` (default: a body part), painting `image`
+	whatever the material shows."""
 	view_layer = context.view_layer
 	obj = context.active_object
+	if target is not None and obj != target:
+		obj = None  # switch to the given object
 	if obj is None or obj.mode != 'TEXTURE_PAINT' or obj.ballistica_part.role == 'NONE':
-		obj = part_object(collection)
+		obj = target or part_object(collection)
 		if obj is None:
 			return False
 		if context.mode != 'OBJECT':

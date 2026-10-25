@@ -1265,11 +1265,53 @@ class BALLISTICA_OT_mask_brush(bpy.types.Operator):
 		from . import paint
 
 		collection = active_character(context)
-		mask = texture_scene.row(collection.ballistica_character, 'color_mask_texture')
-		if not paint.start(context, collection, mask.image):
-			self.report({'ERROR'}, "This character has no body part to paint on.")
-			return {'CANCELLED'}
+		if context.mode != 'PAINT_TEXTURE':  # start on the body's mask; else keep what's being painted
+			mask = texture_scene.row(collection.ballistica_character, 'color_mask_texture')
+			if not paint.start(context, collection, mask.image):
+				self.report({'ERROR'}, "This character has no body part to paint on.")
+				return {'CANCELLED'}
 		paint.use_brush(context, self.brush)
+		return {'FINISHED'}
+
+
+def segment_images(collection, segment):
+	"""(texture, mask) a segment shows: its own, else the body's."""
+	settings = collection.ballistica_character
+	body = {item.field: item.image for item in settings.textures}
+	return segment.texture_block or body.get('color_texture'), segment.mask_block or body.get('color_mask_texture')
+
+
+class BALLISTICA_OT_paint_segment(bpy.types.Operator):
+	"""Paint the selected attachment segment's texture or mask, on the attachment itself"""
+	bl_idname = 'ballistica.paint_segment'
+	bl_label = "Paint Segment"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	which: bpy.props.EnumProperty(items=[('TEXTURE', "Texture", ""), ('MASK', "Mask", "")], options={'HIDDEN', 'SKIP_SAVE'})
+
+	@classmethod
+	def poll(cls, context):
+		collection = active_character(context)
+		return collection is not None and active_segment(collection) is not None
+
+	def execute(self, context):
+		from . import paint
+
+		collection = active_character(context)
+		settings = collection.ballistica_character
+		segment = active_segment(collection)
+		index = settings.active_attachment_index
+		j = settings.attachments[index].active_segment_index
+		obj = next((o for o in attach_scene.edited_meshes(collection)
+			if o.get(attach_scene.INDEX_KEY) == index and o.get(attach_scene.SEGMENT_KEY) == j), None)
+		texture, mask = segment_images(collection, segment)
+		image = mask if self.which == 'MASK' else texture
+		if obj is None or image is None:
+			self.report({'ERROR'}, "This segment has no mesh or image to paint.")
+			return {'CANCELLED'}
+		paint.start(context, collection, image, target=obj)
+		if self.which == 'MASK':
+			paint.use_brush(context, 'ADD_COLOR')
 		return {'FINISHED'}
 
 
@@ -1402,6 +1444,7 @@ classes = (
 	BALLISTICA_OT_new_segment_block,
 	BALLISTICA_OT_paint_texture,
 	BALLISTICA_OT_mask_brush,
+	BALLISTICA_OT_paint_segment,
 	BALLISTICA_OT_update_character,
 	BALLISTICA_OT_import_character,
 	BALLISTICA_OT_remove_character,

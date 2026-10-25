@@ -39,6 +39,8 @@ a fresh install (`make install`) and a restarted Blender.
   over each other with Add (tints combine: red + green looks yellow in the
   mask), Erase (only that tint goes), Only (hard edge, other tints gone) and
   All Tints → Erase (back to black).
+- [ ] **Attachment painting.** A template's segment → Paint Mask: the
+  attachment is painted, with the brush grid; Paint Texture switches image.
 - [ ] **Shelf brushes.** Ballistica Cloud Tools library → Mask Brushes:
   thumbnails show. With Shared Brush Color off, each brush paints its own
   tint. With it on, the paint box warns.

@@ -1175,6 +1175,20 @@ for item in attach_templates.TEMPLATES:
 	assert any(f.startswith(f'dressy_{item.key}') for f in os.listdir(os.path.join(ws, 'meshes'))), item.key  # left-only ones too
 draw_panels()
 
+# Attachments paint too: on the attachment's own mesh, its texture or mask.
+hat_index = [t.key for t in attach_templates.TEMPLATES].index('hat')
+ds.active_attachment_index = hat_index
+hat_segment = ds.attachments[hat_index].segments[0]
+assert bpy.ops.ballistica.paint_segment(which='MASK') == {'FINISHED'}
+image_paint = bpy.context.scene.tool_settings.image_paint
+assert bpy.context.mode == 'PAINT_TEXTURE' and image_paint.canvas == hat_segment.mask_block
+assert bpy.context.active_object.get(attach_scene.INDEX_KEY) == hat_index
+draw_panels()  # the segment's paint box with the brush grid
+assert bpy.ops.ballistica.mask_brush(brush='ERASE_HIGHLIGHT') == {'FINISHED'}
+assert image_paint.canvas == hat_segment.mask_block and image_paint.brush.name == 'Ballistica Erase Highlight'  # still the hat's mask
+assert bpy.ops.ballistica.paint_segment(which='TEXTURE') == {'FINISHED'} and image_paint.canvas == hat_segment.texture_block
+bpy.ops.object.mode_set(mode='OBJECT')
+
 # Icons are image pickers; any picker can take a file from the workspace.
 assert ds.icon_block is not None and ds.icon_block.ballistica_texture.path == 'textures/dressy_icon'
 assert ds.icon_mask_block.ballistica_texture.role == 'data'
