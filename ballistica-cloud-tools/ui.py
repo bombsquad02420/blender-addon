@@ -238,7 +238,7 @@ class VIEW3D_PT_ballistica_identity(_Section, bpy.types.Panel):
 	header_icon = 'USER'
 	# Who it is: its name and its menu icon. (Its colors are in Textures.)
 	groups = (
-		('name', 'icon_texture', 'icon_mask_texture'),
+		('name', 'icon_texture', 'icon_mask_texture'),  # the icons drawn as image pickers
 	)
 	fields = tuple(f for group in groups for f in group)
 
@@ -255,7 +255,10 @@ class VIEW3D_PT_ballistica_identity(_Section, bpy.types.Panel):
 				if field == 'name':  # a translation key, not the words themselves
 					col.prop(settings, field, placeholder=f"strings/characters/{active_character(context).name.split('.')[0]}")
 				else:
-					col.prop(settings, field)
+					line = col.row(align=True)
+					line.prop(settings, 'icon_block' if field == 'icon_texture' else 'icon_mask_block')
+					_pick_button(line, 'ICON' if field == 'icon_texture' else 'ICON_MASK')
+					line.operator('ballistica.new_icon_image', text="", icon='ADD').field = field
 
 
 def _standard_colors_note(layout, context):
@@ -293,6 +296,11 @@ def _colors(layout, context, settings):
 			else:
 				profile.prop(settings, field)
 	_standard_colors_note(body, context)
+
+
+def _pick_button(layout, target):
+	"""The folder button: pick a mesh or image from the workspace folder."""
+	layout.operator('ballistica.pick_from_workspace', text="", icon='FILE_FOLDER').target = target
 
 
 def _shared_note(layout, block, collection, kind):
@@ -388,6 +396,7 @@ class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 		_split(col)
 		line = col.row(align=True)
 		line.prop(item, 'image')
+		_pick_button(line, 'TEXTURE')
 		line.operator('ballistica.new_texture_image', text="", icon='ADD')
 		image = item.image
 		if image is None:
@@ -453,6 +462,7 @@ class VIEW3D_PT_ballistica_parts(_Section, bpy.types.Panel):
 			line = col.row(align=True)
 			line.prop(row, 'mesh')
 			line.operator('ballistica.pick_part_mesh', text="", icon='EYEDROPPER')
+			_pick_button(line, 'PART')
 			line.operator('ballistica.new_part_mesh', text="", icon='ADD')
 			if row.mesh is not None:
 				_shared_note(col, row.mesh, collection, 'PART')
@@ -643,6 +653,7 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 			line.prop(segment, attr)
 			if key == 'mesh':
 				line.operator('ballistica.pick_part_mesh', text="", icon='EYEDROPPER').target = 'SEGMENT'
+			_pick_button(line, kind)
 			line.operator('ballistica.new_segment_block', text="", icon='ADD').key = key
 			block = getattr(segment, attr)
 			if block is not None:

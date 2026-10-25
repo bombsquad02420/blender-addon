@@ -77,6 +77,7 @@ def _build(context, root, character_path, character, meshes=None):
 
 	part_scene.fill_rows(collection)
 	texture_scene.fill_rows(collection)
+	texture_scene.fill_icons(collection)
 	scene.build_eyes(collection, arm, placements, settings, groups['Eyes'])
 	eye_scene.build(collection, arm, groups['Rig'])
 	attach_scene.build(collection, placements, spread=False)
@@ -420,6 +421,7 @@ def check(collection):
 	if not root or not os.path.isfile(os.path.join(root, workspace.WORKSPACE_FILE)):
 		return [Problem(f"Workspace folder not found: {root or '(none)'}")]
 	attach_scene.mirror_paths(collection)
+	texture_scene.mirror_icons(collection)
 	fields = {**part_scene.fields(collection), **texture_scene.fields(collection)}
 	character = props.to_character(settings, fields)
 	part_names = {f: part_scene.label(r) for r in settings.parts for f in [part_scene.field(r)]}
@@ -455,9 +457,9 @@ def check(collection):
 		if kind == 'texture' and scene.find_image(workspace.new_file_path(root, logical, kind)):
 			continue  # Made in Blender (an icon); export writes it.
 		problems.append(Problem(f"{field}: {logical} not found in the workspace"))
-	path = workspace.file_path(root, character.get('icon_mask_texture') or '', 'texture') if character.get('icon_mask_texture') else None
-	if path and workspace.texture_role(root, path) not in workspace.DATA_ROLES:
-		problems.append(Problem(f"icon_mask_texture: {character.get('icon_mask_texture')} is not marked texture_role: data (export will fix this)", WARNING))
+	icon_mask = settings.icon_mask_block
+	if icon_mask is not None and icon_mask.ballistica_texture.role not in workspace.DATA_ROLES:
+		problems.append(Problem(f"Icon Mask: {icon_mask.name} should have the Data role (export will set it)", WARNING))
 	mask = texture_scene.row(settings, 'color_mask_texture')
 	if mask is not None and mask.image is not None and mask.image.ballistica_texture.role not in workspace.DATA_ROLES:
 		problems.append(Problem(f"Color Mask: {mask.image.name} should have the Data role (export will set it)", WARNING))
@@ -800,9 +802,12 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 					item.image.ballistica_texture.role = 'data'
 				path = _save_image(root, item.image, written)
 				texture_settings[path] = props.texture_settings_of(item.image)
-		masks = []
-		for field, data in (('icon_texture', False), ('icon_mask_texture', True)):
-			_save_texture(root, getattr(settings, field), data, written, masks)
+		texture_scene.mirror_icons(collection)
+		for attr in texture_scene.ICON_BLOCKS.values():
+			image = getattr(settings, attr)
+			if image is not None:
+				path = _save_image(root, image, written)
+				texture_settings[path] = props.texture_settings_of(image)
 		for attachment in settings.attachments:
 			for segment in attachment.segments:
 				for image, mask in ((segment.texture_block, False), (segment.mask_block, True)):
@@ -813,7 +818,7 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 					path = _save_image(root, image, written)
 					texture_settings[path] = props.texture_settings_of(image)
 		changed = workspace.set_texture_settings(root, texture_settings) if texture_settings else False
-		if workspace.mark_data_textures(root, masks) or changed:
+		if changed:
 			written.append(workspace.WORKSPACE_FILE)
 
 		character = props.to_character(settings)
@@ -865,23 +870,6 @@ def _save_image(root, image, written):
 	return path
 
 
-def _save_texture(root, logical, data, written, masks):
-	"""Save an image edited (or made) in Blender to its logical path."""
-	if not logical:
-		return
-	path = workspace.file_path(root, logical, 'texture') or workspace.new_file_path(root, logical, 'texture')
-	image = scene.find_image(path)
-	exists = os.path.isfile(path)
-	if image is not None and (image.is_dirty or not exists):
-		os.makedirs(os.path.dirname(path), exist_ok=True)
-		image.save()
-		written.append(os.path.relpath(path, root))
-	elif not exists:
-		return
-	if data and path not in masks:
-		masks.append(path)
-
-
 def _blocks_in_blender(settings):
 	"""(kind, export path) of every mesh and image the character's pickers hold."""
 	found = set()
@@ -891,6 +879,9 @@ def _blocks_in_blender(settings):
 	for item in settings.textures:
 		if item.image is not None:
 			found.add(('texture', item.image.ballistica_texture.path))
+	for attr in texture_scene.ICON_BLOCKS.values():
+		if getattr(settings, attr) is not None:
+			found.add(('texture', getattr(settings, attr).ballistica_texture.path))
 	for attachment in settings.attachments:
 		for segment in attachment.segments:
 			if segment.mesh_block is not None:
@@ -1282,6 +1273,100 @@ class BALLISTICA_OT_mask_brush(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+class BALLISTICA_OT_new_icon_image(bpy.types.Operator):
+	"""Give the character a new blank image for this: gray for the icon, black (no tint) for its mask"""
+	bl_idname = 'ballistica.new_icon_image'
+	bl_label = "New Image"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	field: bpy.props.EnumProperty(
+		items=[('icon_texture', "Icon", ""), ('icon_mask_texture', "Icon Mask", "")], options={'HIDDEN', 'SKIP_SAVE'})
+
+	@classmethod
+	def poll(cls, context):
+		return active_character(context) is not None
+
+	def execute(self, context):
+		collection = active_character(context)
+		image = texture_scene.new_image(collection, self.field)
+		if self.field == 'icon_texture':
+			image.generated_color = (0.5, 0.5, 0.5, 1.0)
+		setattr(collection.ballistica_character, texture_scene.ICON_BLOCKS[self.field], image)
+		return {'FINISHED'}
+
+
+# Picker targets for Pick From Workspace: (kind, description).
+PICK_TARGETS = {
+	'PART': ('mesh', "the selected part"),
+	'TEXTURE': ('texture', "the selected texture"),
+	'SEGMENT_MESH': ('mesh', "the selected segment's mesh"),
+	'SEGMENT_TEXTURE': ('texture', "the selected segment's texture"),
+	'SEGMENT_MASK': ('texture', "the selected segment's mask"),
+	'ICON': ('texture', "the icon"),
+	'ICON_MASK': ('texture', "the icon mask"),
+}
+_PICK_ITEMS = []  # dynamic enum items must stay referenced from Python
+
+
+def _workspace_items(self, context):
+	collection = active_character(context)
+	root = collection.ballistica_character.workspace_root if collection else ''
+	kind = PICK_TARGETS[self.target][0]
+	assets = workspace.list_assets(root, kind) if root and os.path.isdir(root) else []
+	_PICK_ITEMS[:] = [(logical, logical, "") for logical in assets] or [('NONE', "(nothing in the workspace)", "")]
+	return _PICK_ITEMS
+
+
+class BALLISTICA_OT_pick_from_workspace(bpy.types.Operator):
+	"""Pick a mesh or image from the character's workspace folder"""
+	bl_idname = 'ballistica.pick_from_workspace'
+	bl_label = "Pick From Workspace"
+	bl_options = {'REGISTER', 'UNDO'}
+	bl_property = 'asset'
+
+	target: bpy.props.EnumProperty(items=[(k, k, "") for k in PICK_TARGETS], options={'HIDDEN', 'SKIP_SAVE'})
+	asset: bpy.props.EnumProperty(name="Workspace File", items=_workspace_items, options={'SKIP_SAVE'})
+
+	@classmethod
+	def description(cls, context, properties):
+		kind, what = PICK_TARGETS[properties.target]
+		return f"Use a {'mesh' if kind == 'mesh' else 'texture'} from the workspace folder for {what}"
+
+	@classmethod
+	def poll(cls, context):
+		return context.mode == 'OBJECT' and active_character(context) is not None
+
+	def invoke(self, context, event):
+		context.window_manager.invoke_search_popup(self)
+		return {'RUNNING_MODAL'}
+
+	def execute(self, context):
+		collection = active_character(context)
+		settings = collection.ballistica_character
+		if self.asset == 'NONE':
+			return {'CANCELLED'}
+		kind = PICK_TARGETS[self.target][0]
+		root = settings.workspace_root
+		mask = self.target in ('SEGMENT_MASK', 'ICON_MASK') or (
+			self.target == 'TEXTURE' and settings.textures[settings.active_texture_index].field == 'color_mask_texture')
+		block = attach_scene.mesh_for(root, self.asset) if kind == 'mesh' else scene._image(root, self.asset, data=mask)
+		if block is None:
+			self.report({'ERROR'}, f"Couldn't load {self.asset}.")
+			return {'CANCELLED'}
+		if self.target == 'PART':
+			settings.parts[settings.active_part_index].mesh = block
+		elif self.target == 'TEXTURE':
+			settings.textures[settings.active_texture_index].image = block
+		elif self.target in ('ICON', 'ICON_MASK'):
+			setattr(settings, 'icon_block' if self.target == 'ICON' else 'icon_mask_block', block)
+		else:
+			segment = active_segment(collection)
+			if segment is None:
+				return {'CANCELLED'}
+			setattr(segment, {'SEGMENT_MESH': 'mesh_block', 'SEGMENT_TEXTURE': 'texture_block', 'SEGMENT_MASK': 'mask_block'}[self.target], block)
+		return {'FINISHED'}
+
+
 class BALLISTICA_OT_toggle_group(bpy.types.Operator):
 	"""Show or hide this in the viewport"""
 	bl_idname = 'ballistica.toggle_group'
@@ -1312,6 +1397,8 @@ classes = (
 	BALLISTICA_OT_pick_part_mesh,
 	BALLISTICA_OT_new_texture_image,
 	BALLISTICA_OT_make_unique,
+	BALLISTICA_OT_new_icon_image,
+	BALLISTICA_OT_pick_from_workspace,
 	BALLISTICA_OT_new_segment_block,
 	BALLISTICA_OT_paint_texture,
 	BALLISTICA_OT_mask_brush,

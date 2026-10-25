@@ -398,7 +398,7 @@ shows them in the web UI form's order, with the same defaults:
 
 | Section | Fields |
 | --- | --- |
-| Identity | `name` (translation key), `icon_texture`, `icon_mask_texture` |
+| Identity | `name` (translation key), the icon and icon mask (image pickers: `icon_texture`, `icon_mask_texture`) |
 | Textures | **Colors** first (`color`, `highlight`, `highlight2` as swatches, `reflection_scale`, a closed *Profile Editor* with `highlight_name`, `highlight_editing`, `highlight2_name`, `highlight2_editing`, and the Standard Colors fix when needed), then the Textures list (below): `color_texture`, `color_mask_texture` |
 | Parts | the Parts list (below): `head_mesh` … `toes_mesh`, the `left_*_mesh` overrides, `flippers` |
 | Sounds | the Sounds list: six fixed rows (jump, attack, impact, death, pickup, fall), each showing how many sounds it has and how many are missing; the selected one as comma-separated audio paths, with a picker to add one from the workspace |
@@ -409,9 +409,12 @@ shows them in the web UI form's order, with the same defaults:
 `flippers`, the `left_*` overrides and attachments aren't in the web UI
 form (they're JSON-only there).
 
-- **Reference fields** (icons) are pickers
-  over the workspace's own files, like the web UI's dropdowns, with likely
-  matches first.
+- **Pickers.** Every mesh and image (parts, the body textures, attachment
+  segments, and the icon and icon mask in Identity) is a picker over
+  Blender's data, with buttons: the eyedropper (meshes: take one from an
+  object in the viewport), the **folder** (pick a mesh or image from the
+  workspace folder, searchable; it's loaded into Blender) and **+** (a new
+  one). The `.bchar` paths are written from the pickers on export.
 - **Parts list.** One row per body part in rig order (right side for limbs),
   then a Left row per limb. Each row holds the Blender **mesh** the part
   uses (picked from Blender's meshes, taken from an object in the viewport

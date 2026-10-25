@@ -413,6 +413,17 @@ def _sound_picked(self, context):
 	self.sound_to_add = ''
 
 
+def _icon_changed(field):
+	def update(self, context):
+		if self.get('_loading'):
+			return
+		hook = ATTACHMENT_REBUILD_HOOKS.get('icon')
+		if hook is not None:
+			hook(self, field)
+
+	return update
+
+
 def _texture_row_changed(self, context):
 	hook = ATTACHMENT_REBUILD_HOOKS.get('texture')
 	if hook is not None:
@@ -630,8 +641,15 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	name: bpy.props.StringProperty(
 		name="Name", description="Translation key of the display name, e.g. strings/characters/zoe",
 		options=_options())
-	icon_texture: _ref("Icon Texture", 'texture', 'icon')
-	icon_mask_texture: _ref("Icon Mask Texture", 'texture', 'icon_mask')
+	# The .bchar's icon paths, written from the pickers below.
+	icon_texture: _ref("Icon Path", 'texture', 'icon')
+	icon_mask_texture: _ref("Icon Mask Path", 'texture', 'icon_mask')
+	icon_block: bpy.props.PointerProperty(
+		type=bpy.types.Image, name="Icon", options=_options(), update=_icon_changed('icon_texture'),
+		description="The character's picture in the game's menus")
+	icon_mask_block: bpy.props.PointerProperty(
+		type=bpy.types.Image, name="Icon Mask", options=_options(), update=_icon_changed('icon_mask_texture'),
+		description="Which parts of the icon take the player color (red) and highlights (green, blue)")
 	color: _vec("Player Color", 'color', color=True, default=(0.5, 0.5, 0.5), update=_tag_collection)
 	highlight: _vec("Highlight", 'highlight', color=True, default=(0.5, 0.5, 0.5), update=_tag_collection)
 	highlight_name: bpy.props.StringProperty(

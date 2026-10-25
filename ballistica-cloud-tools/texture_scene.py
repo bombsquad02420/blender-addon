@@ -13,7 +13,10 @@ from . import scene, workspace
 
 ROWS = ('color_texture', 'color_mask_texture')
 LABELS = {'color_texture': "Color", 'color_mask_texture': "Color Mask"}
-SUFFIXES = {'color_texture': 'color', 'color_mask_texture': 'color_mask'}
+SUFFIXES = {'color_texture': 'color', 'color_mask_texture': 'color_mask', 'icon_texture': 'icon', 'icon_mask_texture': 'icon_color_mask'}
+# Icon field -> the settings picker holding its image.
+ICON_BLOCKS = {'icon_texture': 'icon_block', 'icon_mask_texture': 'icon_mask_block'}
+MASKS = ('color_mask_texture', 'icon_mask_texture')
 # Row -> the Colorize group input its image feeds, and its texture node's name.
 SOCKETS = {'color_texture': 'Color', 'color_mask_texture': 'Color Mask'}
 NODE_NAMES = {'color_texture': 'bct_color', 'color_mask_texture': 'bct_color_mask'}
@@ -123,7 +126,7 @@ def on_row_changed(item):
 def new_image(collection, field):
 	"""A blank image for a row: white color, or a black (untinted) mask."""
 	name = f'{collection.name}_{SUFFIXES[field]}'
-	mask = field == 'color_mask_texture'
+	mask = field in MASKS
 	image = bpy.data.images.new(name, NEW_SIZE, NEW_SIZE, alpha=True)
 	if mask:
 		image.colorspace_settings.name = 'Non-Color'  # before painting: it regenerates the image
@@ -169,6 +172,57 @@ def assign_paths(collection):
 		setattr(settings, name, value)
 
 
+# ---- the icon and icon mask (Identity) ----
+
+class _Slot:
+	"""An icon field and its image, shaped like a Textures row for _free_path."""
+
+	def __init__(self, field, image):
+		self.field, self.image = field, image
+
+
+def mirror_icons(collection):
+	"""Write the icon pickers' export paths into the icon fields.
+
+	An image without an export path gets the default one. An empty picker
+	keeps the field as loaded (a file that wasn't found stays referenced).
+	"""
+	settings = collection.ballistica_character
+	for field, attr in ICON_BLOCKS.items():
+		image = getattr(settings, attr)
+		if image is None:
+			continue
+		if not image.ballistica_texture.path:
+			image.ballistica_texture.path = _free_path(collection, _Slot(field, image))
+		if field in MASKS and image.ballistica_texture.role not in workspace.DATA_ROLES:
+			image.ballistica_texture.role = 'data'
+		setattr(settings, field, image.ballistica_texture.path)
+
+
+def fill_icons(collection):
+	"""The icon pickers from the icon fields (after building a character)."""
+	settings = collection.ballistica_character
+	settings['_loading'] = True
+	try:
+		for field, attr in ICON_BLOCKS.items():
+			if getattr(settings, attr) is None and getattr(settings, field):
+				setattr(settings, attr, scene._image(settings.workspace_root, getattr(settings, field), data=field in MASKS))
+	finally:
+		del settings['_loading']
+
+
+def on_icon_changed(settings, field):
+	"""props hook: an icon picker changed."""
+	collection = settings.id_data
+	if not isinstance(collection, bpy.types.Collection) or not settings.is_character:
+		return
+	if getattr(settings, ICON_BLOCKS[field]) is None:
+		setattr(settings, field, '')  # cleared
+	else:
+		mirror_icons(collection)
+
+
 from . import props as _props  # noqa: E402
 
 _props.ATTACHMENT_REBUILD_HOOKS['texture'] = on_row_changed
+_props.ATTACHMENT_REBUILD_HOOKS['icon'] = on_icon_changed

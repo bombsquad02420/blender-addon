@@ -76,20 +76,6 @@ class WorkspaceTest(TempWorkspace):
 		self.assertIn('textures/a_mask.png', entries)
 		self.assertFalse(workspace.set_texture_settings(self.root, {color: {'texture_wrapping_h': 'clamp'}}))
 
-	def test_mark_data_textures_only_adds_missing_roles(self):
-		color = os.path.join(self.root, 'textures', 'a_color.png')
-		mask = os.path.join(self.root, 'textures', 'a_mask.png')
-		with open(os.path.join(self.root, 'workspace.json')) as f:
-			before = f.read()
-		self.assertFalse(workspace.mark_data_textures(self.root, [mask]))
-		with open(os.path.join(self.root, 'workspace.json')) as f:
-			self.assertEqual(f.read(), before)
-		self.assertTrue(workspace.mark_data_textures(self.root, [color]))
-		self.assertEqual(workspace.texture_role(self.root, color), 'data')
-		with open(os.path.join(self.root, 'workspace.json')) as f:
-			self.assertFalse(f.read().endswith('\n'))  # kept as found
-
-
 class CharacterTest(unittest.TestCase):
 	def test_set_follows_web_ui_rules(self):
 		c = bchar.Character()

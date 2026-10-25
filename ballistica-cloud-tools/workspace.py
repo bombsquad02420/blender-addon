@@ -70,34 +70,6 @@ def list_assets(root, kind):
 	return sorted(set(found))
 
 
-def mark_data_textures(root, texture_files):
-	"""Mark textures as non-color data (masks) in workspace.json.
-
-	Only adds `texture_role: data` to entries that lack a role; every other
-	key is left as it is. Returns True if workspace.json changed.
-	"""
-	path = os.path.join(root, WORKSPACE_FILE)
-	data = jsonfile.read(path)
-	entries = data.setdefault('path', {})
-	changed = False
-	for texture in texture_files:
-		key = os.path.relpath(texture, root).replace(os.sep, '/')
-		entry = entries.setdefault(key, {'type': 'tex_v1'})
-		if 'texture_role' not in entry:
-			entry['texture_role'] = 'data'
-			changed = True
-	if changed:
-		jsonfile.write(path, data)
-	return changed
-
-
-def texture_role(root, texture_file):
-	"""The texture's `texture_role` from workspace.json, or None."""
-	path = os.path.join(root, WORKSPACE_FILE)
-	key = os.path.relpath(texture_file, root).replace(os.sep, '/')
-	return jsonfile.read(path).get('path', {}).get(key, {}).get('texture_role')
-
-
 # Per-texture build settings in workspace.json (assets_v1 `tex_v1` path
 # entries; ballistica bacommon/workspace/assetsv1.py): key -> (values,
 # default). Only non-default values are stored.

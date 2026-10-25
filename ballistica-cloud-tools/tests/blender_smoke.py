@@ -872,7 +872,7 @@ assert new_files == expected, new_files
 from ballistica_cloud_tools import bchar as _bchar, workspace as _workspace  # noqa: E402
 written = _bchar.Character.load(os.path.join(ws, 'characters', 'cubey.bchar'))
 assert written.get('torso_mesh') == 'meshes/cubey_torso' and written.get('name') == 'strings/characters/cubey'
-assert _workspace.texture_role(ws, os.path.join(ws, 'textures', 'cubey_color_mask.png')) == 'data'
+assert _workspace.texture_settings(ws, os.path.join(ws, 'textures', 'cubey_color_mask.png'))['texture_role'] == 'data'
 box = objfile.read(os.path.join(ws, 'meshes', 'cubey_head.obj'))
 assert len(box.faces) == 12 and len(box.uvs) > 0
 after_export = snapshot()
@@ -1166,6 +1166,29 @@ for item in attach_templates.TEMPLATES:
 	assert os.path.isfile(os.path.join(ws, 'textures', f'dressy_{item.key}.png')), item.key
 	assert any(f.startswith(f'dressy_{item.key}') for f in os.listdir(os.path.join(ws, 'meshes'))), item.key  # left-only ones too
 draw_panels()
+
+# Icons are image pickers; any picker can take a file from the workspace.
+assert ds.icon_block is not None and ds.icon_block.ballistica_texture.path == 'textures/dressy_icon'
+assert ds.icon_mask_block.ballistica_texture.role == 'data'
+scene.ballistica_active_character = dressy
+assert bpy.ops.ballistica.pick_from_workspace(target='ICON', asset='textures/zoe_icon') == {'FINISHED'}
+assert ds.icon_block.ballistica_texture.path == 'textures/zoe_icon' and ds.icon_texture == 'textures/zoe_icon'
+assert bpy.ops.ballistica.new_icon_image(field='icon_texture') == {'FINISHED'}
+assert ds.icon_texture.startswith('textures/dressy_icon') and ds.icon_block.ballistica_texture.path == ds.icon_texture
+ds.active_part_index = [(r.part, r.side) for r in ds.parts].index(('head', 'CENTER'))
+assert bpy.ops.ballistica.pick_from_workspace(target='PART', asset='meshes/zoe_head') == {'FINISHED'}
+assert ds.parts[ds.active_part_index].mesh.ballistica_asset.path == 'meshes/zoe_head'
+ds.active_texture_index = 1
+assert bpy.ops.ballistica.pick_from_workspace(target='TEXTURE', asset='textures/zoe_color_mask') == {'FINISHED'}
+assert ds.textures[1].image.colorspace_settings.name == 'Non-Color'
+ds.active_attachment_index = 0
+assert bpy.ops.ballistica.pick_from_workspace(target='SEGMENT_MESH', asset='meshes/hair_tuft1') == {'FINISHED'}
+assert ds.attachments[0].segments[0].mesh == 'meshes/hair_tuft1'
+draw_panels()
+assert bpy.ops.ballistica.export_character() == {'FINISHED'}
+saved = _bchar.Character.load(os.path.join(ws, 'characters', 'dressy.bchar'))
+assert saved.get('head_mesh') == 'meshes/zoe_head' and saved.get('icon_texture') == ds.icon_texture
+assert os.path.isfile(os.path.join(ws, *ds.icon_texture.split('/')) + '.png')
 
 url = ui.issue_url()
 assert 'template=ballistica_cloud_tools.yml' in url and 'addon_version=' in url and 'blender_version=5.' in url, url

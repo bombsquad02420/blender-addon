@@ -11,6 +11,9 @@ a fresh install (`make install`) and a restarted Blender.
   another object in the viewport. The part shows that mesh; your selection
   doesn't change. With a scaled object: a warning says its transform was
   left behind. Esc and right-click cancel.
+- [ ] **Pick from workspace.** The folder button on a part, a texture, a
+  segment and the icon: a searchable list of the workspace's meshes or
+  images opens; picking one shows it.
 - [ ] **Segment eyedropper.** The same from an attachment segment's Mesh row.
 - [ ] **Attachment handles.** Drag and rotate an anchor and an Art Offset
   handle: the Placement / Art Offset numbers follow, and typing numbers
