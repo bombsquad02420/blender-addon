@@ -314,6 +314,7 @@ def _empty(name, group, display, size):
 	obj.empty_display_type = display
 	obj.empty_display_size = size
 	obj.hide_render = True
+	obj.show_in_front = True  # visible through the meshes, like the eye handle
 	obj.rotation_mode = transforms.EULER_ORDER
 	obj.ballistica_part.role = 'NONE'
 	return obj

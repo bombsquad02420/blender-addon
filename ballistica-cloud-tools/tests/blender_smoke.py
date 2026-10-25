@@ -1156,6 +1156,7 @@ shield_index = [t.key for t in attach_templates.TEMPLATES].index('shield')
 ds.active_attachment_index = shield_index
 shield_anchor = attach_scene.anchor(dressy, shield_index)
 assert shield_anchor is not None and shield_anchor[attach_scene.SIDE_KEY] == 'L'
+assert shield_anchor.show_in_front and all(o.show_in_front for o in attach_scene.tagged(dressy, attach_scene.HANDLE))
 assert bpy.ops.ballistica.attachment_select(segment=-1) == {'FINISHED'}
 shield_anchor.location.x += 0.05  # dragged in the viewport
 bpy.context.view_layer.update()
