@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "ballistica_cloud_tools"
-version = "0.1.0"
+version = "0.2.0"
 name = "Ballistica Cloud Tools"
 tagline = "Create BombSquad characters for Ballistica cloud workspaces"
 maintainer = "aryan02420 <aryan02420@gmail.com>"
