@@ -125,7 +125,7 @@ def on_row_changed(item):
 
 def new_image(collection, field):
 	"""A blank image for a row: white color, or a black (untinted) mask."""
-	name = f'{collection.name}_{SUFFIXES[field]}'
+	name = f'{collection.name.split(".")[0]}_{SUFFIXES[field]}'
 	mask = field in MASKS
 	image = bpy.data.images.new(name, NEW_SIZE, NEW_SIZE, alpha=True)
 	if mask:
@@ -133,6 +133,9 @@ def new_image(collection, field):
 		image.ballistica_texture['role'] = workspace.TEXTURE_SETTINGS['texture_role'][0].index('data')
 	image.generated_color = (0.0, 0.0, 0.0, 1.0) if mask else (1.0, 1.0, 1.0, 1.0)
 	image.file_format = 'PNG'
+	from .repair import rename
+
+	rename(image)  # a clash got Blender's ".001": make it a file name
 	return image
 
 

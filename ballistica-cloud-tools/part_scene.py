@@ -139,7 +139,10 @@ def _show(collection, part, side, mesh, existing):
 
 def new_mesh(collection, part):
 	"""A starter mesh for a part: the template's cuboid, no export path yet."""
-	mesh = scene.mesh_from_obj(template.obj_path(part), f'{collection.name}_{part}')
+	from .repair import rename
+
+	mesh = scene.mesh_from_obj(template.obj_path(part), f'{collection.name.split(".")[0]}_{part}')
+	rename(mesh)  # a clash got Blender's ".001": make it a file name
 	return mesh
 
 
@@ -170,11 +173,12 @@ def left_behind_note(obj):
 
 def copy_mesh(mesh, name):
 	"""A copy of a mesh with its own (empty) export path."""
-	from .props import ASSET_PATH_KEY
+	from .repair import rename
 
 	copy = mesh.copy()
 	copy.name = name
-	for key in (ASSET_PATH_KEY, attach_scene.ROOT_KEY, scene.SIGNATURE_KEY):
+	rename(copy)
+	for key in (attach_scene.ROOT_KEY, scene.SIGNATURE_KEY):
 		if key in copy:
 			del copy[key]
 	return copy
@@ -199,7 +203,7 @@ def on_row_changed(row, turned_on=False):
 			if row.side == 'L':
 				right, _ = rows(settings, row.part)
 				if right is not None and right.mesh is not None:
-					row.mesh = copy_mesh(right.mesh, f'{collection.name}_left_{row.part}')
+					row.mesh = copy_mesh(right.mesh, f'{collection.name.split(".")[0]}_left_{row.part}')
 			elif row.part in template.CUBOIDS:
 				row.mesh = new_mesh(collection, row.part)
 		finally:

@@ -31,7 +31,6 @@ ROLE_KEY = 'bct_attach_role'
 INDEX_KEY = 'bct_attachment'
 SEGMENT_KEY = 'bct_segment'
 SIDE_KEY = 'bct_side'
-LOGICAL_KEY = 'bct_logical'
 ROOT_KEY = 'bct_root'
 
 
@@ -104,7 +103,7 @@ def mesh_for(root, logical):
 	if not logical:
 		return None
 	for mesh in bpy.data.meshes:
-		if mesh.get(LOGICAL_KEY) == logical and mesh.get(ROOT_KEY) == root:
+		if mesh.ballistica_asset.path == logical and mesh.get(ROOT_KEY) == root:
 			return mesh
 	path = workspace.file_path(root, logical, 'mesh')
 	if path is None:
@@ -115,7 +114,7 @@ def mesh_for(root, logical):
 
 
 def tag_mesh(mesh, root, logical):
-	mesh[LOGICAL_KEY] = logical
+	mesh.ballistica_asset.path = logical  # names it
 	mesh[ROOT_KEY] = root
 
 

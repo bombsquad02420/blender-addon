@@ -409,6 +409,14 @@ shows them in the web UI form's order, with the same defaults:
 `flippers`, the `left_*` overrides and attachments aren't in the web UI
 form (they're JSON-only there).
 
+- **Names are file names.** A mesh's or image's Blender name is its path
+  inside its folder: mesh `blob_head` is `meshes/blob_head`, image
+  `blob_color` is `textures/blob_color` (no extension: the cloud builds the
+  formats); a name with a slash is in a subfolder. Imported files are named
+  that way, and renaming one renames its file. Names that make poor file
+  names (capitals, spaces, symbols, Blender's `.001` ending) show in Needs
+  fixing; **Rename** makes them lowercase with underscores (`.001` →
+  `_001`).
 - **Pickers.** Every mesh and image (parts, the body textures, attachment
   segments, and the icon and icon mask in Identity) is a picker over
   Blender's data, with buttons: the eyedropper (meshes: take one from an
@@ -423,8 +431,8 @@ form (they're JSON-only there).
   Left rows have a checkbox: an optional part that's off has no objects (its
   mesh stays in the row), and a Left row that's on gives the left limb its
   own mesh, starting as a copy of the right one. Below the list: the
-  selected row's mesh, its **UV map** (the render-active one is exported)
-  and **export path** (empty: `meshes/<character>_<part>` on export).
+  selected row's mesh and its **UV map** (the render-active one is
+  exported).
   The eyedropper shares the object's mesh; it says so when the object's own
   transform or modifiers are left behind (only the mesh comes across).
   Clicking a row selects the part; clicking a part picks its row. The mesh
@@ -434,10 +442,10 @@ form (they're JSON-only there).
   Blender image (picked, or **+** for a blank one: white, or a black mask
   that tints nothing). Picking one shows it on the body material (made if
   the character has none); clearing one unlinks it, so the body shows plain
-  white rather than a broken texture. Below: the image's export path and
+  white rather than a broken texture. Below: the image's
   **Build Settings** (role, quality, wrapping, alpha), read from and written
   to `workspace.json`. A mask always gets a Data role on export. An image
-  picked from elsewhere is saved under its export path.
+  picked from elsewhere is saved under its name in `textures/`.
 - **Painting.** **Paint** (under the selected texture) switches to Texture
   Paint on the selected part (or the torso), painting that image whatever
   the material shows; **Done** goes back to Object Mode. The mask has ten
@@ -453,8 +461,8 @@ form (they're JSON-only there).
   from the shelf would paint the shared color instead of its tint.
 - **Shared meshes and images.** When another character uses the selected
   part's mesh or texture, the panel says which, with **Make Unique**: a copy
-  (unsaved paint included) with its own export path. Check reports two
-  different meshes or images given the same export path in one workspace.
+  (unsaved paint included) with its own name. Check reports two meshes or
+  images from different files with the same path in one workspace.
 - **Flippers** only shortens the upper arm under boxing gloves; the engine
   still draws any forearm and hand meshes that are set. If both are set,
   the Parts list and Check show a hint (not an error).
@@ -482,8 +490,7 @@ selected attachment:
 - **Segments** (open): the segment list, and the selected segment's mesh
   (picker, eyedropper, **+** for a small box), texture and mask (pickers,
   **+** for a blank image; both empty: the body's textures), each with
-  *also used by* / Make Unique and its export path (empty: named after the
-  character and attachment on export). The `.bchar` paths are written from
+  *also used by* / Make Unique. The `.bchar` paths are written from
   the pickers; a path whose file wasn't found is kept and flagged. **Art Offset** (closed) holds the segment's own
   `transform`: where its mesh sits on its physics segment. For a
   single-segment static attachment it moves the mesh just like Placement;

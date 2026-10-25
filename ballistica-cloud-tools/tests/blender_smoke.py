@@ -115,6 +115,7 @@ for name in ('agent_johnson', 'zoe', 'pixel'):
 # Meshes and images carry their export path; images their texture settings.
 agent_head = next(o for o in bpy.data.collections['agent_johnson'].all_objects if o.ballistica_part.role == 'head')
 assert agent_head.data.ballistica_asset.path == 'meshes/agent_head'
+assert agent_head.data.name == 'agent_head'  # named by its path, without the folder
 assert agent_head.data.ballistica_asset.export_uv == agent_head.data.uv_layers[0].name
 mask_image = next(i for i in bpy.data.images if i.ballistica_texture.path == 'textures/agent_color_mask')
 assert mask_image.ballistica_texture.role == 'data' and mask_image.colorspace_settings.name == 'Non-Color'
@@ -1004,7 +1005,7 @@ cubey_mask = mask_row.image
 assert bpy.ops.ballistica.new_texture_image() == {'FINISHED'}
 assert mask_row.image != cubey_mask and mask_row.image.colorspace_settings.name == 'Non-Color'
 assert mask_row.image.ballistica_texture.role == 'data'
-assert texture_scene.fields(cubey2)['color_mask_texture'] == 'textures/cubey_color_mask_2'  # cubey's own is taken
+assert texture_scene.fields(cubey2)['color_mask_texture'] == 'textures/cubey_color_mask_001'  # cubey's own is taken
 mask_row.image = cubey_mask
 draw_panels()
 cubey_color.ballistica_texture.wrap_h = 'repeat'  # build settings go to workspace.json on export
@@ -1050,8 +1051,15 @@ p2.active_texture_index = 0
 assert bpy.ops.ballistica.make_unique(kind='TEXTURE') == {'FINISHED'}
 assert p2.textures[0].image != p1.textures[0].image and tuple(p2.textures[0].image.size) == tuple(p1.textures[0].image.size)
 assert not sharing.duplicate_paths(pixel_two)
-own.ballistica_asset.path = shared.ballistica_asset.path  # typed the other one's path
-assert any('overwrite each other' in p for p in operators.check(pixel_two))
+own.ballistica_asset.path = shared.ballistica_asset.path  # typed the other one's name: Blender adds .001
+assert own.name == shared.name + '.001' and not sharing.duplicate_paths(pixel_two)
+bad = [i for i in repair.issues(pixel_two) if i.kind == repair.BAD_NAME]
+assert [i.name for i in bad] == [own.name], [i.name for i in bad]
+assert bpy.ops.ballistica.fix_issue(kind=repair.BAD_NAME, name=own.name) == {'FINISHED'}
+assert own.name == shared.name + '_001' and not [i for i in repair.issues(pixel_two) if i.kind == repair.BAD_NAME]
+own.name = 'My Torso!'
+assert bpy.ops.ballistica.repair() == {'FINISHED'} and own.name == 'my_torso'
+assert own.ballistica_asset.path == 'meshes/my_torso'
 
 # Attachment segments: mesh, texture and mask pickers, mirrored to the paths.
 seg = cubey2.ballistica_character.attachments[0].segments[0]

@@ -5,6 +5,7 @@ addon doesn't model is kept in `raw_json` and written back on export.
 """
 
 import os
+import re
 
 import bpy
 
@@ -135,31 +136,56 @@ PART_ITEMS = [(p, p.replace('_', ' ').title(), '') for p, _, _ in rig.PARTS] + [
 
 # ---- meshes and images: where export writes them ----
 
-# ID property holding a mesh's or image's export path (logical path). The
-# same key attach_scene has always tagged meshes with, so older files keep
-# their paths.
-ASSET_PATH_KEY = 'bct_logical'
+# A mesh's or image's export path is its name inside its kind's folder:
+# mesh "blob_head" -> meshes/blob_head, image "blob_color" ->
+# textures/blob_color (no extension: the cloud builds the formats). So
+# renaming one renames its file, and no two in a file can share a path.
 EXTENSIONS = ('.obj', '.png')
+FOLDERS = {'MESH': 'meshes', 'IMAGE': 'textures'}
+
+
+def _folder(block):
+	return FOLDERS['MESH' if isinstance(block, bpy.types.Mesh) else 'IMAGE']
+
+
+def name_from_path(block, path):
+	"""The Blender name for an export path (its folder and extension dropped)."""
+	path = path.strip().replace('\\', '/').strip('/')
+	for ext in EXTENSIONS:
+		if path.lower().endswith(ext):
+			path = path[:-len(ext)]
+	prefix = _folder(block) + '/'
+	return path[len(prefix):] if path.startswith(prefix) else path
 
 
 def _asset_path_get(self):
-	return self.id_data.get(ASSET_PATH_KEY, '')
+	block = self.id_data
+	return f'{_folder(block)}/{block.name}'
 
 
 def _asset_path_set(self, value):
-	value = value.strip().replace('\\', '/').strip('/')
-	for ext in EXTENSIONS:
-		if value.lower().endswith(ext):
-			value = value[:-len(ext)]
-	if value:
-		self.id_data[ASSET_PATH_KEY] = value
-	elif ASSET_PATH_KEY in self.id_data:
-		del self.id_data[ASSET_PATH_KEY]
+	name = name_from_path(self.id_data, value)
+	if name and name != self.id_data.name:
+		self.id_data.name = name
 
 
 def _path_prop(description):
 	return bpy.props.StringProperty(
 		name="Export Path", description=description, get=_asset_path_get, set=_asset_path_set, options=_options())
+
+
+# Names that make good file names: lowercase letters, digits and
+# underscores (slashes for subfolders).
+GOOD_NAME = re.compile(r'^[a-z0-9_]+(/[a-z0-9_]+)*$')
+
+
+def good_name(name):
+	"""A file-safe version of a name: 'My Hat!' -> 'my_hat', 'head.001' -> 'head_001'."""
+	import re
+
+	name = re.sub(r'[^a-z0-9_/]+', '_', name.lower())
+	name = re.sub(r'_+', '_', '/'.join(part.strip('_') for part in name.split('/') if part.strip('_')))
+	return name or 'unnamed'
 
 
 _UV_ITEMS = {}  # mesh name -> items (dynamic enum items must stay referenced)
@@ -185,7 +211,7 @@ def _uv_set(self, value):
 
 
 class MESH_PG_ballistica_asset(bpy.types.PropertyGroup):
-	path: _path_prop("Where export writes this mesh in the workspace, without .obj (e.g. meshes/zoe_head). Empty: named after the character and part on export")
+	path: _path_prop("Where export writes this mesh in the workspace: meshes/ and its name")
 	export_uv: bpy.props.EnumProperty(
 		name="UV Map", items=_uv_items, get=_uv_get, set=_uv_set, options=_options(),
 		description="The UV map export writes: the mesh's render-active one (the camera icon in Blender's UV Maps list). "
@@ -223,7 +249,7 @@ def _role_changed(self, context):
 
 
 class IMAGE_PG_ballistica_texture(bpy.types.PropertyGroup):
-	path: _path_prop("Where export writes this texture in the workspace, without .png (e.g. textures/zoe_color). Empty: named after the character on export")
+	path: _path_prop("Where export writes this texture in the workspace: textures/ and its name")
 	role: _texture_enum(
 		"Role", 'texture_role', "How the cloud build treats the pixels. Masks are Data: their red, green and blue "
 		"are separate channels, not a color", update=_role_changed)

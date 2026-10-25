@@ -75,7 +75,7 @@ def _free_path(collection, kind, base):
 
 	root = collection.ballistica_character.workspace_root
 	blocks = bpy.data.meshes if kind == 'mesh' else bpy.data.images
-	taken = {b.get(attach_scene.LOGICAL_KEY) for b in blocks}
+	taken = {b.ballistica_asset.path if kind == 'mesh' else b.ballistica_texture.path for b in blocks}
 	path, n = base, 2
 	while path in taken or workspace.file_path(root, path, kind) or (kind == 'texture' and scene.find_image(workspace.new_file_path(root, path, kind))):
 		path, n = f'{base}_{n}', n + 1

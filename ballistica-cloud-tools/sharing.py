@@ -35,7 +35,7 @@ def users(block):
 
 def make_unique_mesh(collection, row):
 	"""Give a Parts row its own copy of its mesh."""
-	name = f'{collection.name}_left_{row.part}' if row.side == 'L' else f'{collection.name}_{row.part}'
+	name = f'{collection.name.split(".")[0]}_left_{row.part}' if row.side == 'L' else f'{collection.name.split(".")[0]}_{row.part}'
 	copy = part_scene.copy_mesh(row.mesh, name)
 	row.mesh = copy
 	copy.ballistica_asset.path = part_scene._free_path(collection, row)
@@ -44,7 +44,7 @@ def make_unique_mesh(collection, row):
 
 def make_unique_image(collection, item):
 	"""Give a Textures row its own copy of its image (unsaved paint included)."""
-	copy = copy_image(item.image, f'{collection.name}_{texture_scene.SUFFIXES[item.field]}')
+	copy = copy_image(item.image, f'{collection.name.split(".")[0]}_{texture_scene.SUFFIXES[item.field]}')
 	item.image = copy
 	copy.ballistica_texture.path = texture_scene._free_path(collection, item)
 	return copy

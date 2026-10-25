@@ -81,10 +81,12 @@ rotation.
 
 ## 3. Data model
 
-### Meshes and images carry their export path
+### Meshes and images: their name is their path
 
-Each Blender mesh and image used by a character stores its **export path**
-(logical path, e.g. `meshes/zoe_head`). Images also store their texture
+A mesh's or image's Blender name is its **export path** inside its folder
+(mesh `zoe_head` → `meshes/zoe_head`, image `zoe_color` →
+`textures/zoe_color`); there's no separate path field, and names that make
+poor file names show in Needs fixing with a Rename fix. Images also store their texture
 settings, from `workspace.json` (`assets_v1` `tex_v1` entries):
 
 | Setting | Values (default first) |
@@ -125,7 +127,6 @@ Under the list, the selected part's:
   that part) and, when shared, *used by N characters* and **Make unique**;
 - **UV map** to export (the mesh's render-active UV map: Blender's camera
   icon), for people who bake from one UV map to another;
-- **export path**;
 - Flippers and its hint, on the arm rows.
 
 ### Textures list
@@ -140,7 +141,7 @@ mask stay in Identity.
 
 ### Checks
 
-- Two different meshes, or two images, with the same export path.
+- Two meshes, or two images, from different files with the same path.
 - A used part without a mesh (its picker cleared).
 - Everything Repair finds (as notes).
 

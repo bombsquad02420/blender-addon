@@ -996,7 +996,7 @@ class BALLISTICA_OT_new_part_mesh(bpy.types.Operator):
 		collection = active_character(context)
 		settings = collection.ballistica_character
 		row = settings.parts[settings.active_part_index]
-		name = f'{collection.name}_left_{row.part}' if row.side == 'L' else f'{collection.name}_{row.part}'
+		name = f'{collection.name.split(".")[0]}_left_{row.part}' if row.side == 'L' else f'{collection.name.split(".")[0]}_{row.part}'
 		mesh = part_scene.new_mesh(collection, row.part)
 		mesh.name = name
 		row.mesh = mesh

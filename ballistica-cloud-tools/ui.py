@@ -404,7 +404,6 @@ class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 		_paint_box(layout, context, item, image)
 		_shared_note(col, image, collection, 'TEXTURE')
 		texture = image.ballistica_texture
-		col.prop(texture, 'path', placeholder=texture_scene.default_path(collection, item.field))
 		header, body = layout.panel('BALLISTICA_texture_settings', default_closed=True)
 		header.label(text="Build Settings")
 		if body is not None:
@@ -468,7 +467,6 @@ class VIEW3D_PT_ballistica_parts(_Section, bpy.types.Panel):
 				_shared_note(col, row.mesh, collection, 'PART')
 				asset = row.mesh.ballistica_asset
 				col.prop(asset, 'export_uv')
-				col.prop(asset, 'path', placeholder=part_scene.default_path(collection, row))
 		if row.part in ('upper_arm', 'forearm', 'hand') and row.side != 'L':
 			col.separator()
 			col.prop(settings, 'flippers')
@@ -658,8 +656,6 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 			block = getattr(segment, attr)
 			if block is not None:
 				_shared_note(col, block, collection, kind)
-				asset = block.ballistica_asset if key == 'mesh' else block.ballistica_texture
-				col.prop(asset, 'path', text="Export Path")
 			elif getattr(segment, key):
 				col.label(text=f"{getattr(segment, key)} isn't in the workspace", icon='ERROR')
 		if segment.texture_block is None and segment.mask_block is None:

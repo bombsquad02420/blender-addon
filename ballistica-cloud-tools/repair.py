@@ -31,6 +31,7 @@ NO_GUIDES = 'no_guides'
 NO_ATTACHMENTS = 'no_attachments'  # an attachment's handles or meshes are gone
 NO_PART = 'no_part'  # a part with a mesh has no object
 NO_EYE_HANDLE = 'no_eye_handle'
+BAD_NAME = 'bad_name'  # a mesh or image name that makes a poor file name
 EYE_HANDLE_SKEWED = 'eye_handle_skewed'  # turned, or scaled unevenly
 
 # Kind -> (short label, fix button, longer explanation for the tooltip).
@@ -55,6 +56,9 @@ TEXT = {
 	NO_GUIDES: ("Guides missing", "Rebuild", "The physics guides were deleted"),
 	NO_ATTACHMENTS: ("Attachment {name} incomplete", "Rebuild", "Attachment {name}'s handles or meshes were deleted"),
 	NO_PART: ("{name} missing", "Rebuild", "The {name} object was deleted, but the character still uses its mesh"),
+	BAD_NAME: ("\"{name}\" isn't a file name", "Rename",
+		"Meshes and images are exported under their names, so they should be lowercase letters, digits and "
+		"underscores. Rename fixes \"{name}\" (capitals, spaces, symbols, or Blender's .001 ending)"),
 	NO_EYE_HANDLE: ("Eye handle missing", "Add", "The handle that moves, sizes and tilts the eyes was deleted"),
 	EYE_HANDLE_SKEWED: ("Eye handle is turned or stretched", "Fix",
 		"Eyes can only be moved and scaled evenly. Fix clears the turn and evens out the scale"),
@@ -64,10 +68,11 @@ KEEPABLE = (MOVED,)
 
 
 class Issue:
-	def __init__(self, kind, name='', obj=None):
+	def __init__(self, kind, name='', obj=None, block=None):
 		self.kind = kind
 		self.name = name or (obj.name if obj is not None else '')
 		self.obj = obj
+		self.block = block  # the mesh or image, for BAD_NAME
 
 	@property
 	def label(self):
@@ -230,6 +235,7 @@ def _character_issues(collection, arm):
 		issues.append(Issue(NO_EYES))
 	if eye_scene.handle(collection) is None:
 		issues.append(Issue(NO_EYE_HANDLE))
+	issues += _name_issues(collection)
 	guides = _guides(collection)
 	if guides is None or not guides.objects:
 		issues.append(Issue(NO_GUIDES))
@@ -251,6 +257,36 @@ def _character_issues(collection, arm):
 		for side in sorted(need - have):
 			issues.append(Issue(NO_PART, scene.bone_name(part, side) if side != 'CENTER' else part))
 	return issues
+
+
+def exported_blocks(collection):
+	"""The meshes and images the character exports (its pickers' contents)."""
+	settings = collection.ballistica_character
+	blocks = [r.mesh for r in settings.parts if r.enabled and r.mesh is not None]
+	blocks += [t.image for t in settings.textures if t.image is not None]
+	blocks += [b for b in (settings.icon_block, settings.icon_mask_block) if b is not None]
+	for attachment in settings.attachments:
+		for segment in attachment.segments:
+			blocks += [b for b in (segment.mesh_block, segment.texture_block, segment.mask_block) if b is not None]
+	return list(dict.fromkeys(blocks))
+
+
+def _name_issues(collection):
+	from .props import GOOD_NAME
+
+	return [Issue(BAD_NAME, block.name, block=block) for block in exported_blocks(collection) if not GOOD_NAME.match(block.name)]
+
+
+def rename(block):
+	"""Give a mesh or image a good file name, free among its kind."""
+	from .props import good_name
+
+	pool = bpy.data.meshes if isinstance(block, bpy.types.Mesh) else bpy.data.images
+	base = good_name(block.name)
+	name, n = base, 2
+	while name in pool and pool[name] != block:
+		name, n = f'{base}_{n}', n + 1
+	block.name = name
 
 
 def issues(collection, objects=None):
@@ -291,6 +327,8 @@ def fix(collection, issue, keep=False):
 		_fix_rig(collection)
 	elif kind == NO_EYES:
 		_rebuild_eyes(collection)
+	elif kind == BAD_NAME:
+		rename(issue.block)
 	elif kind == NO_EYE_HANDLE:
 		arm = armature(collection)
 		if arm is not None:
@@ -314,7 +352,7 @@ def fix(collection, issue, keep=False):
 
 
 # Character-level fixes run first: they recreate what object fixes need.
-ORDER = (NO_GROUP, NO_RIG, RIG_MOVED, NO_ROOT, NO_GUIDES, NO_EYES, NO_EYE_HANDLE, NO_ATTACHMENTS, NO_PART)
+ORDER = (NO_GROUP, NO_RIG, RIG_MOVED, NO_ROOT, NO_GUIDES, NO_EYES, NO_EYE_HANDLE, NO_ATTACHMENTS, NO_PART, BAD_NAME)
 
 
 def repair(collection, objects=None):
@@ -327,7 +365,7 @@ def repair(collection, objects=None):
 	if objects is None:
 		for kind in ORDER:
 			pending = [i for i in issues(collection) if i.kind == kind]
-			for issue in pending[:1] if kind not in (NO_PART,) else pending:
+			for issue in pending[:1] if kind not in (NO_PART, BAD_NAME) else pending:
 				fix(collection, issue)
 			fixed += len(pending)
 	for issue in issues(collection, objects if objects is not None else list(collection.all_objects)):
