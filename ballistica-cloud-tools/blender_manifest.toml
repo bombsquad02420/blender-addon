@@ -32,6 +32,7 @@ paths_exclude_pattern = [
 	"/CHANGELOG.md",
 	"/assets/build_assets.py",
 	"/assets/build_template.py",
+	"/assets/attachment_blend.py",
 	"/assets/extract_eye_assets.py",
 	"/assets/source/",
 	"*.blend1",
