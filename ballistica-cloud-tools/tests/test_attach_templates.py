@@ -1,3 +1,4 @@
+import os
 import unittest
 
 from _addon import load
@@ -9,7 +10,7 @@ templates = load('attach_templates')
 
 class TemplateTest(unittest.TestCase):
 	def test_templates_have_unique_keys(self):
-		self.assertEqual(len(templates.TEMPLATES), 13)
+		self.assertEqual(len(templates.TEMPLATES), 12)
 		self.assertEqual(len(templates.BY_KEY), len(templates.TEMPLATES))
 
 	def test_hand_items_go_on_the_expected_hands(self):
@@ -20,32 +21,29 @@ class TemplateTest(unittest.TestCase):
 		for template in templates.TEMPLATES:
 			with self.subTest(template.key):
 				count = attachments.segment_count(template.kind)
-				self.assertEqual(len(template.segments), count)
-				record = template.record([f'meshes/x_{i}' for i in range(count)])
+				self.assertEqual(template.segment_count, count)
+				record = template.record([f'meshes/x_{i}' for i in range(count)], 'textures/a', 'textures/a_mask')
 				self.assertEqual(attachments.problems(record), [])
 				self.assertEqual([s['mesh'] for s in record['segments']], [f'meshes/x_{i}' for i in range(count)])
 
-	def test_meshes_are_closed_triangles_with_uvs_inside_the_texture(self):
+	def test_shipped_meshes_have_uvs_inside_the_texture(self):
 		for template in templates.TEMPLATES:
-			for index, make in enumerate(template.segments):
-				with self.subTest(template.key, segment=index):
-					mesh = make()
-					self.assertGreater(len(mesh.faces), 4)
-					self.assertTrue(all(len(face) == 3 for face in mesh.faces))
+			for path in template.obj_paths():
+				with self.subTest(os.path.basename(path)):
+					self.assertTrue(os.path.isfile(path), path)
+					mesh = objfile.read(path)
+					self.assertGreater(len(mesh.faces), 0)
+					for face in mesh.faces:  # no zero-area faces (Blender can crash on them)
+						self.assertEqual(len({mesh.positions[c[0]] for c in face}), 3)
+					self.assertTrue(all(c[1] is not None and c[2] is not None for face in mesh.faces for c in face))
 					self.assertIsNone(objfile.uv_range_problem([c for uv in mesh.uvs for c in uv]))
-					for normal in mesh.normals:
-						self.assertAlmostEqual(sum(c * c for c in normal), 1.0, places=5)
-					# Small: an attachment, not a body.
-					for axis in range(3):
+					for axis in range(3):  # small: an attachment, not a body
 						values = [p[axis] for p in mesh.positions]
-						self.assertLess(max(values) - min(values), 0.7)
+						self.assertLess(max(values) - min(values), 0.8)
 
-	def test_textures_are_flat_color_and_one_mask_channel(self):
-		size = 4
-		for template in templates.TEMPLATES:
-			with self.subTest(template.key):
-				color, mask = template.textures(size)
-				self.assertEqual(len(color), size * size * 4)
-				self.assertEqual(color[:4], list(template.color) + [1.0])
-				channels = mask[:3]
-				self.assertEqual(sum(channels), 0.0 if template.tint is None else 1.0)
+	def test_the_atlas_ships_with_its_mask(self):
+		for mask in (False, True):
+			self.assertTrue(os.path.isfile(templates.texture_path(mask)))
+		names = {os.path.splitext(f)[0] for f in os.listdir(templates.TEMPLATE_DIR) if f.endswith('.obj')}
+		expected = {os.path.splitext(os.path.basename(p))[0] for t in templates.TEMPLATES for p in t.obj_paths()}
+		self.assertEqual(names, expected)  # no leftovers

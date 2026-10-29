@@ -1166,14 +1166,18 @@ bpy.context.view_layer.update()
 assert any(o.get(attach_scene.INDEX_KEY) == shield_index for o in attach_scene.edited_meshes(dressy))
 assert bpy.ops.ballistica.attachment_add(template='hat') == {'FINISHED'}  # a second hat gets its own files
 assert ds.attachments[-1].segments[0].mesh == 'meshes/dressy_hat_2'
+# All templates share one atlas: one texture and mask for the character.
+assert {s.texture for a in ds.attachments for s in a.segments} == {'textures/dressy_attachments'}
+assert {s.mask_texture for a in ds.attachments for s in a.segments} == {'textures/dressy_attachments_mask'}
+assert len({s.texture_block for a in ds.attachments for s in a.segments}) == 1
 bpy.ops.ballistica.attachment_remove()
 problems = operators.check(dressy)
 assert [p for p in problems if p.level == ops.ERROR and 'pixie_torso' not in p] == [], problems  # (pixel's duplicate is an earlier test's)
 assert bpy.ops.ballistica.export_character() == {'FINISHED'}
 saved = _bchar.Character.load(os.path.join(ws, 'characters', 'dressy.bchar'))
 assert [a['target'] for a in saved.attachments] == [t.target for t in attach_templates.TEMPLATES]
+assert os.path.isfile(os.path.join(ws, 'textures', 'dressy_attachments.png'))
 for item in attach_templates.TEMPLATES:
-	assert os.path.isfile(os.path.join(ws, 'textures', f'dressy_{item.key}.png')), item.key
 	assert any(f.startswith(f'dressy_{item.key}') for f in os.listdir(os.path.join(ws, 'meshes'))), item.key  # left-only ones too
 draw_panels()
 

@@ -522,15 +522,16 @@ objects and then select the active attachment's new meshes.
 
 The **+** beside the list is a menu: **Empty** (an `antenna` on top of the
 head with a placeholder box segment, `meshes/<character>_attachment<n>`) or
-one of the **templates** (`attach_templates.py`): Hat, Crown, Horns, Bobble
-Antenna, Ponytail, Backpack, Cape, Tail, Wings, Shoulder Pads, and for the
-hands a Sword (right), Shield (left) and Claws (both). A template
-sets the target, kind, placement and spring tuning, and copies in its own
-generated low-poly mesh per segment and a small color texture and mask
-(tinted with the player color or a highlight, or not), named
-`meshes/<character>_<template>` and `textures/<character>_<template>`. The
-files ship in `assets/attachments/` (written by `make template`), so they
-can be replaced by hand-made ones.
+one of the **templates** (`attach_templates.py`): Hat, Crown, Horn, Bobble
+Antenna, Ponytail, Backpack, Cape, Tail, Wings, and for the hands a Sword
+(right), Shield (left) and Claws (both). A template sets the target, kind,
+placement and spring tuning, and copies in its hand-made mesh per segment
+(`meshes/<character>_<template>`). All templates share one texture atlas
+and its color mask, so a character gets one attachment texture
+(`textures/<character>_attachments`, and `_mask`), made with the first
+template and reused by the rest. The files ship in `assets/attachments/`;
+they're edited in `assets/source/attachment_templates.blend`
+(`assets/attachment_blend.py make` / `save`).
 
 ### Eye handle
 

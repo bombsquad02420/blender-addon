@@ -83,13 +83,18 @@ def _free_path(collection, kind, base):
 
 
 def template_record(collection, item):
-	"""Copy a template's meshes and textures into the character; its record."""
-	from . import attach_templates, scene
+	"""Copy a template's meshes into the character; its record.
+
+	All templates share one texture atlas and mask, so a character gets one
+	attachment texture (textures/<character>_attachments, and _mask), made
+	the first time and reused by every template added after.
+	"""
+	from . import attach_templates, scene, workspace
 	from .operators import _new_image
 
 	root = collection.ballistica_character.workspace_root
 	name = collection.name.split('.')[0]
-	count = len(item.segments)
+	count = item.segment_count
 	meshes = []
 	for index in range(count):
 		base = f'meshes/{name}_{item.key}' + (f'_{index}' if count > 1 else '')
@@ -99,8 +104,11 @@ def template_record(collection, item):
 		meshes.append(logical)
 	textures = []
 	for is_mask in (False, True):
-		logical = _free_path(collection, 'texture', f'textures/{name}_{item.key}' + ('_mask' if is_mask else ''))
-		source = bpy.data.images.load(attach_templates.texture_path(item.key, is_mask))
+		logical = f'textures/{name}_attachments' + ('_mask' if is_mask else '')
+		textures.append(logical)
+		if scene.find_texture(root, logical) is not None or workspace.file_path(root, logical, 'texture'):
+			continue  # this character's atlas, from an earlier template
+		source = bpy.data.images.load(attach_templates.texture_path(is_mask))
 		try:
 			if is_mask:
 				source.colorspace_settings.name = 'Non-Color'
@@ -110,7 +118,6 @@ def template_record(collection, item):
 		finally:
 			bpy.data.images.remove(source)
 		_new_image(root, logical, pixels, width, data=is_mask, height=height)
-		textures.append(logical)
 	return item.record(meshes, *textures)
 
 

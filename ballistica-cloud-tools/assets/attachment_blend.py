@@ -7,11 +7,14 @@
 `make` writes assets/source/attachment_templates.blend: one object per
 template segment (named like its OBJ: hat, antenna_0, ...), each in a
 collection named after its template, placed where it goes on a reference
-starter body (unselectable). Each uses its template's color PNG straight
-from assets/attachments/, so painting it and saving the image (Image >
-Save) updates the shipped file.
+starter body (unselectable). They share one material with the template
+atlas (assets/attachments/attachments_color.png).
 
-`save` writes the objects' meshes back to assets/attachments/<name>.obj.
+`save` writes the objects' meshes back to assets/attachments/<name>.obj
+(an object is found by its name, else by its mesh's name), and the atlas
+the objects use to assets/attachments/attachments_color.png (copied as
+is, or saved if painted), pointing the .blend at it. If there's no atlas
+mask yet, a black one (no tints) of the same size is written.
 Only the mesh data counts, in the object's own space: move, turn or scale
 the objects freely to look at them, but edit the shape in Edit Mode, and
 don't apply transforms (Ctrl+A), which would bake the placement in.
@@ -40,7 +43,7 @@ def segment_names():
 	"""Object name -> (template, segment index, OBJ path)."""
 	names = {}
 	for item in attach_templates.TEMPLATES:
-		count = len(item.segments)
+		count = item.segment_count
 		for index in range(count):
 			path = attach_templates.obj_path(item.key, index, count)
 			names[os.path.splitext(os.path.basename(path))[0]] = (item, index, path)
@@ -79,17 +82,17 @@ def make():
 
 	settings = character.ballistica_character
 	names = segment_names()
+	atlas = bpy.data.images.load(attach_templates.texture_path(False))
+	atlas.filepath = bpy.path.relpath(atlas.filepath, start=os.path.dirname(BLEND))
+	material = _material('attachment', atlas)
 	for index, (attachment, item) in enumerate(zip(settings.attachments, attach_templates.TEMPLATES)):
 		group = bpy.data.collections.new(item.label)
 		bpy.context.scene.collection.children.link(group)
-		image = bpy.data.images.load(attach_templates.texture_path(item.key, False))
-		image.filepath = bpy.path.relpath(image.filepath, start=os.path.dirname(BLEND))
-		material = _material(item.key, image)
 		for obj in attach_scene.edited_meshes(character):
 			if obj.get(attach_scene.INDEX_KEY) != index:
 				continue
 			j = obj.get(attach_scene.SEGMENT_KEY, 0)
-			name = os.path.splitext(os.path.basename(attach_templates.obj_path(item.key, j, len(item.segments))))[0]
+			name = os.path.splitext(os.path.basename(attach_templates.obj_path(item.key, j, item.segment_count)))[0]
 			mesh = scene.mesh_from_obj(names[name][2], name)
 			copy = bpy.data.objects.new(name, mesh)
 			copy.matrix_world = obj.matrix_world.copy()
@@ -131,8 +134,9 @@ def save():
 	names = segment_names()
 	depsgraph = bpy.context.evaluated_depsgraph_get()
 	written = []
+	by_mesh = {o.data.name: o for o in bpy.data.objects if o.type == 'MESH'}
 	for name, (_, _, path) in names.items():
-		obj = bpy.data.objects.get(name)
+		obj = bpy.data.objects.get(name) or by_mesh.get(name)
 		if obj is None or obj.type != 'MESH':
 			print('missing', name)
 			continue
@@ -143,6 +147,40 @@ def save():
 			bpy.data.meshes.remove(mesh)
 		written.append(os.path.basename(path))
 	print('wrote', len(written), 'meshes:', ', '.join(written))
+	_save_atlas([bpy.data.objects.get(n) or by_mesh.get(n) for n in names])
+	bpy.ops.wm.save_mainfile()
+
+
+def _save_atlas(objects):
+	"""Ship the atlas the template objects use, and a mask if there's none."""
+	import shutil
+
+	images = {
+		node.image for obj in objects if obj is not None for slot in obj.material_slots if slot.material and slot.material.node_tree
+		for node in slot.material.node_tree.nodes if node.type == 'TEX_IMAGE' and node.image is not None}
+	if len(images) != 1:
+		print('expected one atlas image, found', sorted(i.name for i in images))
+		return
+	atlas = images.pop()
+	target = attach_templates.texture_path(False)
+	source = bpy.path.abspath(atlas.filepath)
+	if atlas.is_dirty or not os.path.isfile(source):
+		atlas.save(filepath=target)
+	elif os.path.abspath(source) != os.path.abspath(target):
+		shutil.copyfile(source, target)
+	atlas.filepath = bpy.path.relpath(target, start=os.path.dirname(BLEND))
+	atlas.name = attach_templates.ATLAS
+	print('wrote', os.path.basename(target), tuple(atlas.size))
+	mask_path = attach_templates.texture_path(True)
+	if not os.path.isfile(mask_path):
+		width, height = atlas.size
+		mask = bpy.data.images.new(attach_templates.ATLAS_MASK, width, height, alpha=True)
+		mask.colorspace_settings.name = 'Non-Color'
+		mask.pixels.foreach_set([0.0, 0.0, 0.0, 1.0] * (width * height))
+		mask.filepath_raw = mask_path
+		mask.file_format = 'PNG'
+		mask.save()
+		print('wrote', os.path.basename(mask_path))
 
 
 mode = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'make'
