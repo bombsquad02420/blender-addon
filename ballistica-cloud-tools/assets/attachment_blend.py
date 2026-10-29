@@ -11,18 +11,20 @@ starter body (unselectable). They share one material with the template
 atlas (assets/attachments/attachments_color.png).
 
 `save` writes the objects' meshes back to assets/attachments/<name>.obj
-(an object is found by its name, else by its mesh's name), and the atlas
+(an object is found by its name, else by its mesh's name) as they look:
+if an object was moved, turned or scaled away from its template's place,
+that change goes into the mesh (and the object is put back). The atlas
 the objects use to assets/attachments/attachments_color.png (copied as
 is, or saved if painted), pointing the .blend at it. If there's no atlas
 mask yet, a black one (no tints) of the same size is written.
-Only the mesh data counts, in the object's own space: move, turn or scale
-the objects freely to look at them, but edit the shape in Edit Mode, and
-don't apply transforms (Ctrl+A), which would bake the placement in.
-Modifiers are applied.
+What you see is what's saved, so don't move objects aside just to look
+at them, and don't apply or clear their transforms (Ctrl+A, Alt+G/R/S),
+which takes them off their place. Modifiers are applied.
 """
 
 import importlib.util
 import json
+import math
 import os
 import sys
 import tempfile
@@ -129,7 +131,32 @@ def _material(key, image):
 	return material
 
 
+def placements():
+	"""Object name -> where `make` puts it (world matrix), from a fresh reference."""
+	package.register()
+	from ballistica_cloud_tools import attach_scene
+
+	workspace = tempfile.mkdtemp()
+	with open(os.path.join(workspace, 'workspace.json'), 'w') as outfile:
+		json.dump({'path': {}, 'type': 'assets_v1'}, outfile)
+	bpy.ops.ballistica.new_character(directory=workspace, name='reference', start_from='BLANK')
+	character = bpy.data.collections['reference']
+	bpy.context.scene.ballistica_active_character = character
+	for item in attach_templates.TEMPLATES:
+		bpy.ops.ballistica.attachment_add(template=item.key)
+	bpy.context.view_layer.update()
+	found = {}
+	for index, item in enumerate(attach_templates.TEMPLATES):
+		for obj in attach_scene.edited_meshes(character):
+			if obj.get(attach_scene.INDEX_KEY) == index:
+				path = attach_templates.obj_path(item.key, obj.get(attach_scene.SEGMENT_KEY, 0), item.segment_count)
+				found[os.path.splitext(os.path.basename(path))[0]] = obj.matrix_world.copy()
+	package.unregister()
+	return found
+
+
 def save():
+	expected = placements()
 	bpy.ops.wm.open_mainfile(filepath=BLEND)
 	# Saved in Edit Mode, a mesh's latest edits aren't in its data yet: leave it.
 	editing = [o for o in bpy.data.objects if o.mode == 'EDIT']
@@ -145,6 +172,15 @@ def save():
 		if obj is None or obj.type != 'MESH':
 			print('missing', name)
 			continue
+		# Away from its place: put that difference into the mesh, and the
+		# object back, so the mesh looks in the game as it does here.
+		delta = expected[name].inverted() @ obj.matrix_world
+		if not _is_identity(delta):
+			moved, turned, scaled = delta.decompose()
+			print(f'{name}: baked a move of {moved.length:.3f} and a turn of '
+				f'{math.degrees(turned.angle):.1f} degrees into its mesh')
+			obj.data.transform(delta)
+			obj.matrix_world = expected[name]
 		mesh = bpy.data.meshes.new_from_object(obj.evaluated_get(depsgraph), preserve_all_data_layers=True, depsgraph=depsgraph)
 		try:
 			objfile.write(path, scene.obj_from_mesh(mesh))
@@ -154,6 +190,12 @@ def save():
 	print('wrote', len(written), 'meshes:', ', '.join(written))
 	_save_atlas([bpy.data.objects.get(n) or by_mesh.get(n) for n in names])
 	bpy.ops.wm.save_mainfile()
+
+
+def _is_identity(matrix, tolerance=1e-5):
+	from mathutils import Matrix
+
+	return all(abs(a - b) <= tolerance for row, ident in zip(matrix, Matrix.Identity(4)) for a, b in zip(row, ident))
 
 
 def _save_atlas(objects):
