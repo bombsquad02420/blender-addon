@@ -124,6 +124,10 @@ def mesh_from_objmesh(obj, name):
 	"""A Blender mesh (Blender axes, part-local) from an in-memory ObjMesh."""
 	mesh = bpy.data.meshes.new(name)
 	positions = [tuple(game_point(p)) for p in obj.positions]
+	# Faces that repeat a vertex have no area; Blender drops them, and setting
+	# custom normals on a mesh that has them crashes it, so skip them here.
+	faces = [face for face in obj.faces if len({c[0] for c in face}) == len(face)]
+	obj = objfile.ObjMesh(obj.positions, obj.uvs, obj.normals, faces)
 	mesh.from_pydata(positions, [], [[c[0] for c in face] for face in obj.faces])
 	if obj.uvs:
 		uv_layer = mesh.uv_layers.new(name="UVMap")
@@ -214,6 +218,8 @@ def obj_from_mesh(mesh):
 		out = objfile.ObjMesh()
 		out.positions = [tuple(TO_GAME @ v.co) for v in triangulated.vertices]
 		for poly in triangulated.polygons:
+			if len({triangulated.loops[li].vertex_index for li in poly.loop_indices}) < 3:
+				continue  # no area: never written
 			face = []
 			for li in poly.loop_indices:
 				loop = triangulated.loops[li]

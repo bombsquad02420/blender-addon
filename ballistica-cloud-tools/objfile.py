@@ -51,7 +51,11 @@ def _corner(token, mesh):
 
 
 def write(path, mesh):
-	"""Write triangles with positions, UVs and normals, deduplicated."""
+	"""Write triangles with positions, UVs and normals, deduplicated.
+
+	A face whose corners land on the same position (after rounding) has no
+	area, so it's left out: the game can't use it and Blender can crash on it.
+	"""
 	positions, uvs, normals = {}, {}, {}
 	lines_v, lines_vt, lines_vn, lines_f = [], [], [], []
 
@@ -63,6 +67,8 @@ def write(path, mesh):
 		return table[key]
 
 	for face in mesh.faces:
+		if len({tuple(round(c, 6) for c in mesh.positions[vi]) for vi, _, _ in face}) < len(face):
+			continue
 		tokens = []
 		for vi, ti, ni in face:
 			v = index(positions, lines_v, 'v', mesh.positions[vi])
