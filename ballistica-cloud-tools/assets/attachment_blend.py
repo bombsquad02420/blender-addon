@@ -131,6 +131,11 @@ def _material(key, image):
 
 def save():
 	bpy.ops.wm.open_mainfile(filepath=BLEND)
+	# Saved in Edit Mode, a mesh's latest edits aren't in its data yet: leave it.
+	editing = [o for o in bpy.data.objects if o.mode == 'EDIT']
+	if editing:
+		bpy.context.view_layer.objects.active = editing[0]
+		bpy.ops.object.mode_set(mode='OBJECT')
 	names = segment_names()
 	depsgraph = bpy.context.evaluated_depsgraph_get()
 	written = []
