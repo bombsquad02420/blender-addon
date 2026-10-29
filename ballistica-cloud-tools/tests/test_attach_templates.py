@@ -47,3 +47,11 @@ class TemplateTest(unittest.TestCase):
 		names = {os.path.splitext(f)[0] for f in os.listdir(templates.TEMPLATE_DIR) if f.endswith('.obj')}
 		expected = {os.path.splitext(os.path.basename(p))[0] for t in templates.TEMPLATES for p in t.obj_paths()}
 		self.assertEqual(names, expected)  # no leftovers
+
+	def test_the_atlas_is_a_multiple_of_8(self):
+		import struct
+
+		for mask in (False, True):
+			with open(templates.texture_path(mask), 'rb') as infile:
+				width, height = struct.unpack('>II', infile.read(24)[16:24])
+			self.assertEqual((width % 8, height % 8), (0, 0), (width, height))
