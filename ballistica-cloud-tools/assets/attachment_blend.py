@@ -181,6 +181,8 @@ def save():
 				f'{math.degrees(turned.angle):.1f} degrees into its mesh')
 			obj.data.transform(delta)
 			obj.matrix_world = expected[name]
+			bpy.context.view_layer.update()  # so the evaluated mesh has the change
+			depsgraph = bpy.context.evaluated_depsgraph_get()
 		mesh = bpy.data.meshes.new_from_object(obj.evaluated_get(depsgraph), preserve_all_data_layers=True, depsgraph=depsgraph)
 		try:
 			objfile.write(path, scene.obj_from_mesh(mesh))
