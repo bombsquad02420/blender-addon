@@ -590,7 +590,7 @@ character would be broken) and warnings, then a summary as the last message
 last one). It reports: required fields; referenced files
 missing from the workspace (meshes and textures made in Blender count, since
 export writes them); masks not marked `texture_role: data`; meshes without
-UVs; attachment rule problems; the Flippers hint; and a name or highlight labels that aren't translation keys (the
+UVs; attachment rule problems; the Flippers hint; texture sizes that aren't multiples of 8 (an error: the cloud build rejects them; Needs fixing has **Resize**); and a name or highlight labels that aren't translation keys (the
 fields show the expected shape as a placeholder). There are no known
 server limits on vertex counts or texture sizes, so the checks don't invent
 any.

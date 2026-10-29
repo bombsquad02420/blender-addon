@@ -1212,6 +1212,14 @@ ds.attachments[hat_index].target = 'torso'  # a target change rewrites the recor
 assert ds.attachments[hat_index].segments[0].mesh_block.name == 'renamed_hat_2'
 ds.attachments[hat_index].target = 'head'
 
+# Texture sizes must be multiples of 8 for the cloud build: an error, with Resize.
+odd = bpy.data.images.new('dressy_odd', 1254, 1250, alpha=True)
+ds.textures[0].image = odd
+issue = next(i for i in repair.issues(dressy) if i.kind == repair.BAD_SIZE)
+assert any("isn't a multiple of 8" in p and p.level == ops.ERROR for p in operators.check(dressy))
+assert bpy.ops.ballistica.fix_issue(kind=repair.BAD_SIZE, name=issue.name) == {'FINISHED'}
+assert tuple(odd.size) == (1256, 1248) and not any(i.kind == repair.BAD_SIZE for i in repair.issues(dressy))
+
 # Icons are image pickers; any picker can take a file from the workspace.
 assert ds.icon_block is not None and ds.icon_block.ballistica_texture.path == 'textures/dressy_icon'
 assert ds.icon_mask_block.ballistica_texture.role == 'data'

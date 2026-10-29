@@ -482,7 +482,9 @@ def check(collection):
 	# give what the scene shows (Repair fixes them).
 	from . import repair
 
-	problems += [Problem(f"{issue.label}: {issue.explanation}", WARNING) for issue in repair.issues(collection)]
+	problems += [
+		Problem(f"{issue.label}: {issue.explanation}", ERROR if issue.kind in repair.ERRORS else WARNING)
+		for issue in repair.issues(collection)]
 	return problems
 
 

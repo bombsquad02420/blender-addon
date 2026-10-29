@@ -32,6 +32,10 @@ NO_ATTACHMENTS = 'no_attachments'  # an attachment's handles or meshes are gone
 NO_PART = 'no_part'  # a part with a mesh has no object
 NO_EYE_HANDLE = 'no_eye_handle'
 BAD_NAME = 'bad_name'  # a mesh or image name that makes a poor file name
+BAD_SIZE = 'bad_size'  # an image whose width or height isn't a multiple of 8
+# Kinds the cloud build rejects outright: Check lists them as errors.
+ERRORS = (BAD_SIZE,)
+SIZE_STEP = 8  # the cloud build halves and quarters textures into 4x4 blocks
 EYE_HANDLE_SKEWED = 'eye_handle_skewed'  # turned, or scaled unevenly
 
 # Kind -> (short label, fix button, longer explanation for the tooltip).
@@ -56,6 +60,9 @@ TEXT = {
 	NO_GUIDES: ("Guides missing", "Rebuild", "The physics guides were deleted"),
 	NO_ATTACHMENTS: ("Attachment {name} incomplete", "Rebuild", "Attachment {name}'s handles or meshes were deleted"),
 	NO_PART: ("{name} missing", "Rebuild", "The {name} object was deleted, but the character still uses its mesh"),
+	BAD_SIZE: ("{name} isn't a multiple of 8 wide and high", "Resize",
+		"The cloud build needs texture sizes that are multiples of 8 (it makes half and quarter sizes "
+		"from whole 4x4 blocks). Resize scales {name} to the nearest ones; UVs still line up"),
 	BAD_NAME: ("\"{name}\" isn't a file name", "Rename",
 		"Meshes and images are exported under their names, so they should be lowercase letters, digits and "
 		"underscores. Rename fixes \"{name}\" (capitals, spaces, symbols, or Blender's .001 ending)"),
@@ -274,7 +281,18 @@ def exported_blocks(collection):
 def _name_issues(collection):
 	from .props import GOOD_NAME
 
-	return [Issue(BAD_NAME, block.name, block=block) for block in exported_blocks(collection) if not GOOD_NAME.match(block.name)]
+	issues = [Issue(BAD_NAME, block.name, block=block) for block in exported_blocks(collection) if not GOOD_NAME.match(block.name)]
+	for block in exported_blocks(collection):
+		if isinstance(block, bpy.types.Image):
+			width, height = block.size
+			if width and height and (width % SIZE_STEP or height % SIZE_STEP):
+				issues.append(Issue(BAD_SIZE, block.name, block=block))
+	return issues
+
+
+def good_size(value):
+	"""The nearest multiple of 8 (at least 8)."""
+	return max(SIZE_STEP, round(value / SIZE_STEP) * SIZE_STEP)
 
 
 def rename(block):
@@ -329,6 +347,9 @@ def fix(collection, issue, keep=False):
 		_rebuild_eyes(collection)
 	elif kind == BAD_NAME:
 		rename(issue.block)
+	elif kind == BAD_SIZE:
+		width, height = issue.block.size
+		issue.block.scale(good_size(width), good_size(height))  # export saves it
 	elif kind == NO_EYE_HANDLE:
 		arm = armature(collection)
 		if arm is not None:
@@ -352,7 +373,7 @@ def fix(collection, issue, keep=False):
 
 
 # Character-level fixes run first: they recreate what object fixes need.
-ORDER = (NO_GROUP, NO_RIG, RIG_MOVED, NO_ROOT, NO_GUIDES, NO_EYES, NO_EYE_HANDLE, NO_ATTACHMENTS, NO_PART, BAD_NAME)
+ORDER = (NO_GROUP, NO_RIG, RIG_MOVED, NO_ROOT, NO_GUIDES, NO_EYES, NO_EYE_HANDLE, NO_ATTACHMENTS, NO_PART, BAD_NAME, BAD_SIZE)
 
 
 def repair(collection, objects=None):
@@ -365,7 +386,7 @@ def repair(collection, objects=None):
 	if objects is None:
 		for kind in ORDER:
 			pending = [i for i in issues(collection) if i.kind == kind]
-			for issue in pending[:1] if kind not in (NO_PART, BAD_NAME) else pending:
+			for issue in pending[:1] if kind not in (NO_PART, BAD_NAME, BAD_SIZE) else pending:
 				fix(collection, issue)
 			fixed += len(pending)
 	for issue in issues(collection, objects if objects is not None else list(collection.all_objects)):
