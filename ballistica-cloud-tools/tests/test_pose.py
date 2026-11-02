@@ -1,0 +1,148 @@
+import json
+import math
+import os
+import tempfile
+import unittest
+
+from _addon import load
+
+pose = load('pose')
+rig = load('rig')
+objfile = load('objfile')
+
+FIXTURES = os.path.join(os.path.dirname(__file__), 'fixtures')
+SAMPLE = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'ClassicCharacterAssets')
+
+
+def close(a, b, tol=1e-9):
+	return all(abs(x - y) < tol for x, y in zip(a, b))
+
+
+class PoseTest(unittest.TestCase):
+	def setUp(self):
+		self.placements, self.joints = pose.compute()
+
+	def test_joints_meet(self):
+		p, j = self.placements, self.joints
+		self.assertTrue(close(p['upper_arm'].point(rig.SHOULDER_ON_UPPER_ARM), j['shoulder']))
+		self.assertTrue(close(p['forearm'].point(rig.ELBOW_ON_LOWER_ARM), j['elbow']))
+		self.assertTrue(close(p['upper_leg'].point(rig.HIP_ON_UPPER_LEG), j['hip']))
+		self.assertTrue(close(p['lower_leg'].point(rig.KNEE_ON_LOWER_LEG), p['upper_leg'].point(rig.KNEE_ON_UPPER_LEG)))
+		self.assertTrue(close(p['toes'].point(rig.ANKLE_ON_TOES), j['ankle']))
+
+	def test_shape(self):
+		j = self.joints
+		self.assertLess(j['shoulder'][0], 0)  # right side is -X
+		self.assertLess(j['elbow'][0], j['shoulder'][0])  # arm goes out
+		self.assertLess(j['elbow'][1], j['shoulder'][1])  # and a little down
+		self.assertAlmostEqual(j['knee'][0], j['hip'][0])  # leg straight down
+		self.assertLess(j['ankle'][1], j['knee'][1])
+		self.assertGreater(j['toe_tip'][2], j['ankle'][2])  # toes point forward
+		self.assertGreater(j['head'][1], j['neck'][1])
+		self.assertAlmostEqual(self.placements['toes'].location[1], rig.TOES_RADIUS)  # feet on the ground
+
+	def test_foot_lies_flat_pointing_forward(self):
+		toes = self.placements['toes']
+		forward = [toes.rotation[r][1] for r in range(3)]  # the toes mesh is long along its y
+		self.assertAlmostEqual(forward[2], 1.0)
+		self.assertGreater(toes.location[2], self.joints['ankle'][2])  # foot extends forward of the ankle
+
+	def test_wing_points_back_and_out_from_torso(self):
+		wing = self.placements['wing']
+		out = [wing.rotation[r][2] for r in range(3)]
+		self.assertLess(out[0], 0)  # right wing: to the character's right
+		self.assertLess(out[2], 0)  # behind
+		self.assertAlmostEqual(wing.location[1], self.placements['torso'].location[1])
+
+	def test_matches_web_ui_preview(self):
+		"""Every part's placement equals the web UI's (Lucky and Frosty)."""
+		for name in ('lucky_preview.json', 'frosty_preview.json', 'pixel_preview.json'):
+			with self.subTest(fixture=name):
+				self._check_fixture(name)
+
+	def test_spread_matches_web_ui(self):
+		with open(os.path.join(FIXTURES, 'lucky_preview.json')) as f:
+			web = json.load(f)
+		with open(os.path.join(FIXTURES, 'pixel_preview.json')) as f:
+			web['meshes']['wing'] = json.load(f)['meshes']['wing']
+		for part, entry in web['meshes'].items():
+			for a, b in zip(pose.SPREAD[part], entry['spread']):
+				self.assertAlmostEqual(a, b, places=4, msg=part)
+
+	def _check_fixture(self, name):
+		with open(os.path.join(FIXTURES, name)) as f:
+			web = json.load(f)
+		placements, joints = pose.compute(tuple(web.get('shoulder_offset', (0.0, 0.0, 0.0))))
+		self.placements, self.joints = placements, joints
+		torso = self.placements['torso'].location
+		for part, entry in web['meshes'].items():
+			x = entry['xform']  # column-major 4x4
+			placement = self.placements[part]
+			location = tuple(a - b for a, b in zip(placement.location, torso))
+			for i in range(3):
+				self.assertAlmostEqual(location[i], x[12 + i], places=4, msg=f'{part} location')
+				for j in range(3):
+					self.assertAlmostEqual(placement.rotation[i][j], x[j * 4 + i], places=4, msg=f'{part} rotation')
+		for joint, point in web['pivots'].items():
+			relative = tuple(a - b for a, b in zip(self.joints[joint], torso))
+			for i in range(3):
+				self.assertAlmostEqual(relative[i], point[i], places=4, msg=f'{joint} pivot')
+
+	def test_rotations_are_orthonormal(self):
+		for name, placement in self.placements.items():
+			m = placement.rotation
+			for i in range(3):
+				col = [m[r][i] for r in range(3)]
+				self.assertAlmostEqual(sum(c * c for c in col), 1.0, msg=name)
+
+	def test_shoulder_offset_moves_shoulder(self):
+		_, joints = pose.compute(shoulder_offset=(0.03, 0.0, -0.02))
+		self.assertAlmostEqual(joints['shoulder'][0] - self.joints['shoulder'][0], 0.03)
+
+
+class FlippersHintTest(unittest.TestCase):
+	def test_hint_only_for_flippers_with_lower_arm_meshes(self):
+		self.assertIsNone(rig.flippers_hint(False, 'meshes/f', 'meshes/h'))
+		self.assertIsNone(rig.flippers_hint(True, '', ''))
+		self.assertIn('forearm and hand', rig.flippers_hint(True, 'meshes/f', 'meshes/h'))
+		self.assertIn('a hand mesh', rig.flippers_hint(True, '', 'meshes/h'))
+
+
+class UvRangeTest(unittest.TestCase):
+	def test_within_range_and_tolerance(self):
+		self.assertIsNone(objfile.uv_range_problem([0.0, 0.5, 1.0, 1.0]))
+		self.assertIsNone(objfile.uv_range_problem([-0.04, 1.049]))  # authoring noise
+		self.assertIsNone(objfile.uv_range_problem([]))
+
+	def test_outside_range(self):
+		self.assertEqual(objfile.uv_range_problem([0.2, 1.5, 0.3, -0.2]), (-0.2, 1.5))
+		self.assertEqual(objfile.uv_range_problem([0.0, 2.0]), (0.0, 2.0))
+
+
+class ObjTest(unittest.TestCase):
+	@unittest.skipUnless(os.path.isdir(SAMPLE), 'ClassicCharacterAssets not cloned next to the addon repo')
+	def test_round_trip_keeps_geometry(self):
+		src = os.path.join(SAMPLE, 'meshes', 'agent_head.obj')
+		mesh = objfile.read(src)
+		self.assertEqual(len(mesh.faces), 488)
+		out = os.path.join(tempfile.mkdtemp(), 'x.obj')
+		objfile.write(out, mesh)
+		again = objfile.read(out)
+		self.assertEqual(len(again.faces), len(mesh.faces))
+		for fa, fb in zip(mesh.faces, again.faces):
+			for (va, ta, na), (vb, tb, nb) in zip(fa, fb):
+				self.assertTrue(close(mesh.positions[va], again.positions[vb], 1e-6))
+				self.assertTrue(close(mesh.uvs[ta], again.uvs[tb], 1e-6))
+				self.assertTrue(close(mesh.normals[na], again.normals[nb], 1e-6))
+
+	def test_quads_are_triangulated_and_negative_indices_work(self):
+		path = os.path.join(tempfile.mkdtemp(), 'q.obj')
+		with open(path, 'w') as f:
+			f.write('v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 -1\n')
+		mesh = objfile.read(path)
+		self.assertEqual(len(mesh.faces), 2)
+		self.assertEqual(mesh.faces[1][2], (3, None, None))
+
+
+if __name__ == '__main__':
+	unittest.main()
