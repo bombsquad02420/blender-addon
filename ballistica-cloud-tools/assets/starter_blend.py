@@ -6,14 +6,17 @@
 
 `make` writes assets/source/starter_body.blend: one object per body part
 (head, torso, ...), placed as on a new character, with the starter color
-texture (assets/template/color.png).
+and color mask textures (assets/template/color.png, color_mask.png) packed
+in, shown through the Ballistica Colorize group like a character (the
+group's Highlight inputs preview the tints). After painting a texture, save it
+into the .blend (Image Editor: Image > Save, Alt+S) before saving the
+.blend: a painted packed image isn't kept otherwise.
 
 `save` writes the parts' meshes back to assets/template/<part>.obj (an
 object is found by its part tag, else by its name) as they look: if a part
 was moved, turned or scaled away from its place, that change goes into the
-mesh (and the object is put back). The texture the parts use goes to
-assets/template/color.png (copied as is, or saved if painted). The color
-mask and icons stay as they are. Modifiers are applied.
+mesh (and the object is put back). The two textures go to
+assets/template/color.png and color_mask.png. The icons stay as they are. Modifiers are applied.
 
 `make template` (build_template.py) regenerates these files from
 template.py, overwriting what's saved here.
@@ -36,9 +39,11 @@ spec = importlib.util.spec_from_file_location('ballistica_cloud_tools', os.path.
 package = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = package
 spec.loader.exec_module(package)
-from ballistica_cloud_tools import objfile, scene, template  # noqa: E402
+from ballistica_cloud_tools import nodegroup, objfile, scene, template  # noqa: E402
 
 PART_KEY = 'bct_starter_part'  # an object's part (head, torso, ...)
+# Texture node name -> the template texture it holds.
+TEXTURES = {'bct_color': 'color', 'bct_color_mask': 'color_mask'}
 
 
 def placements():
@@ -61,16 +66,7 @@ def placements():
 def make():
 	places = placements()
 	bpy.ops.wm.read_factory_settings(use_empty=True)
-	color = bpy.data.images.load(template.texture_path('color'))
-	color.filepath = bpy.path.relpath(color.filepath, start=os.path.dirname(BLEND))
-	material = bpy.data.materials.new('starter_body')
-	material.use_nodes = True
-	nodes = material.node_tree.nodes
-	texture = nodes.new('ShaderNodeTexImage')
-	texture.image = color
-	texture.interpolation = 'Closest'  # blocky pixels, as in the game's starter
-	texture.location = (-350, 250)
-	material.node_tree.links.new(texture.outputs['Color'], nodes['Principled BSDF'].inputs['Base Color'])
+	material = _material()
 	for part in template.CUBOIDS:
 		mesh = scene.mesh_from_obj(template.obj_path(part), part)
 		mesh.materials.append(material)
@@ -81,6 +77,32 @@ def make():
 	os.makedirs(os.path.dirname(BLEND), exist_ok=True)
 	bpy.ops.wm.save_as_mainfile(filepath=BLEND, relative_remap=False)
 	print('wrote', BLEND)
+
+
+def _material():
+	"""The body material: both textures, packed, through the Colorize group."""
+	material = bpy.data.materials.new('starter_body')
+	nodes, links = material.node_tree.nodes, material.node_tree.links
+	nodes.clear()
+	out = nodes.new('ShaderNodeOutputMaterial')
+	out.location = (300, 0)
+	group = nodes.new('ShaderNodeGroup')
+	group.node_tree = nodegroup.get()
+	group.width = 200
+	links.new(group.outputs['Color'], out.inputs['Surface'])
+	for index, (node_name, texture) in enumerate(TEXTURES.items()):
+		image = bpy.data.images.load(template.texture_path(texture))
+		image.name = texture
+		if texture == 'color_mask':
+			image.colorspace_settings.name = 'Non-Color'
+		image.pack()
+		node = nodes.new('ShaderNodeTexImage')
+		node.name = node_name
+		node.image = image
+		node.interpolation = 'Closest'  # blocky pixels
+		node.location = (-350, 150 - 300 * index)
+		links.new(node.outputs['Color'], group.inputs['Color Mask' if texture == 'color_mask' else 'Color'])
+	return material
 
 
 def save():
@@ -118,7 +140,7 @@ def save():
 			bpy.data.meshes.remove(mesh)
 		written.append(f'{part}.obj')
 	print('wrote', len(written), 'meshes:', ', '.join(written))
-	_save_color(used)
+	_save_textures(used)
 	bpy.ops.wm.save_mainfile()
 
 
@@ -128,23 +150,27 @@ def _is_identity(matrix, tolerance=1e-5):
 	return all(abs(a - b) <= tolerance for row, ident in zip(matrix, Matrix.Identity(4)) for a, b in zip(row, ident))
 
 
-def _save_color(objects):
-	"""Ship the one image the parts use as assets/template/color.png."""
-	images = {
-		node.image for obj in objects for slot in obj.material_slots if slot.material and slot.material.node_tree
+def _save_textures(objects):
+	"""Write the parts' color and color mask textures to assets/template/."""
+	nodes = {
+		node.name: node for obj in objects for slot in obj.material_slots if slot.material and slot.material.node_tree
 		for node in slot.material.node_tree.nodes if node.type == 'TEX_IMAGE' and node.image is not None}
-	if len(images) != 1:
-		print('expected one color image, found', sorted(i.name for i in images), '(color.png left as is)')
-		return
-	image = images.pop()
-	target = template.texture_path('color')
-	source = bpy.path.abspath(image.filepath)
-	if image.is_dirty or not os.path.isfile(source):
-		image.save(filepath=target)
-	elif os.path.abspath(source) != os.path.abspath(target):
-		shutil.copyfile(source, target)
-	image.filepath = bpy.path.relpath(target, start=os.path.dirname(BLEND))
-	print('wrote color.png', tuple(image.size))
+	for node_name, texture in TEXTURES.items():
+		node = nodes.get(node_name)
+		if node is None:
+			print(f'no {node_name} texture node: {texture}.png left as is')
+			continue
+		image = node.image
+		target = template.texture_path(texture)
+		# A copy, so the image in the .blend stays packed.
+		copy = image.copy()
+		try:
+			copy.filepath_raw = target
+			copy.file_format = 'PNG'
+			copy.save()
+		finally:
+			bpy.data.images.remove(copy)
+		print(f'wrote {texture}.png', tuple(image.size))
 
 
 mode = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'make'
