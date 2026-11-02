@@ -112,14 +112,16 @@ class TextureTest(unittest.TestCase):
 
 
 class ShippedTemplateTest(unittest.TestCase):
-	"""assets/template/ is what New Character loads; it must match template.py."""
+	"""assets/template/ is what New Character loads (made by `make template`
+	or edited by hand in starter_body.blend): whole, textured meshes."""
 
-	def test_objs_match_the_generator(self):
+	def test_objs_are_whole(self):
 		for part in template.CUBOIDS:
-			shipped = objfile.read(template.obj_path(part))
-			made = template.cuboid(part)
-			corners = lambda mesh: sorted(tuple(round(c, 5) for c in mesh.positions[v]) for face in mesh.faces for v, _, _ in face)
-			self.assertEqual(corners(shipped), corners(made), f'{part}: run make template')
+			mesh = objfile.read(template.obj_path(part))
+			self.assertTrue(mesh.faces, part)
+			self.assertTrue(mesh.uvs, part)
+			for u, v in mesh.uvs:
+				self.assertTrue(-1e-4 <= u <= 1 + 1e-4 and -1e-4 <= v <= 1 + 1e-4, f'{part}: UV {(u, v)} off the texture')
 
 	def test_textures_exist(self):
 		for name in template.TEXTURES:

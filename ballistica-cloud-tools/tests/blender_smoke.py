@@ -24,7 +24,7 @@ spec.loader.exec_module(package)
 package.register()
 
 import bpy  # noqa: E402
-from ballistica_cloud_tools import objfile, operators, rig  # noqa: E402
+from ballistica_cloud_tools import objfile, operators, rig, template  # noqa: E402
 
 
 def make_active(obj):
@@ -853,8 +853,11 @@ parts = {o.name for o in cubey.all_objects if o.ballistica_part.role in [p for p
 assert len(parts) == 15, sorted(parts)  # 3 center parts + 6 paired parts on both sides
 assert operators.check(cubey) == [], operators.check(cubey)
 mask = bpy.data.images['cubey_color_mask']
-pelvis = ((int(2.5 / 3 * 256)) * 256 + int(2.5 / 3 * 256)) * 4  # centre of the pelvis's atlas cell (shorts)
-assert tuple(mask.pixels[pelvis:pelvis + 3]) == (1.0, 0.0, 0.0), tuple(mask.pixels[pelvis:pelvis + 3])
+shipped = bpy.data.images.load(template.texture_path('color_mask'))
+assert tuple(mask.size) == tuple(shipped.size) and mask.colorspace_settings.name == 'Non-Color'
+middle = (shipped.size[1] // 2 * shipped.size[0] + shipped.size[0] // 2) * 4
+assert all(abs(a - b) < 1e-3 for a, b in zip(mask.pixels[middle:middle + 3], shipped.pixels[middle:middle + 3]))  # the starter's mask
+bpy.data.images.remove(shipped)
 for bad_name, message in (('spaz', 'is taken'), ('Bad Name', 'lowercase')):
 	try:
 		bpy.ops.ballistica.new_character(directory=ws, name=bad_name)
