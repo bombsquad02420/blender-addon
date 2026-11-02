@@ -289,6 +289,33 @@ def _copy_assets(root, character, meshes, textures):
 	return {part: copied[character.data[field]] for part, field, _ in rig.PARTS if character.data.get(field) in copied}
 
 
+def name_problem(root, name, character=None):
+	"""Why `name` can't be a new character's, or None: a bad name, or one
+	already used in this .blend or by the workspace's files.
+
+	`character` is the .bchar to be written (its meshes and textures are
+	checked too); a blank one by default.
+	"""
+	if not NAME_PATTERN.match(name):
+		return "Name must be lowercase letters, digits and underscores, starting with a letter."
+	in_file = [c.name for c in bpy.data.collections if c.ballistica_character.is_character and c.name.split('.')[0] == name]
+	if in_file or bpy.data.collections.get(name):
+		return f"{name} is taken in this Blender file; pick another name."
+	if root is None:
+		return None
+	character = character or new_character(name)
+	# Only the files this character will write; copied sounds are shared.
+	taken = [
+		logical for _, kind, logical in character.referenced_assets()
+		if kind in ('mesh', 'texture') and workspace.file_path(root, logical, kind)
+	]
+	if workspace.file_path(root, f'characters/{name}', 'character'):
+		taken.insert(0, f'characters/{name}')
+	if taken:
+		return f"{name} is taken in this workspace ({', '.join(taken[:3])}); pick another name."
+	return None
+
+
 class BALLISTICA_OT_new_character(bpy.types.Operator):
 	"""Start a character in a workspace: rig, guides and eyes, with a cuboid body in the game's proportions or a copy of another character. Nothing is written until you export"""
 	bl_idname = 'ballistica.new_character'
@@ -311,14 +338,33 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 			self.directory = current.ballistica_character.workspace_root
 		return context.window_manager.invoke_props_dialog(self, width=420)
 
+	def draw(self, context):
+		layout = self.layout
+		layout.use_property_split = True
+		layout.prop(self, 'directory')
+		layout.prop(self, 'name')
+		layout.prop(self, 'start_from')
+		root = workspace.find_root(self.directory) if self.directory else None
+		problem = name_problem(root, self.name.strip())
+		if root is None:
+			problem = "Pick a workspace folder (one with a workspace.json)."
+		if problem:
+			box = layout.box()
+			box.alert = True
+			first, *rest = problem.split('; ')
+			box.label(text=first, icon='ERROR')
+			for line in rest:
+				box.label(text=line.capitalize(), icon='BLANK1')
+
 	def execute(self, context):
 		root = workspace.find_root(self.directory) if self.directory else None
 		if root is None:
 			self.report({'ERROR'}, "Pick a workspace folder: no workspace.json found there or above it.")
 			return {'CANCELLED'}
 		name = self.name.strip()
-		if not NAME_PATTERN.match(name):
-			self.report({'ERROR'}, "Name must be lowercase letters, digits and underscores, starting with a letter.")
+		problem = name_problem(None, name)
+		if problem:
+			self.report({'ERROR'}, problem)
 			return {'CANCELLED'}
 		character_path = f'characters/{name}'
 		source = None
@@ -335,15 +381,9 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 			character, mesh_map, texture_map = clone.plan(source, name)
 		else:
 			character = new_character(name)
-		# Only the files this character will write; copied sounds are shared.
-		taken = [
-			logical for _, kind, logical in character.referenced_assets()
-			if kind in ('mesh', 'texture') and workspace.file_path(root, logical, kind)
-		]
-		if workspace.file_path(root, character_path, 'character'):
-			taken.insert(0, character_path)
-		if taken:
-			self.report({'ERROR'}, f"{name} is taken in this workspace ({', '.join(taken[:3])}); pick another name.")
+		problem = name_problem(root, name, character)
+		if problem:
+			self.report({'ERROR'}, problem)
 			return {'CANCELLED'}
 		if not _bundled_assets_ok(self):
 			return {'CANCELLED'}

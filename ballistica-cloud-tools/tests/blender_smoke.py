@@ -858,7 +858,10 @@ assert tuple(mask.size) == tuple(shipped.size) and mask.colorspace_settings.name
 middle = (shipped.size[1] // 2 * shipped.size[0] + shipped.size[0] // 2) * 4
 assert all(abs(a - b) < 1e-3 for a, b in zip(mask.pixels[middle:middle + 3], shipped.pixels[middle:middle + 3]))  # the starter's mask
 bpy.data.images.remove(shipped)
-for bad_name, message in (('spaz', 'is taken'), ('Bad Name', 'lowercase')):
+assert 'taken in this Blender file' in operators.name_problem(None, 'cubey')
+assert 'is taken' in operators.name_problem(workspace_root := operators.workspace.find_root(ws), 'spaz')
+assert operators.name_problem(workspace_root, 'brand_new') is None
+for bad_name, message in (('spaz', 'is taken'), ('cubey', 'Blender file'), ('Bad Name', 'lowercase')):
 	try:
 		bpy.ops.ballistica.new_character(directory=ws, name=bad_name)
 		raise AssertionError(f'new_character should refuse {bad_name!r}')
