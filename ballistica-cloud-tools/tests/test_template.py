@@ -112,8 +112,8 @@ class TextureTest(unittest.TestCase):
 
 
 class ShippedTemplateTest(unittest.TestCase):
-	"""assets/template/ is what New Character loads (made by `make template`
-	or edited by hand in starter_body.blend): whole, textured meshes."""
+	"""assets/template/ is what New Character loads (edited by hand in
+	starter_body.blend, written by `make template`): whole, textured meshes."""
 
 	def test_objs_are_whole(self):
 		for part in template.CUBOIDS:

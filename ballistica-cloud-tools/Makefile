@@ -43,9 +43,10 @@ build: assets
 assets:
 	$(BLENDER) -b --factory-startup --python assets/build_assets.py
 
-# Regenerate the committed New Character starter files (assets/template/).
+# Write the committed New Character starter files (assets/template/) from
+# assets/source/starter_body.blend, where they're edited by hand.
 template:
-	$(BLENDER) -b --factory-startup --python assets/build_template.py
+	$(BLENDER) -b --factory-startup --python assets/starter_blend.py -- save
 
 # Pure-Python tests, no Blender.
 test:

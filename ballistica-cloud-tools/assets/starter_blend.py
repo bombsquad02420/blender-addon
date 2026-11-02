@@ -18,8 +18,7 @@ was moved, turned or scaled away from its place, that change goes into the
 mesh (and the object is put back). The two textures go to
 assets/template/color.png and color_mask.png. The icons stay as they are. Modifiers are applied.
 
-`make template` (build_template.py) regenerates these files from
-template.py, overwriting what's saved here.
+`make template` runs `save`.
 """
 
 import importlib.util

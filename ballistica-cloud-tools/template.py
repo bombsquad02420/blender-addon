@@ -14,9 +14,9 @@ The cuboids share one texture atlas: each part gets a cell, and each face
 of its box a patch inside that cell, so faces can be painted separately.
 The character is white; the color mask tints only the shorts with the
 player color (red) and gloves and shoes with the highlight (green).
-Pure Python, testable without Blender. assets/build_template.py writes
-the result to assets/template/ as OBJs and PNGs, which is what New
-Character actually loads.
+Pure Python, testable without Blender. This made the first starter files
+in assets/template/ (what New Character loads); they're now edited by
+hand in assets/source/starter_body.blend (make template writes them).
 """
 
 import os
@@ -29,7 +29,7 @@ from . import objfile, rig
 HEAD = 0.21
 TEXTURE_SIZE = 256
 ICON_SIZE = 64
-# The shipped starter files (assets/build_template.py writes them).
+# The shipped starter files (make template writes them from starter_body.blend).
 TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), 'assets', 'template')
 TEXTURES = ('color', 'color_mask', 'icon', 'icon_mask')
 
