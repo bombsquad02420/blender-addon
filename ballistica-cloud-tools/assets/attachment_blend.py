@@ -1,30 +1,22 @@
-"""Edit the attachment templates and the starter body by hand, in a .blend.
+"""Edit the attachment templates by hand, in a .blend.
 
 	blender -b --factory-startup --python assets/attachment_blend.py -- make
 	(open assets/source/attachment_templates.blend, edit, save)
 	blender -b --factory-startup --python assets/attachment_blend.py -- save
-	blender -b --factory-startup --python assets/attachment_blend.py -- body
 
 `make` writes assets/source/attachment_templates.blend: one object per
 template segment (named like its OBJ: hat, antenna_0, ...), each in a
-collection named after its template, placed where it goes on the starter
-body. They share one material with the template atlas
-(assets/attachments/attachments_color.png).
-
-The starter body (New Character's blocky one) is in the Starter Body
-collection: one object per part (head, torso, ...), with the starter color
-texture (assets/template/color.png). Edit and paint it like the
-attachments. `body` puts a fresh Starter Body into an existing .blend,
-leaving the attachments alone (replacing an old gray Reference Body).
+collection named after its template, placed where it goes on a reference
+starter body (unselectable; the starter body itself is edited in
+starter_body.blend, see assets/starter_blend.py). They share one material
+with the template atlas (assets/attachments/attachments_color.png).
 
 `save` writes the objects' meshes back to assets/attachments/<name>.obj
-and the body's to assets/template/<part>.obj (an object is found by its
-name, else by its mesh's name; a body part by its part tag) as they look:
+(an object is found by its name, else by its mesh's name) as they look:
 if an object was moved, turned or scaled away from its place, that change
 goes into the mesh (and the object is put back). The atlas the objects use
-to assets/attachments/attachments_color.png, and the body's texture to
-assets/template/color.png (copied as is, or saved if painted), pointing
-the .blend at them. If there's no atlas mask yet, a black one (no tints)
+to assets/attachments/attachments_color.png (copied as is, or saved if
+painted), pointing the .blend at it. If there's no atlas mask yet, a black one (no tints)
 of the same size is written.
 What you see is what's saved, so don't move objects aside just to look
 at them, and don't apply or clear their transforms (Ctrl+A, Alt+G/R/S),
@@ -48,10 +40,8 @@ spec = importlib.util.spec_from_file_location('ballistica_cloud_tools', os.path.
 package = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = package
 spec.loader.exec_module(package)
-from ballistica_cloud_tools import attach_templates, objfile, scene, template  # noqa: E402
+from ballistica_cloud_tools import attach_templates, objfile, scene  # noqa: E402
 
-BODY = 'Starter Body'
-PART_KEY = 'bct_starter_part'  # a body object's part (head, torso, ...)
 
 
 def segment_names():
@@ -97,23 +87,6 @@ def _remove(character):
 	bpy.ops.outliner.orphans_purge(do_recursive=True)
 
 
-def _add_body(character):
-	"""The Starter Body collection: the starter parts where the reference has them."""
-	body = bpy.data.collections.new(BODY)
-	bpy.context.scene.collection.children.link(body)
-	color = bpy.data.images.load(template.texture_path('color'))
-	color.filepath = bpy.path.relpath(color.filepath, start=os.path.dirname(BLEND))
-	material = _material('starter_body', color)
-	for obj in _parts(character):
-		part = obj.ballistica_part.role
-		mesh = scene.mesh_from_obj(template.obj_path(part), part)
-		mesh.materials.append(material)
-		copy = bpy.data.objects.new(part, mesh)
-		copy[PART_KEY] = part
-		copy.matrix_world = obj.matrix_world.copy()
-		body.objects.link(copy)
-
-
 def make():
 	package.register()
 	from ballistica_cloud_tools import attach_scene
@@ -121,7 +94,7 @@ def make():
 	for obj in list(bpy.data.objects):
 		bpy.data.objects.remove(obj)
 	character = _reference()
-	_add_body(character)
+	_reference_body(character)
 
 	settings = character.ballistica_character
 	names = segment_names()
@@ -152,22 +125,21 @@ def make():
 	print('wrote', BLEND)
 
 
-def body():
-	"""Put a fresh Starter Body into the existing .blend."""
-	bpy.ops.wm.open_mainfile(filepath=BLEND)
-	for name in (BODY, 'Reference Body'):
-		old = bpy.data.collections.get(name)
-		if old is not None:
-			for obj in list(old.objects):
-				bpy.data.objects.remove(obj)
-			bpy.data.collections.remove(old)
-	package.register()
-	character = _reference()
-	_add_body(character)
-	package.unregister()
-	_remove(character)
-	bpy.ops.wm.save_mainfile()
-	print('added', BODY, 'to', BLEND)
+def _reference_body(character):
+	"""A gray, unselectable copy of the starter body, to place things against."""
+	reference = bpy.data.collections.new('Reference Body')
+	bpy.context.scene.collection.children.link(reference)
+	gray = bpy.data.materials.new('reference_body')
+	gray.diffuse_color = (0.6, 0.6, 0.6, 1.0)
+	for obj in _parts(character):
+		body_mesh = obj.data.copy()
+		body_mesh.materials.clear()
+		body_mesh.materials.append(gray)
+		copy = bpy.data.objects.new(f'reference {obj.name}', body_mesh)
+		copy.matrix_world = obj.matrix_world.copy()
+		copy.hide_select = True
+		copy.display_type = 'SOLID'
+		reference.objects.link(copy)
 
 
 def _material(key, image):
@@ -183,8 +155,7 @@ def _material(key, image):
 
 
 def placements():
-	"""Where `make` puts things (world matrices), from a fresh reference:
-	{segment object name: matrix}, {body part: matrix}."""
+	"""Object name -> where `make` puts it (world matrix), from a fresh reference."""
 	package.register()
 	from ballistica_cloud_tools import attach_scene
 
@@ -195,13 +166,12 @@ def placements():
 			if obj.get(attach_scene.INDEX_KEY) == index:
 				path = attach_templates.obj_path(item.key, obj.get(attach_scene.SEGMENT_KEY, 0), item.segment_count)
 				found[os.path.splitext(os.path.basename(path))[0]] = obj.matrix_world.copy()
-	parts = {o.ballistica_part.role: o.matrix_world.copy() for o in _parts(character)}
 	package.unregister()
-	return found, parts
+	return found
 
 
 def save():
-	expected, places = placements()
+	expected = placements()
 	bpy.ops.wm.open_mainfile(filepath=BLEND)
 	# Saved in Edit Mode, a mesh's latest edits aren't in its data yet: leave it.
 	editing = [o for o in bpy.data.objects if o.mode == 'EDIT']
@@ -212,11 +182,6 @@ def save():
 	by_mesh = {o.data.name: o for o in bpy.data.objects if o.type == 'MESH'}
 	segments = [bpy.data.objects.get(n) or by_mesh.get(n) for n in names]
 	targets = [(name, obj, expected[name], path) for (name, (_, _, path)), obj in zip(names.items(), segments)]
-	parts = {o[PART_KEY]: o for o in bpy.data.objects if o.type == 'MESH' and PART_KEY in o}
-	if parts:
-		targets += [(part, parts.get(part), places[part], template.obj_path(part)) for part in template.CUBOIDS]
-	else:
-		print(f'no {BODY} here (the body command adds one): the starter body is left as is')
 	depsgraph = bpy.context.evaluated_depsgraph_get()
 	written = []
 	for name, obj, place, path in targets:
@@ -242,8 +207,6 @@ def save():
 		written.append(os.path.basename(path))
 	print('wrote', len(written), 'meshes:', ', '.join(written))
 	_save_atlas(segments)
-	if parts:
-		_save_image(parts.values(), template.texture_path('color'), 'starter body color')
 	bpy.ops.wm.save_mainfile()
 
 
@@ -291,4 +254,4 @@ def _save_atlas(objects):
 
 
 mode = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'make'
-{'make': make, 'save': save, 'body': body}[mode]()
+{'make': make, 'save': save}[mode]()

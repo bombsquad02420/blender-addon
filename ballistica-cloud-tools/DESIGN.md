@@ -531,10 +531,10 @@ and its color mask, so a character gets one attachment texture
 (`textures/<character>_attachments`, and `_mask`), made with the first
 template and reused by the rest. The files ship in `assets/attachments/`;
 they're edited in `assets/source/attachment_templates.blend`
-(`assets/attachment_blend.py make` / `save`), along with the starter
-body (its Starter Body collection; `save` writes `assets/template/`'s
-part OBJs and `color.png`, and `body` adds the collection to an older
-.blend).
+(`assets/attachment_blend.py make` / `save`). The starter body is
+edited the same way in `assets/source/starter_body.blend`
+(`assets/starter_blend.py make` / `save`, writing `assets/template/`'s
+part OBJs and `color.png`).
 
 ### Eye handle
 

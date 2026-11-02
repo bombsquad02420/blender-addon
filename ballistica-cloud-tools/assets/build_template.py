@@ -8,8 +8,8 @@ assets/attachment_blend.py.)
 
 Writes one OBJ per body part (game axes, as a workspace stores them) and
 the color / color mask / icon / icon mask PNGs, all from template.py.
-Overwrites edits made in attachment_templates.blend (attachment_blend.py
-save writes the body there too), so use one or the other. The
+Overwrites edits saved from starter_body.blend (assets/starter_blend.py),
+so use one or the other. The
 files are committed and shipped; New Character copies them into the new
 character, so they can also be edited by hand instead of regenerated.
 """
