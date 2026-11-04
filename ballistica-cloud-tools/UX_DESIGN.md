@@ -180,46 +180,41 @@ mask stay in Identity.
 
 ### UX review (2026-11-04)
 
-From reading the panel code against the principles above, most important
-first. Not yet checked by clicking through Blender.
+From reading the panel code against the principles above, then gone
+through together. What's decided, most important first:
 
-1. **Colors vs Textures.** The Colors section (inside Characters) holds the
-   body color and mask pickers, while a separate top-level Textures panel
-   lists every exported image with its build settings, and Paint is a third
-   panel. Three places for one job. Fold the pickers' brush buttons and the
-   Textures list into one Textures section, or rename the top-level one
-   *Texture Settings* so the two names stop competing.
-2. **Raw paths at the top.** The Workspace folder and Character path are
-   editable text fields right under the character's name. A kid who types
-   in them breaks the link to the workspace. Show them read-only (with a
-   folder button to open the workspace), and keep editing for an
-   *Advanced* toggle.
-3. **Repair buttons always showing.** *Fix Selected* and *Fix Whole
-   Character* show even when Needs fixing is empty, which reads as
-   "something is wrong". Show them only with the box (Fix All is already
-   there), or tuck them under Visibility.
-4. **Attachment list labels.** Rows read `head · antenna`, from the target
-   and kind, so a hat, a crown and horns all look alike. Name rows after
-   the template they came from (Hat, Crown…), with target · kind greyed.
-5. **Placement in game axes.** Placement and Art Offset are numbers in game
-   axes ("Y up, Z forward") with Heading/Pitch/Roll. Most kids will move
-   the handle instead; make *Select Anchor* the main button and put the
-   numbers under a closed *Exact Numbers* sub-panel.
-6. **Physique and Eyes are bare numbers.** Fields like Shoulder Offset,
-   Idle Arm Stiffness and Idle Sway have no hint of what they look like in
-   the game. Add a one-line description to each (tooltips exist, but kids
-   don't hover), and a **Reset to Default** per section.
-7. **Triangle count without a budget.** "12,345 triangles" says nothing
-   about whether that's too many. Show it against a limit (green / amber
-   / red), and add the limit to Check.
-8. **Sounds.** Adding a sound means typing into an "Add a sound from the
-   workspace" field. Make it a searchable picker like the mesh and image
-   ones, with a play button per sound.
-9. **Sections default closed.** Everything but Identity opens closed, so a
-   new character shows a short panel and kids may not find Parts or
-   Attachments. Open Parts and Colors by default, or open the section
-   that matches the selected object.
-10. **Small wording.** "Spread" (say *Explode View*); "Make Unique" (say
-    *Give it its own copy*); "Kind" on attachments (say *Type*); the mask
-    note "Masks need a Data role (export sets it)" is an error icon for
-    something export fixes on its own: make it INFO.
+1. **Choose the workspace first.** A separate section at the top picks
+   the workspace, and only accepts a folder with a `workspace.json`. The
+   character's Workspace and Character path stop being free text fields.
+   Import can still read a character from outside the current workspace
+   (for a spinoff); its files are copied into the current one.
+2. **Repair buttons: only with problems, and named for what they do.**
+   *Fix Selected* and *Fix Whole Character* show only alongside the Needs
+   fixing box. They put parts back on their bones rather than repairing
+   anything broken, so they need names that say that (e.g. *Snap Back
+   Selected* / *Snap Back All*).
+3. **Attachment placement in the viewport only.** Placement and Art Offset
+   lose their number fields; attachments are moved, turned and scaled with
+   their handles in the 3D view, with the Select buttons to pick them.
+4. **Physique and Eyes: a hint per field.** A one-line description under
+   each field of what it changes in the game, and a Reset to Default per
+   section. The eye controls stay visible (they're few and constrained).
+
+Kept as they are:
+
+- **Colors and the Textures panel stay separate.** Textures are assigned
+  in several places (the body, each attachment segment), so their build
+  settings live in one panel instead of under every picker.
+- **Attachment rows show target · kind.** The `.bchar` has no name for an
+  attachment, so a row can't be called "Hat".
+- **No triangle budget.** The game has none: meshes can use 32-bit
+  indices, so even more than 65,535 vertices loads.
+- **Sounds, sections closed by default, wording** (Spread, Make Unique,
+  Kind): fine as they are.
+
+Open:
+
+- **The mask-role note.** A color mask whose image has a non-Data role
+  (e.g. after picking an ordinary image as the mask) shows "Masks need a
+  Data role (export sets it)" in Textures, with an error icon. Export does
+  set it, so it may only need an info icon.
