@@ -177,3 +177,49 @@ mask stay in Identity.
   Color toggle and warns while it's on.
 - **In-game preview.** Needs an API that isn't documented yet; see
   `bacloud-ts/docs/bacloudstate-proposal.md`.
+
+### UX review (2026-11-04)
+
+From reading the panel code against the principles above, most important
+first. Not yet checked by clicking through Blender.
+
+1. **Colors vs Textures.** The Colors section (inside Characters) holds the
+   body color and mask pickers, while a separate top-level Textures panel
+   lists every exported image with its build settings, and Paint is a third
+   panel. Three places for one job. Fold the pickers' brush buttons and the
+   Textures list into one Textures section, or rename the top-level one
+   *Texture Settings* so the two names stop competing.
+2. **Raw paths at the top.** The Workspace folder and Character path are
+   editable text fields right under the character's name. A kid who types
+   in them breaks the link to the workspace. Show them read-only (with a
+   folder button to open the workspace), and keep editing for an
+   *Advanced* toggle.
+3. **Repair buttons always showing.** *Fix Selected* and *Fix Whole
+   Character* show even when Needs fixing is empty, which reads as
+   "something is wrong". Show them only with the box (Fix All is already
+   there), or tuck them under Visibility.
+4. **Attachment list labels.** Rows read `head · antenna`, from the target
+   and kind, so a hat, a crown and horns all look alike. Name rows after
+   the template they came from (Hat, Crown…), with target · kind greyed.
+5. **Placement in game axes.** Placement and Art Offset are numbers in game
+   axes ("Y up, Z forward") with Heading/Pitch/Roll. Most kids will move
+   the handle instead; make *Select Anchor* the main button and put the
+   numbers under a closed *Exact Numbers* sub-panel.
+6. **Physique and Eyes are bare numbers.** Fields like Shoulder Offset,
+   Idle Arm Stiffness and Idle Sway have no hint of what they look like in
+   the game. Add a one-line description to each (tooltips exist, but kids
+   don't hover), and a **Reset to Default** per section.
+7. **Triangle count without a budget.** "12,345 triangles" says nothing
+   about whether that's too many. Show it against a limit (green / amber
+   / red), and add the limit to Check.
+8. **Sounds.** Adding a sound means typing into an "Add a sound from the
+   workspace" field. Make it a searchable picker like the mesh and image
+   ones, with a play button per sound.
+9. **Sections default closed.** Everything but Identity opens closed, so a
+   new character shows a short panel and kids may not find Parts or
+   Attachments. Open Parts and Colors by default, or open the section
+   that matches the selected object.
+10. **Small wording.** "Spread" (say *Explode View*); "Make Unique" (say
+    *Give it its own copy*); "Kind" on attachments (say *Type*); the mask
+    note "Masks need a Data role (export sets it)" is an error icon for
+    something export fixes on its own: make it INFO.
