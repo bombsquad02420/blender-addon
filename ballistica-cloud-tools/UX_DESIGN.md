@@ -183,11 +183,22 @@ mask stay in Identity.
 From reading the panel code against the principles above, then gone
 through together. What's decided, most important first:
 
-1. **Choose the workspace first.** A separate section at the top picks
-   the workspace, and only accepts a folder with a `workspace.json`. The
-   character's Workspace and Character path stop being free text fields.
-   Import can still read a character from outside the current workspace
-   (for a spinoff); its files are copied into the current one.
+1. **Choose the workspace first.** A section at the top picks the
+   workspace for the .blend (the scene), and only accepts a folder with a
+   `workspace.json`. Characters are listed, created and exported there.
+   - **A character's name is its collection's name**, like meshes and
+     images: collection `zoe` ↔ `characters/zoe.bchar`. The Character path
+     field goes; names that make poor file names show in Needs fixing with
+     Rename.
+   - **Import from outside the workspace** (for a spinoff) imports a copy:
+     the character and its meshes and textures are copied into the current
+     workspace under a new name, as New Character → Start From does today.
+     Sounds stay shared.
+   - Open questions: a character in an older .blend whose workspace differs
+     from the scene's (Needs fixing: *Move to this workspace*, as a copy?);
+     what happens to the old `.bchar` when a character is renamed after
+     export (left alone, like removed attachments' files).
+
 2. **Repair buttons: only with problems, and named for what they do.**
    *Fix Selected* and *Fix Whole Character* show only alongside the Needs
    fixing box. They put parts back on their bones rather than repairing
