@@ -495,7 +495,9 @@ form (they're JSON-only there).
 ### Attachments
 
 An **Attachments** section with a list (**+** add, **−** remove, up/down
-reorder), like Material Slots. Each row reads *target · kind · side*, with
+reorder), like Material Slots. Each row reads *mesh · target · kind · side*
+(the first segment's mesh name, since the `.bchar` doesn't name
+attachments), with
 a warning icon if the attachment breaks a rule. Below the list, the
 selected attachment:
 

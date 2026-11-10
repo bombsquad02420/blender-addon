@@ -605,6 +605,11 @@ class BALLISTICA_UL_attachments(bpy.types.UIList):
 
 		sides = '' if item.target in rig.UNSIDED_TARGETS else f' · {item.side}'
 		label = f"{item.target.replace('_', ' ')} · {item.kind.replace('_', ' ')}{sides}"
+		# The .bchar has no attachment names: lead with its first mesh's.
+		first = item.segments[0] if len(item.segments) else None
+		mesh = first.mesh_block.name if first is not None and first.mesh_block is not None else (first.mesh if first is not None else '')
+		if mesh:
+			label = f"{mesh.removeprefix('meshes/')} · {label}"
 		problems = attachments.problems(_record(item))
 		layout.label(text=label, icon='ERROR' if problems else 'LINKED')
 
