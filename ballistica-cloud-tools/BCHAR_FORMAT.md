@@ -172,6 +172,46 @@ affect gameplay.
   segment to the next. Available for `curl`, `length`, `radius`, `stiffness`
   and `damping`.
 
+#### How the game builds them
+
+From the engine (`spaz_node.cc`, `character_def.h`) and the rig table
+(`bacommon/characterrig.py`, which the game's numbers are generated from):
+
+- **Static** attachments are drawn straight from the definition: the target
+  part's pose, then the segment's `transform`, then its mesh. A static
+  attachment on a limb is drawn together with that limb, so it follows its
+  pose exactly.
+- **Springy** kinds become a chain of capsules, simulated on a background
+  thread on each player's own device (so they're never synced) and moved by
+  the head, torso and pelvis. That's why only those three take springy
+  kinds. A character only gets this simulation while it has a springy
+  attachment.
+- **Where the joints are.** Each segment is a capsule along its own +Z, and
+  its origin is the capsule's center. The joints are fixed per kind. For
+  the antennas the capsule is 0.13 long (the smallest hair tuft's), and the
+  joints sit at its two ends, ±0.065 from the center:
+  - segment 0's back end, (0, 0, −0.065), is pinned at the attachment's
+    `transform`;
+  - segment *i*'s back end is pinned to segment *i*−1's front end,
+    (0, 0, +0.065).
+
+  `length` scales those joint points (0–1 → 0.5×–1.5×). The legacy tufts and
+  ponytail have off-center joints (a tuft's is (0, −0.08, −0.12)), so their
+  pivot isn't at the capsule's end.
+- **A segment's `transform` only moves its art.** It's applied after the
+  segment's simulated pose, just before drawing: it places, turns and scales
+  the mesh on its capsule (from its center), and never moves a joint or
+  changes the physics. So the attachment `transform` is where spring 0
+  starts, the kind decides where each spring ends and the next starts, and
+  each segment `transform` is where its mesh sits on its own link. Art that
+  should swing naturally is modelled spanning its capsule (z from −0.065 to
+  +0.065 at the default `length`) with no segment transform.
+- **Textures.** A segment without its own `texture` / `mask_texture` uses the
+  character's, so art painted into the character's one texture just works.
+  An all-black mask leaves a segment untinted.
+- **Sides.** On a limb or wing target, a `left` list replaces the `both`
+  list for the left side (even an empty one).
+
 ### Fields the engine reads beyond `characterbuilder.py`
 
 The engine's definition (`src/ballistica/base/support/character_def.h`) is
@@ -184,6 +224,12 @@ master server (`bamaster baserver/character.py`), which isn't public:
 - Per-part looks: a part's own texture and tint mask (standing in for the
   character's on that part alone), and for paired parts a left mesh,
   left texture and left tint mask, plus per-part tints.
+- Per-segment tints: an attachment segment can carry its own color,
+  highlight and highlight 2 (keys `cl`, `hl`, `hl2` in the compiled form),
+  and team-coloring strengths, replacing the character's on that piece
+  only. The piece's color and highlight give way when a player picks their
+  own colors; highlight 2 always applies. The builder has no field for them,
+  so a `.bchar` can't set them yet.
 
 The web form doesn't show these. Tools should keep them when rewriting a
 `.bchar`.
