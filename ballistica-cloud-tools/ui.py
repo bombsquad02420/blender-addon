@@ -118,8 +118,8 @@ SHOWN_ISSUES = 4
 
 
 def _repair_box(layout, collection):
-	"""What drifted in the scene, each with its fix, and the Repair buttons
-	(only when there's something to fix)."""
+	"""What drifted in the scene, each with its fix, and Fix All (only when
+	there's something to fix)."""
 	from . import repair
 
 	issues = repair.issues(collection)
@@ -136,9 +136,7 @@ def _repair_box(layout, collection):
 				op.kind, op.name, op.keep = issue.kind, issue.name, True
 		if len(issues) > SHOWN_ISSUES:
 			box.label(text=f"and {len(issues) - SHOWN_ISSUES} more")
-		row = box.row(align=True)
-		row.operator('ballistica.repair', text="Snap Back Selected", icon='RESTRICT_SELECT_OFF').selected = True
-		row.operator('ballistica.repair', text="Fix All", icon='TOOL_SETTINGS').selected = False
+		box.operator('ballistica.repair', text="Fix All", icon='TOOL_SETTINGS')
 
 
 # Button order in the Visibility grid (first column, then second).

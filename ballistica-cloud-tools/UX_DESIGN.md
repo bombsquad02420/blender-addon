@@ -40,12 +40,9 @@ every bone back to rest. It's the only button that changes the pose (preview
 poses may come later).
 
 **Repair** fixes everything else, and never touches the pose, mesh shapes or
-paint. Two buttons:
-
-- **Snap Back Selected**: the parts, eyes or attachment objects that are selected.
-- **Fix All**: everything below.
-
-Both show only in the Needs fixing box, while there's something to fix.
+paint. Each problem in the Needs fixing box has its own fix button, and
+**Fix All** fixes everything below. The box shows only while there's
+something to fix.
 
 What Repair checks and fixes:
 
@@ -201,11 +198,10 @@ through together. What's decided, most important first:
      what happens to the old `.bchar` when a character is renamed after
      export (left alone, like removed attachments' files).
 
-2. **Repair buttons: only with problems, and named for what they do** (done: *Snap Back Selected* and *Fix All*, in the box).
-   *Fix Selected* and *Fix Whole Character* show only alongside the Needs
-   fixing box. They put parts back on their bones rather than repairing
-   anything broken, so they need names that say that (e.g. *Snap Back
-   Selected* / *Snap Back All*).
+2. **Repair buttons only with problems** (done). *Fix Selected* and *Fix
+   Whole Character* showed all the time. Now only **Fix All** shows, in the
+   Needs fixing box; each row's own button (Put Back…) covers fixing one
+   thing, so Fix Selected is gone from the panel.
 3. **Attachment placement in the viewport only.** (done). Placement and Art Offset
    lose their number fields; attachments are moved, turned and scaled with
    their handles in the 3D view, with the Select buttons to pick them.

@@ -575,8 +575,8 @@ padlocked, softly); a deleted rig or bones moved in Edit Mode; a missing
 root, eyes, guides, attachment handles, group collection or part object.
 The problems show in a *Needs fixing* box under Check, each with its fix
 (and **Keep** for a moved part: apply the move to its mesh), and as notes in
-Check and Export. **Snap Back Selected** (the selected objects) and **Fix All** fix
-them; both show only while there's something to fix.
+Check and Export. **Fix All** fixes
+them all; the box shows only while there's something to fix.
 See [UX_DESIGN.md](UX_DESIGN.md).
 
 ### Format version
