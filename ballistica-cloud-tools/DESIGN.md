@@ -325,9 +325,20 @@ Final check: `workspace put`, then the web UI preview and the game.
 
 Everything lives in **View3D → N panel → Ballistica**.
 
+### Workspace
+
+The very top of the panel is the **workspace**: the folder (with a
+`workspace.json`) that characters are made in, imported into and exported
+to, stored on the scene (`scene.ballistica_workspace`). **Choose…** only
+accepts a folder that has a `workspace.json` itself. Until one is chosen,
+nothing else shows (a file whose characters already use a workspace gets
+a **Use** button for it). Each character still records its own workspace;
+one from another workspace is greyed in the list, with a note, and Export
+refuses it.
+
 ### Characters list
 
-The top of the panel lists the scene's characters. The selected row is the
+Under it, the panel lists the scene's characters. The selected row is the
 **active character**: every section below, plus Export, Check and Reset to
 T-Pose, acts on it. It's stored on the scene as a pointer to the character's
 collection (`scene.ballistica_active_character`), so it doesn't depend on
@@ -342,8 +353,11 @@ what's selected:
   scene's first.
 
 Beside the list: **+** (New Character) and **−** (Remove Character); below
-it **Import Character · Export Character**, the character's workspace folder
-and `.bchar` path, its triangle count and **Check**, the *Needs fixing* box
+it **Import Character · Export Character**, the character's **Name** (its
+collection's name, which is its path in `characters/`: `zoe` exports as
+`characters/zoe.bchar`; renaming it, here or in the outliner, renames its
+root, rig and groups too, and a bad file name shows in Needs fixing with
+Rename), its triangle count and **Check**, the *Needs fixing* box
 (when something drifted) and the Repair buttons. **Frame Character** and
 **Reset to T-Pose** are in Visibility; the Standard Colors fix is in
 Textures' Colors.
@@ -605,7 +619,12 @@ any.
 ### Import character
 
 **Import Character** (or File → Import → Ballistica Character), then pick a
-`.bchar` inside a workspace folder (one with a `workspace.json` above it):
+`.bchar` inside a workspace folder (one with a `workspace.json` above it).
+One from **another workspace** (for a spinoff) comes in as a copy: a free
+name in this workspace (`zoe`, else `zoe_2`…) with its own meshes and
+textures copied under that name, as New Character's Start From does; its
+sounds keep their paths (Check flags any this workspace lacks). One from
+this workspace:
 
 1. Create the collection and its groups, and fill its settings.
 2. Build the armature in the preview pose, and the root.
@@ -625,8 +644,9 @@ Loading doesn't change your selection.
 
 ### Export character
 
-**Export Character** writes into the character's workspace folder
-(overwriting local files):
+**Export Character** writes into the workspace (overwriting local files),
+under the character's name; it refuses a character from another workspace,
+or one whose name isn't a file name:
 
 1. Read the attachment handles into the settings.
 2. Write each part's mesh, and each attachment segment mesh, that is new or
@@ -646,7 +666,7 @@ unless you `workspace get` and re-import first. Then sync with
 
 ### New character
 
-**New Character** asks for a workspace folder and a lowercase name, then
+**New Character** (in the chosen workspace) asks for a lowercase name, then
 creates the collection, rig, guides, eyes and a cuboid body: one box per
 part, with limbs as long as the default Spaz's and about as thick as the
 game's collision capsules, the head a cube inside the head ball. A generated

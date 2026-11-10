@@ -8,7 +8,7 @@ import bpy
 from bpy_extras.io_utils import ImportHelper
 
 from . import attach_scene, bchar, clone, eye_scene, migrate, part_scene, texture_scene, objfile, pose, props, rig, scene, template, workspace
-from .ui import active_character
+from .ui import active_character, in_workspace, scene_workspace
 
 
 def _build(context, root, character_path, character, meshes=None):
@@ -19,14 +19,17 @@ def _build(context, root, character_path, character, meshes=None):
 	until export).
 	"""
 	meshes = meshes or {}
-	name = character_path.rsplit('/', 1)[-1]
+	# The collection's name is the path in characters/ (Blender adds .001
+	# when it's taken; Needs fixing offers Rename then).
+	name = character_path[len(scene.CHARACTERS):] if character_path.startswith(scene.CHARACTERS) else character_path
 	collection = bpy.data.collections.new(name)
+	name = collection.name
 	context.scene.collection.children.link(collection)
 	settings = collection.ballistica_character
 	settings.is_character = True
 	settings.format_version = migrate.FORMAT_VERSION
 	settings.workspace_root = root
-	settings.character_path = character_path
+	settings.character_path = scene.character_path(collection)
 	props.load_into(settings, character)
 
 	groups = scene.make_groups(collection)
@@ -114,8 +117,33 @@ def _part_object(collection, name, mesh, part, material):
 	return obj
 
 
+class BALLISTICA_OT_choose_workspace(bpy.types.Operator):
+	"""Choose the workspace folder (one with a workspace.json, e.g. from bacloud workspace get) that characters are made in and exported to"""
+	bl_idname = 'ballistica.choose_workspace'
+	bl_label = "Choose Workspace"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	directory: bpy.props.StringProperty(name="Workspace", subtype='DIR_PATH', options={'SKIP_SAVE'})
+	filter_folder: bpy.props.BoolProperty(default=True, options={'HIDDEN'})
+
+	def invoke(self, context, event):
+		if self.directory:  # a known folder (the Use button): no browser
+			return self.execute(context)
+		context.window_manager.fileselect_add(self)
+		return {'RUNNING_MODAL'}
+
+	def execute(self, context):
+		root = os.path.normpath(bpy.path.abspath(self.directory)) if self.directory else ''
+		if not workspace.is_root(root):
+			self.report({'ERROR'}, "That folder isn't a workspace: it has no workspace.json. Pick the workspace folder itself.")
+			return {'CANCELLED'}
+		context.scene.ballistica_workspace = root
+		self.report({'INFO'}, f"Workspace: {root}")
+		return {'FINISHED'}
+
+
 class BALLISTICA_OT_import_character(bpy.types.Operator, ImportHelper):
-	"""Import a character (.bchar) from a local workspace folder"""
+	"""Import a character (.bchar). One from another workspace comes in as a copy, with its own meshes and textures in this workspace (for a spinoff)"""
 	bl_idname = 'ballistica.import_character'
 	bl_label = "Import Character"
 	bl_options = {'REGISTER', 'UNDO'}
@@ -123,7 +151,21 @@ class BALLISTICA_OT_import_character(bpy.types.Operator, ImportHelper):
 	filename_ext = '.bchar'
 	filter_glob: bpy.props.StringProperty(default='*.bchar', options={'HIDDEN'})
 
+	@classmethod
+	def poll(cls, context):
+		if scene_workspace(context.scene) is None:
+			cls.poll_message_set("Choose a workspace first")
+			return False
+		return True
+
+	def invoke(self, context, event):
+		root = scene_workspace(context.scene)
+		if not self.filepath and root is not None:
+			self.filepath = os.path.join(root, 'characters', '')
+		return super().invoke(context, event)
+
 	def execute(self, context):
+		target = scene_workspace(context.scene)
 		root = workspace.find_root(self.filepath)
 		if root is None:
 			self.report({'ERROR'}, "Not inside a workspace: no workspace.json found above this file.")
@@ -139,12 +181,30 @@ class BALLISTICA_OT_import_character(bpy.types.Operator, ImportHelper):
 			return {'CANCELLED'}
 		if context.object is not None and context.object.mode != 'OBJECT':
 			bpy.ops.object.mode_set(mode='OBJECT')
+		if os.path.normpath(root) != os.path.normpath(target):
+			return self._import_copy(context, root, target, character)
 		collection, missing = _build(context, root, workspace.logical_path(root, self.filepath), character)
 		_place_and_activate(context, collection)
 		if missing:
 			self.report({'WARNING'}, f"Missing meshes: {', '.join(missing)}")
 		else:
 			self.report({'INFO'}, f"Imported {collection.name}")
+		return {'FINISHED'}
+
+
+	def _import_copy(self, context, source_root, root, source):
+		"""A character from another workspace, copied into this one under a free name."""
+		base = props.good_name(os.path.splitext(os.path.basename(self.filepath))[0]).replace('/', '_')
+		if not NAME_PATTERN.match(base):
+			base = f'character_{base}'
+		name, n = base, 2
+		while name_problem(root, name, clone.plan(source, name)[0]):
+			name, n = f'{base}_{n}', n + 1
+		character, mesh_map, texture_map = clone.plan(source, name)
+		meshes = _copy_assets(source_root, root, character, mesh_map, texture_map)
+		collection, _ = _build(context, root, f'characters/{name}', character, meshes)
+		_place_and_activate(context, collection)
+		self.report({'INFO'}, f"Imported a copy as {collection.name}, with its own meshes and textures; Export Character writes them to this workspace")
 		return {'FINISHED'}
 
 
@@ -227,7 +287,7 @@ def _start_from_items(self, context):
 		(BLANK, "Blank (cuboids)", "A cuboid body in the game's proportions", 'MESH_CUBE', 0),
 		(EMPTY, "Empty (no geometry)", "Rig, guides, eyes and part objects with empty meshes and plain textures, to model from scratch", 'MESH_DATA', 1),
 	]
-	root = workspace.find_root(self.directory) if self.directory else None
+	root = scene_workspace(context.scene)
 	if root is not None:
 		for i, logical in enumerate(workspace.list_assets(root, 'character'), start=2):
 			items.append((logical, logical.rsplit('/', 1)[-1], f"Copy {logical}: its meshes, textures and settings", 'OUTLINER_COLLECTION', i))
@@ -256,8 +316,9 @@ def _empty_assets(root, character, name):
 	return meshes
 
 
-def _copy_assets(root, character, meshes, textures):
-	"""In-memory copies of a source character's files under their new paths.
+def _copy_assets(source_root, root, character, meshes, textures):
+	"""In-memory copies of a source character's files (in `source_root`)
+	under their new paths (in `root`).
 
 	Returns {part: mesh} for the body parts (what _build takes); every
 	other copied mesh is found by attach_scene.mesh_for through its tag.
@@ -265,7 +326,7 @@ def _copy_assets(root, character, meshes, textures):
 	"""
 	copied = {}
 	for old, new in meshes.items():
-		path = workspace.file_path(root, old, 'mesh')
+		path = workspace.file_path(source_root, old, 'mesh')
 		if path is None:
 			continue
 		mesh = scene.mesh_from_obj(path, new)
@@ -273,7 +334,7 @@ def _copy_assets(root, character, meshes, textures):
 		copied[new] = mesh
 	masks = clone.mask_textures(character)
 	for old, new in textures.items():
-		path = workspace.file_path(root, old, 'texture')
+		path = workspace.file_path(source_root, old, 'texture')
 		if path is None:
 			continue
 		source = bpy.data.images.load(path)
@@ -317,14 +378,11 @@ def name_problem(root, name, character=None):
 
 
 class BALLISTICA_OT_new_character(bpy.types.Operator):
-	"""Start a character in a workspace: rig, guides and eyes, with a cuboid body in the game's proportions or a copy of another character. Nothing is written until you export"""
+	"""Start a character in the workspace: rig, guides and eyes, with a cuboid body in the game's proportions or a copy of another character. Nothing is written until you export"""
 	bl_idname = 'ballistica.new_character'
 	bl_label = "New Character"
 	bl_options = {'REGISTER', 'UNDO'}
 
-	directory: bpy.props.StringProperty(
-		name="Workspace", subtype='DIR_PATH',
-		description="A local workspace folder (one with a workspace.json, e.g. from bacloud workspace get)")
 	name: bpy.props.StringProperty(
 		name="Name", default="my_character",
 		description="Lowercase id used for the character's files, e.g. characters/<name>.bchar and meshes/<name>_head.obj")
@@ -332,22 +390,22 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 		name="Start From", items=_start_from_items,
 		description="Blank cuboids, or a copy of a character in the workspace (its own copies of the meshes and textures)")
 
+	@classmethod
+	def poll(cls, context):
+		if scene_workspace(context.scene) is None:
+			cls.poll_message_set("Choose a workspace first")
+			return False
+		return True
+
 	def invoke(self, context, event):
-		current = active_character(context)
-		if current is not None and not self.directory:
-			self.directory = current.ballistica_character.workspace_root
 		return context.window_manager.invoke_props_dialog(self, width=420)
 
 	def draw(self, context):
 		layout = self.layout
 		layout.use_property_split = True
-		layout.prop(self, 'directory')
 		layout.prop(self, 'name')
 		layout.prop(self, 'start_from')
-		root = workspace.find_root(self.directory) if self.directory else None
-		problem = name_problem(root, self.name.strip())
-		if root is None:
-			problem = "Pick a workspace folder (one with a workspace.json)."
+		problem = name_problem(scene_workspace(context.scene), self.name.strip())
 		if problem:
 			box = layout.box()
 			box.alert = True
@@ -357,10 +415,7 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 				box.label(text=line.capitalize(), icon='BLANK1')
 
 	def execute(self, context):
-		root = workspace.find_root(self.directory) if self.directory else None
-		if root is None:
-			self.report({'ERROR'}, "Pick a workspace folder: no workspace.json found there or above it.")
-			return {'CANCELLED'}
+		root = scene_workspace(context.scene)
 		name = self.name.strip()
 		problem = name_problem(None, name)
 		if problem:
@@ -397,7 +452,7 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 			self.report({'INFO'}, f"Created {collection.name} with empty meshes; model each part, then Export Character")
 			return {'FINISHED'}
 		if source is not None:
-			meshes = _copy_assets(root, character, mesh_map, texture_map)
+			meshes = _copy_assets(root, root, character, mesh_map, texture_map)
 			collection, _ = _build(context, root, character_path, character, meshes)
 			_place_and_activate(context, collection)
 			self.report({'INFO'}, f"Created {collection.name} from {self.start_from}; Export Character writes it to the workspace")
@@ -804,9 +859,16 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 		collection = active_character(context)
 		settings = collection.ballistica_character
 		root = settings.workspace_root
-		if not root or not os.path.isfile(os.path.join(root, workspace.WORKSPACE_FILE)):
+		if not workspace.is_root(root):
 			self.report({'ERROR'}, f"Workspace folder not found: {root or '(none)'}")
 			return {'CANCELLED'}
+		if not in_workspace(collection, context.scene):
+			self.report({'ERROR'}, f"{collection.name} is from another workspace ({root}). Choose that workspace to export it, or import it again to make a copy here.")
+			return {'CANCELLED'}
+		if not props.GOOD_NAME.match(collection.name):
+			self.report({'ERROR'}, f"\"{collection.name}\" isn't a file name; Rename it in Needs fixing first.")
+			return {'CANCELLED'}
+		scene.sync_name(collection)
 		written = []
 		attach_scene.sync_from_handles(collection)
 		eye_scene.pull(collection)
@@ -864,7 +926,8 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 			written.append(workspace.WORKSPACE_FILE)
 
 		character = props.to_character(settings)
-		bchar_path = workspace.file_path(root, settings.character_path, 'character') or workspace.new_file_path(root, settings.character_path, 'character')
+		logical = scene.character_path(collection)
+		bchar_path = workspace.file_path(root, logical, 'character') or workspace.new_file_path(root, logical, 'character')
 		if character.save(bchar_path):
 			written.append(os.path.relpath(bchar_path, root))
 		settings.raw_json = json.dumps(character.raw)
@@ -1484,6 +1547,7 @@ def menu_import(self, context):
 
 
 classes = (
+	BALLISTICA_OT_choose_workspace,
 	BALLISTICA_OT_toggle_group,
 	BALLISTICA_OT_reset_section,
 	BALLISTICA_OT_select_eye_handle,

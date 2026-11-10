@@ -5,6 +5,22 @@ import bpy
 from . import rig
 
 
+def scene_workspace(scene):
+	"""The scene's chosen workspace folder, or None (not chosen, or gone)."""
+	from . import workspace
+
+	root = scene.ballistica_workspace
+	return root if workspace.is_root(root) else None
+
+
+def in_workspace(collection, scene):
+	"""Whether a character belongs to the scene's workspace."""
+	import os
+
+	root = scene_workspace(scene)
+	return root is not None and os.path.normpath(collection.ballistica_character.workspace_root) == os.path.normpath(root)
+
+
 def characters(scene):
 	"""Character collections in this scene, in outliner order."""
 	return [c for c in scene.collection.children_recursive if c.ballistica_character.is_character]
@@ -56,7 +72,12 @@ class BALLISTICA_UL_characters(bpy.types.UIList):
 		from .scene import _layer_collections
 
 		row = layout.row(align=True)
-		row.label(text=item.name, icon='OUTLINER_COLLECTION')
+		if in_workspace(item, context.scene):
+			row.label(text=item.name, icon='OUTLINER_COLLECTION')
+		else:
+			sub = row.row()
+			sub.active = False
+			sub.label(text=f"{item.name} (another workspace)", icon='ERROR')
 		layer = next(_layer_collections(context.view_layer.layer_collection, item), None)
 		if layer is not None:
 			visible = not layer.hide_viewport
@@ -81,6 +102,8 @@ class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 
 	def draw(self, context):
 		layout = self.layout
+		if not _workspace_section(layout, context):
+			return
 		row = layout.row()
 		row.template_list(
 			'BALLISTICA_UL_characters', '', bpy.data, 'collections', context.scene, 'ballistica_character_index',
@@ -103,14 +126,51 @@ class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 			box.label(text="Made with an older version of the addon.", icon='INFO')
 			box.operator('ballistica.update_character', icon='FILE_REFRESH')
 			return
+		if not in_workspace(collection, context.scene):
+			box = layout.box()
+			box.label(text=f"{collection.name} is from another workspace:", icon='ERROR')
+			box.label(text=settings.workspace_root, icon='BLANK1')
+			box.label(text="Choose that workspace to export it, or import it again", icon='BLANK1')
+			box.label(text="into this one to make a copy here.", icon='BLANK1')
 		col = layout.column(align=True)
-		col.label(text=collection.name, icon='OUTLINER_COLLECTION')
-		col.prop(settings, 'workspace_root', text="")
-		col.prop(settings, 'character_path', text="")
+		col.prop(collection, 'name', text="Name", icon='OUTLINER_COLLECTION')
+		sub = col.row()
+		sub.active = False
+		sub.label(text=f"Exports as characters/{collection.name}.bchar")
 		row = layout.row(align=True)
 		row.label(text=f"{_triangles(collection):,} triangles")
 		row.operator('ballistica.check_character', icon='CHECKMARK')
 		_repair_box(layout, collection)
+
+
+def _workspace_section(layout, context):
+	"""The chosen workspace, with Choose; True when there is one.
+
+	Without one, nothing else shows: offers the workspaces the scene's
+	characters already use (older files), and the folder browser.
+	"""
+	import os
+
+	scene = context.scene
+	root = scene_workspace(scene)
+	box = layout.box()
+	row = box.row(align=True)
+	if root is None:
+		row.label(text="Choose a workspace folder first", icon='FILE_FOLDER')
+		row.operator('ballistica.choose_workspace', text="Choose…", icon='FILEBROWSER')
+		box.label(text="The folder with a workspace.json (from bacloud workspace get).", icon='INFO')
+		used = dict.fromkeys(c.ballistica_character.workspace_root for c in characters(scene))
+		for path in used:
+			if path and os.path.isdir(path):
+				op = box.operator('ballistica.choose_workspace', text=f"Use {os.path.basename(os.path.normpath(path))}", icon='CHECKMARK')
+				op.directory = path
+		return False
+	row.label(text=os.path.basename(os.path.normpath(root)), icon='FILE_FOLDER')
+	row.operator('ballistica.choose_workspace', text="Choose…", icon='FILEBROWSER')
+	sub = box.row()
+	sub.active = False
+	sub.label(text=root)
+	return True
 
 
 # Problems listed in the Needs fixing box before "and N more".

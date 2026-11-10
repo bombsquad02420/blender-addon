@@ -31,7 +31,7 @@ NO_GUIDES = 'no_guides'
 NO_ATTACHMENTS = 'no_attachments'  # an attachment's handles or meshes are gone
 NO_PART = 'no_part'  # a part with a mesh has no object
 NO_EYE_HANDLE = 'no_eye_handle'
-BAD_NAME = 'bad_name'  # a mesh or image name that makes a poor file name
+BAD_NAME = 'bad_name'  # a character, mesh or image name that makes a poor file name
 BAD_SIZE = 'bad_size'  # an image whose width or height isn't a multiple of 8
 # Kinds the cloud build rejects outright: Check lists them as errors.
 ERRORS = (BAD_SIZE,)
@@ -64,7 +64,7 @@ TEXT = {
 		"The cloud build needs texture sizes that are multiples of 8 (it makes half and quarter sizes "
 		"from whole 4x4 blocks). Resize scales {name} to the nearest ones; UVs still line up"),
 	BAD_NAME: ("\"{name}\" isn't a file name", "Rename",
-		"Meshes and images are exported under their names, so they should be lowercase letters, digits and "
+		"Characters, meshes and images are exported under their names, so they should be lowercase letters, digits and "
 		"underscores. Rename fixes \"{name}\" (capitals, spaces, symbols, or Blender's .001 ending)"),
 	NO_EYE_HANDLE: ("Eye handle missing", "Add", "The handle that moves, sizes and tilts the eyes was deleted"),
 	EYE_HANDLE_SKEWED: ("Eye handle is turned or stretched", "Fix",
@@ -281,7 +281,7 @@ def exported_blocks(collection):
 def _name_issues(collection):
 	from .props import GOOD_NAME
 
-	issues = [Issue(BAD_NAME, block.name, block=block) for block in exported_blocks(collection) if not GOOD_NAME.match(block.name)]
+	issues = [Issue(BAD_NAME, block.name, block=block) for block in [collection, *exported_blocks(collection)] if not GOOD_NAME.match(block.name)]
 	for block in exported_blocks(collection):
 		if isinstance(block, bpy.types.Image):
 			width, height = block.size
@@ -296,10 +296,13 @@ def good_size(value):
 
 
 def rename(block):
-	"""Give a mesh or image a good file name, free among its kind."""
+	"""Give a character, mesh or image a good file name, free among its kind."""
 	from .props import good_name
 
-	pool = bpy.data.meshes if isinstance(block, bpy.types.Mesh) else bpy.data.images
+	if isinstance(block, bpy.types.Collection):
+		pool = bpy.data.collections
+	else:
+		pool = bpy.data.meshes if isinstance(block, bpy.types.Mesh) else bpy.data.images
 	base = good_name(block.name)
 	name, n = base, 2
 	while name in pool and pool[name] != block:
@@ -347,6 +350,8 @@ def fix(collection, issue, keep=False):
 		_rebuild_eyes(collection)
 	elif kind == BAD_NAME:
 		rename(issue.block)
+		if isinstance(issue.block, bpy.types.Collection):
+			scene.sync_name(issue.block)
 	elif kind == BAD_SIZE:
 		width, height = issue.block.size
 		issue.block.scale(good_size(width), good_size(height))  # export saves it

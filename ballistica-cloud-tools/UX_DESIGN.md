@@ -182,21 +182,21 @@ mask stay in Identity.
 From reading the panel code against the principles above, then gone
 through together. What's decided, most important first:
 
-1. **Choose the workspace first.** A section at the top picks the
+1. **Choose the workspace first** (done). A section at the top picks the
    workspace for the .blend (the scene), and only accepts a folder with a
-   `workspace.json`. Characters are listed, created and exported there.
-   - **A character's name is its collection's name**, like meshes and
-     images: collection `zoe` ↔ `characters/zoe.bchar`. The Character path
-     field goes; names that make poor file names show in Needs fixing with
-     Rename.
-   - **Import from outside the workspace** (for a spinoff) imports a copy:
-     the character and its meshes and textures are copied into the current
-     workspace under a new name, as New Character → Start From does today.
-     Sounds stay shared.
-   - Open questions: a character in an older .blend whose workspace differs
-     from the scene's (Needs fixing: *Move to this workspace*, as a copy?);
-     what happens to the old `.bchar` when a character is renamed after
-     export (left alone, like removed attachments' files).
+   `workspace.json`; until then nothing else shows.
+   - **A character's name is its collection's name**: collection `zoe` ↔
+     `characters/zoe.bchar`. The Character path field is gone; renaming
+     carries over to the root, rig and groups, and bad names show in Needs
+     fixing with Rename.
+   - **Import from another workspace** imports a copy under a free name,
+     with its meshes and textures copied into the current workspace.
+     Sounds keep their paths.
+   - A character from another workspace (an older .blend, or after
+     choosing a different workspace) is greyed with a note, and Export
+     refuses it: choose its workspace, or import it again as a copy.
+   - Renaming after export leaves the old `.bchar` in the workspace, like
+     a renamed mesh's file.
 
 2. **Repair buttons only with problems** (done). *Fix Selected* and *Fix
    Whole Character* showed all the time. Now only **Fix All** shows, in the

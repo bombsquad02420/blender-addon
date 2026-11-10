@@ -935,6 +935,9 @@ def register():
 	bpy.types.Object.ballistica_part = bpy.props.PointerProperty(type=OBJECT_PG_ballistica_part)
 	bpy.types.Mesh.ballistica_asset = bpy.props.PointerProperty(type=MESH_PG_ballistica_asset)
 	bpy.types.Image.ballistica_texture = bpy.props.PointerProperty(type=IMAGE_PG_ballistica_texture)
+	bpy.types.Scene.ballistica_workspace = bpy.props.StringProperty(
+		name="Workspace", description="The workspace folder (with a workspace.json) characters are made in and exported to",
+		options=_options())
 	bpy.types.Scene.ballistica_active_character = bpy.props.PointerProperty(
 		type=bpy.types.Collection, poll=_is_character, name="Active Character",
 		description="The character the Ballistica panel shows and acts on", options=_options())
@@ -945,6 +948,7 @@ def register():
 def unregister():
 	del bpy.types.Scene.ballistica_character_index
 	del bpy.types.Scene.ballistica_active_character
+	del bpy.types.Scene.ballistica_workspace
 	del bpy.types.Image.ballistica_texture
 	del bpy.types.Mesh.ballistica_asset
 	del bpy.types.Object.ballistica_part

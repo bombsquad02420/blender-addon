@@ -52,7 +52,8 @@ def placements():
 	workspace = tempfile.mkdtemp()
 	with open(os.path.join(workspace, 'workspace.json'), 'w') as outfile:
 		json.dump({'path': {}, 'type': 'assets_v1'}, outfile)
-	bpy.ops.ballistica.new_character(directory=workspace, name='reference', start_from='BLANK')
+	bpy.ops.ballistica.choose_workspace(directory=workspace)
+	bpy.ops.ballistica.new_character(name='reference', start_from='BLANK')
 	character = bpy.data.collections['reference']
 	bpy.context.view_layer.update()
 	found = {

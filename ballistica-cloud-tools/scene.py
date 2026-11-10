@@ -39,6 +39,43 @@ PART_GROUPS = {
 HIDDEN_GROUPS = ('Rig', 'Eyes')
 
 
+CHARACTERS = 'characters/'
+
+
+def character_path(collection):
+	"""The .bchar's logical path: the collection's name is its path in characters/."""
+	return CHARACTERS + collection.name
+
+
+def sync_name(collection):
+	"""After the character was renamed: rename its root, rig and groups to
+	match, and record the new path. Meshes and images keep their names (they
+	are files of their own)."""
+	settings = collection.ballistica_character
+	stored = settings.character_path
+	old = stored[len(CHARACTERS):] if stored.startswith(CHARACTERS) else stored.rsplit('/', 1)[-1]
+	new = collection.name
+	if not old or old == new:
+		if stored != character_path(collection):
+			settings.character_path = character_path(collection)
+		return False
+
+	def renamed(name):
+		rest = name[len(old):]
+		if name.startswith(old) and (not rest or rest[0] in ' _.'):
+			return new + rest
+		return None
+
+	blocks = [*collection.all_objects, *collection.children_recursive]
+	blocks += [o.data for o in collection.all_objects if o.type in ('ARMATURE', 'CURVE') and o.data is not None]
+	for block in blocks:
+		name = renamed(block.name)
+		if name is not None:
+			block.name = name
+	settings.character_path = character_path(collection)
+	return True
+
+
 def group(collection, name):
 	"""The character's child collection for group `name` (e.g. 'Rig'), or None.
 

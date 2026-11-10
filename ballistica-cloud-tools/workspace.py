@@ -21,6 +21,11 @@ EXTENSIONS = {
 IGNORED_DIRS = ('strings',)
 
 
+def is_root(path):
+	"""Whether `path` is a workspace folder (has a workspace.json)."""
+	return bool(path) and os.path.isfile(os.path.join(path, WORKSPACE_FILE))
+
+
 def find_root(path):
 	"""The workspace folder containing `path`, or None."""
 	path = os.path.abspath(path)

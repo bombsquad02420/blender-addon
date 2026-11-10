@@ -575,6 +575,21 @@ def _subscribe(*_args):
 	bpy.msgbus.subscribe_rna(
 		key=(bpy.types.LayerObjects, 'active'), owner=_MSGBUS_OWNER, args=(),
 		notify=on_active_object_changed)
+	# A character renamed (outliner, panel): its export path follows.
+	bpy.msgbus.subscribe_rna(
+		key=(bpy.types.Collection, 'name'), owner=_MSGBUS_OWNER, args=(),
+		notify=_on_collection_renamed)
+
+
+def _on_collection_renamed(*_args):
+	from . import scene
+
+	def sync():
+		for collection in bpy.data.collections:
+			if collection.ballistica_character.is_character:
+				scene.sync_name(collection)
+
+	bpy.app.timers.register(sync, first_interval=0.0)  # not while Blender is notifying
 
 
 def register():

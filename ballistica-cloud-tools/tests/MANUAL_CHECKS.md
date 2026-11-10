@@ -5,6 +5,14 @@ Blender has no viewport clicks, brush strokes, asset shelf or message bus.
 Run through this list in Blender after changing the related code. Start from
 a fresh install (`make install`) and a restarted Blender.
 
+## Workspace and names
+
+- [ ] **Choose Workspace.** In a new file: only the workspace row shows.
+  Choose… a folder without a `workspace.json`: refused. The workspace
+  folder: the list, New and Import appear.
+- [ ] **Rename.** Rename a character in the outliner: the panel's Name and
+  "Exports as" follow, and its root, rig and groups get the new name.
+
 ## Picking and handles
 
 - [ ] **Part eyedropper.** Parts: select a row, click the eyedropper, click

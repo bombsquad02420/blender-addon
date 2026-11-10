@@ -102,6 +102,16 @@ def expected_attachment_meshes(name):
 	return total
 
 
+# Nothing works before a workspace is chosen, and only a real one is taken.
+assert not bpy.ops.ballistica.new_character.poll()
+try:
+	bpy.ops.ballistica.choose_workspace(directory=os.path.join(ws, 'characters'))
+	raise AssertionError('choose_workspace took a folder without a workspace.json')
+except RuntimeError as exc:
+	assert "isn't a workspace" in str(exc), exc
+assert bpy.ops.ballistica.choose_workspace(directory=ws) == {'FINISHED'}
+assert bpy.context.scene.ballistica_workspace == os.path.normpath(ws)
+
 before = snapshot()
 for name in ('agent_johnson', 'zoe', 'pixel'):
 	attachments = expected_attachment_meshes(name)
@@ -707,7 +717,7 @@ assert eyes_layer.hide_viewport == was_hidden
 with open(os.path.join(ws, 'characters', 'zoe.bchar')) as infile:
 	zoe_data = json.load(infile)['data']
 before_copy = snapshot()
-assert bpy.ops.ballistica.new_character(directory=ws, name='zoey', start_from='characters/zoe') == {'FINISHED'}
+assert bpy.ops.ballistica.new_character(name='zoey', start_from='characters/zoe') == {'FINISHED'}
 zoey = bpy.data.collections['zoey']
 assert snapshot() == before_copy  # nothing written before export
 zs = zoey.ballistica_character
@@ -723,12 +733,13 @@ assert all('zoey' in k or k == 'workspace.json' for k in changed), changed
 assert 'characters/zoey.bchar' in changed and 'textures/zoey_color.png' in changed
 assert not [k for k in changed if 'zoe_' in k or k.endswith('zoe.bchar')]  # the original is untouched
 assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'zoey.bchar')) == {'FINISHED'}
-assert operators.check(bpy.data.collections['zoey.001']) == []
+problems = operators.check(bpy.data.collections['zoey.001'])
+assert len(problems) == 1 and '"zoey.001" isn\'t a file name' in problems[0], problems  # loaded twice: Rename
 scene.ballistica_active_character = zoe  # the checks below work on Zoe
 
 # New Character, Empty: the whole setup with empty part meshes.
 before_empty = snapshot()
-assert bpy.ops.ballistica.new_character(directory=ws, name='blanky', start_from='EMPTY') == {'FINISHED'}
+assert bpy.ops.ballistica.new_character(name='blanky', start_from='EMPTY') == {'FINISHED'}
 blanky = bpy.data.collections['blanky']
 assert snapshot() == before_empty  # nothing written before export
 parts = [o for o in blanky.all_objects if o.ballistica_part.role in [p for p, _, _ in rig.PARTS]]
@@ -846,7 +857,7 @@ scene.ballistica_active_character = zoe
 
 # New Character: a cuboid character, written only on export, then re-imported.
 assert 'cubey' not in bpy.data.collections
-assert bpy.ops.ballistica.new_character(directory=os.path.join(ws, 'characters'), name='cubey') == {'FINISHED'}
+assert bpy.ops.ballistica.new_character(name='cubey') == {'FINISHED'}
 cubey = bpy.data.collections['cubey']
 assert not os.path.exists(os.path.join(ws, 'characters', 'cubey.bchar'))  # nothing written yet
 parts = {o.name for o in cubey.all_objects if o.ballistica_part.role in [p for p, _, _ in rig.PARTS]}
@@ -872,7 +883,7 @@ assert 'is taken' in operators.name_problem(workspace_root := operators.workspac
 assert operators.name_problem(workspace_root, 'brand_new') is None
 for bad_name, message in (('spaz', 'is taken'), ('cubey', 'Blender file'), ('Bad Name', 'lowercase')):
 	try:
-		bpy.ops.ballistica.new_character(directory=ws, name=bad_name)
+		bpy.ops.ballistica.new_character(name=bad_name)
 		raise AssertionError(f'new_character should refuse {bad_name!r}')
 	except RuntimeError as exc:
 		assert message in str(exc), exc
@@ -908,7 +919,8 @@ assert written.attachments == [{
 	'transform': {'rotate': [0.0, 90.0, 0.0], 'translate': [0.0, 0.3, 0.0]},
 }], written.attachments
 assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'cubey.bchar')) == {'FINISHED'}
-assert operators.check(bpy.data.collections['cubey.001']) == []
+problems = operators.check(bpy.data.collections['cubey.001'])
+assert len(problems) == 1 and '"cubey.001" isn\'t a file name' in problems[0], problems  # loaded twice: Rename
 
 # Repair: break the character in the ways Blender makes easy, then fix it.
 from ballistica_cloud_tools import scene as bscene  # noqa: E402
@@ -1020,7 +1032,7 @@ cubey_mask = mask_row.image
 assert bpy.ops.ballistica.new_texture_image() == {'FINISHED'}
 assert mask_row.image != cubey_mask and mask_row.image.colorspace_settings.name == 'Non-Color'
 assert mask_row.image.ballistica_texture.role == 'data'
-assert texture_scene.fields(cubey2)['color_mask_texture'] == 'textures/cubey_color_mask_001'  # cubey's own is taken
+assert texture_scene.fields(cubey2)['color_mask_texture'] == 'textures/cubey_001_color_mask', (cubey2.name, texture_scene.fields(cubey2))  # renamed by Fix All
 mask_row.image = cubey_mask
 draw_panels()
 cubey_color.ballistica_texture.wrap_h = 'repeat'  # build settings go to workspace.json on export
@@ -1041,7 +1053,7 @@ color_row.image = painted
 painted.ballistica_texture.path = 'textures/cubey_red'
 assert bpy.ops.ballistica.export_character() == {'FINISHED'}
 assert os.path.isfile(os.path.join(ws, 'textures', 'cubey_red.png'))
-assert _bchar.Character.load(os.path.join(ws, 'characters', 'cubey.bchar')).get('color_texture') == 'textures/cubey_red'
+assert _bchar.Character.load(os.path.join(ws, 'characters', f'{cubey2.name}.bchar')).get('color_texture') == 'textures/cubey_red'
 
 # Shared meshes and images: who uses them, Make Unique, and duplicate paths.
 from ballistica_cloud_tools import sharing  # noqa: E402
@@ -1050,6 +1062,13 @@ pixel_one, pixel_two = bpy.data.collections['pixel'], bpy.data.collections.get('
 if pixel_two is None:  # removed earlier: share through a fresh import
 	assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws, 'characters', 'pixel.bchar')) == {'FINISHED'}
 	pixel_two = bpy.context.scene.ballistica_active_character
+# Renaming a character renames its root, rig and groups, and its export path.
+pixel_two.name = 'pixel_two'
+assert bscene.sync_name(pixel_two)
+assert pixel_two.ballistica_character.character_path == 'characters/pixel_two'
+assert repair.root_object(pixel_two).name == 'pixel_two' + bscene.ROOT_SUFFIX and repair.armature(pixel_two).name.startswith('pixel_two')
+assert bscene.group(pixel_two, 'Rig').name.startswith('pixel_two ')
+assert not [i for i in repair.issues(pixel_two) if i.kind == repair.BAD_NAME]
 p1, p2 = pixel_one.ballistica_character, pixel_two.ballistica_character
 torso_index = [(r.part, r.side) for r in p1.parts].index(('torso', 'CENTER'))
 shared = p1.parts[torso_index].mesh
@@ -1060,7 +1079,7 @@ draw_panels()  # the shared note draws
 assert bpy.ops.ballistica.make_unique(kind='PART') == {'FINISHED'}
 own = p2.parts[torso_index].mesh
 assert own != shared and sharing.users(own) == [pixel_two] and sharing.users(shared) == [pixel_one]
-assert own.ballistica_asset.path == 'meshes/pixel_torso' or own.ballistica_asset.path.startswith('meshes/pixel_torso_')
+assert own.ballistica_asset.path.startswith('meshes/pixel_two_torso'), own.ballistica_asset.path
 assert len(own.vertices) == len(shared.vertices)
 p2.active_texture_index = 0
 assert bpy.ops.ballistica.make_unique(kind='TEXTURE') == {'FINISHED'}
@@ -1087,16 +1106,16 @@ seg.mesh_block = placeholder
 scene.ballistica_active_character = cubey2
 cubey2.ballistica_character.active_attachment_index = 0
 assert bpy.ops.ballistica.new_segment_block(key='texture') == {'FINISHED'}
-assert seg.texture_block is not None and seg.texture == 'textures/cubey_attachment0'
+assert seg.texture_block is not None and seg.texture == 'textures/cubey_001_attachment0', seg.texture
 assert seg_obj().material_slots[0].material != cubey2.ballistica_character.body_material  # its own texture
 assert bpy.ops.ballistica.new_segment_block(key='mask_texture') == {'FINISHED'}
-assert seg.mask_block.ballistica_texture.role == 'data' and seg.mask_texture == 'textures/cubey_attachment0_mask'
+assert seg.mask_block.ballistica_texture.role == 'data' and seg.mask_texture == 'textures/cubey_001_attachment0_mask'
 draw_panels()
 assert bpy.ops.ballistica.export_character() == {'FINISHED'}
-assert os.path.isfile(os.path.join(ws, 'textures', 'cubey_attachment0.png'))
-saved_segment = _bchar.Character.load(os.path.join(ws, 'characters', 'cubey.bchar')).attachments[0]['segments'][0]
-assert saved_segment == {'mesh': 'meshes/cubey_attachment0', 'texture': 'textures/cubey_attachment0', 'mask_texture': 'textures/cubey_attachment0_mask'}, saved_segment
-assert jsonfile.read(os.path.join(ws, 'workspace.json'))['path']['textures/cubey_attachment0_mask.png']['texture_role'] == 'data'
+assert os.path.isfile(os.path.join(ws, 'textures', 'cubey_001_attachment0.png'))
+saved_segment = _bchar.Character.load(os.path.join(ws, 'characters', f'{cubey2.name}.bchar')).attachments[0]['segments'][0]
+assert saved_segment == {'mesh': 'meshes/cubey_attachment0', 'texture': 'textures/cubey_001_attachment0', 'mask_texture': 'textures/cubey_001_attachment0_mask'}, saved_segment
+assert jsonfile.read(os.path.join(ws, 'workspace.json'))['path']['textures/cubey_001_attachment0_mask.png']['texture_role'] == 'data'
 seg.texture_block = None  # cleared: back to the body's textures
 seg.mask_block = None
 assert seg.texture == '' and seg.mask_texture == '' and seg_obj().material_slots[0].material == cubey2.ballistica_character.body_material
@@ -1106,7 +1125,7 @@ assert wing.mesh_block is not None and wing.mesh_block == p1.attachments[0].segm
 scene.ballistica_active_character = pixel_two
 p2.active_attachment_index = 0
 assert bpy.ops.ballistica.make_unique(kind='SEGMENT_MESH') == {'FINISHED'}
-assert wing.mesh_block != p1.attachments[0].segments[0].mesh_block and wing.mesh.startswith('meshes/pixel_attachment0')
+assert wing.mesh_block != p1.attachments[0].segments[0].mesh_block and wing.mesh.startswith('meshes/pixel_two_attachment0'), wing.mesh
 assert sharing.users(wing.mesh_block) == [pixel_two]
 
 # Painting: the mask brushes add or remove one tint channel each.
@@ -1152,7 +1171,7 @@ cubey2.ballistica_character.highlight_name = ''
 # Attachment templates: each adds ready to use, with its own mesh and textures.
 from ballistica_cloud_tools import attach_templates  # noqa: E402
 
-assert bpy.ops.ballistica.new_character(directory=ws, name='dressy', start_from='BLANK') == {'FINISHED'}
+assert bpy.ops.ballistica.new_character(name='dressy', start_from='BLANK') == {'FINISHED'}
 dressy = bpy.data.collections['dressy']
 scene.ballistica_active_character = dressy
 for item in attach_templates.TEMPLATES:
@@ -1272,6 +1291,29 @@ package.register()
 assert bpy.ops.ballistica.mask_brush(brush='ERASE_HIGHLIGHT') == {'FINISHED'}
 assert bpy.context.scene.tool_settings.image_paint.brush.name == 'Ballistica Erase Highlight'
 bpy.ops.object.mode_set(mode='OBJECT')
+
+# Another workspace: importing from it makes a copy here, under a free name.
+ws2 = os.path.join(os.path.dirname(ws), 'other')
+shutil.copytree(SAMPLE, ws2, ignore=shutil.ignore_patterns('.git'))
+assert bpy.ops.ballistica.import_character(filepath=os.path.join(ws2, 'characters', 'zoe.bchar')) == {'FINISHED'}
+copied = bpy.context.scene.ballistica_active_character
+assert copied.name == 'zoe_2' and copied.ballistica_character.workspace_root == os.path.normpath(ws)
+head = next(r for r in copied.ballistica_character.parts if r.part == 'head').mesh
+assert head.ballistica_asset.path == 'meshes/zoe_2_head', head.ballistica_asset.path
+assert bpy.ops.ballistica.export_character() == {'FINISHED'}
+assert os.path.isfile(os.path.join(ws, 'characters', 'zoe_2.bchar')) and os.path.isfile(os.path.join(ws, 'meshes', 'zoe_2_head.obj'))
+assert not os.path.exists(os.path.join(ws2, 'characters', 'zoe_2.bchar'))
+# With the other workspace chosen, this one's characters aren't exported.
+assert bpy.ops.ballistica.choose_workspace(directory=ws2) == {'FINISHED'}
+try:
+	bpy.ops.ballistica.export_character()
+	raise AssertionError('exported a character from another workspace')
+except RuntimeError as exc:
+	assert 'another workspace' in str(exc), exc
+draw_panels()  # the other-workspace note draws
+bpy.context.scene.ballistica_workspace = ''
+draw_panels()  # only the workspace section, with Use buttons for the characters' workspaces
+assert bpy.ops.ballistica.choose_workspace(directory=ws) == {'FINISHED'}
 
 package.unregister()
 libraries = [lib.name for lib in bpy.context.preferences.filepaths.asset_libraries]
