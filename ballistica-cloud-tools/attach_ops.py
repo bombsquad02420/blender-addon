@@ -207,6 +207,12 @@ class BALLISTICA_OT_attachment_select(_AttachmentOperator, bpy.types.Operator):
 
 	segment: bpy.props.IntProperty(default=-1, options={'SKIP_SAVE'})
 
+	@classmethod
+	def description(cls, context, properties):
+		if properties.segment < 0:
+			return "Select the anchor: move and turn it in the viewport to place the attachment on its part"
+		return "Select the art anchor: move, turn and scale it in the viewport to place this segment's mesh on its segment"
+
 	def execute(self, context):
 		collection = active_character(context)
 		index = collection.ballistica_character.active_attachment_index

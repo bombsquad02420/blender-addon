@@ -503,9 +503,9 @@ selected attachment:
   pelvis take side `both` only; limbs and `wing` take kind `static` only.
   The segment count follows the kind (`antenna_3` has 3 segments, …).
   Changing any of these rebuilds the attachment.
-- **Placement** (open by default): the attachment's `transform`, where it
-  hangs on the target part. No number fields: **Select Anchor** selects its
-  handle, which is moved and turned in the viewport.
+- **Select Anchor** (under Target, Side, Kind): selects the handle holding
+  the attachment's `transform`, where it hangs on the target part; it's
+  moved and turned in the viewport (no number fields).
 - **Spring** (closed; springy kinds only): stiffness, damping, drag, curl,
   length, radius, and their per-segment `*_change` when there's more than
   one segment.
@@ -513,12 +513,12 @@ selected attachment:
   (picker, eyedropper, **+** for a small box), texture and mask (pickers,
   **+** for a blank image; both empty: the body's textures), each with
   *also used by* / Make Unique, and a brush button on the texture and mask. The `.bchar` paths are written from
-  the pickers; a path whose file wasn't found is kept and flagged. **Art Offset** (closed) holds the segment's own
+  the pickers; a path whose file wasn't found is kept and flagged. **Select Art Anchor** (under the segment's pickers) selects the handle holding the segment's own
   `transform`: where its mesh sits on its physics segment. For a
-  single-segment static attachment it moves the mesh just like Placement;
-  for springy kinds Placement moves the pivot and Art Offset moves the mesh
-  on its swinging segment. **Select Art** selects its handle (moved, turned
-  and scaled in the viewport; no number fields).
+  single-segment static attachment it moves the mesh just like the anchor;
+  for springy kinds the anchor moves the pivot and the art anchor moves the mesh
+  on its swinging segment. It's moved, turned and scaled in the viewport
+  (no number fields).
 
 **Placement handles.** Each attachment has an anchor empty, bone-parented
 to its target (its own location/rotation, in `YXZ` mode, are exactly the

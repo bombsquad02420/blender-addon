@@ -654,14 +654,11 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 		col.prop(attachment, 'target')
 		col.prop(attachment, 'side')
 		col.prop(attachment, 'kind')
+		# Placement: where it hangs on its part, set with the anchor in the viewport.
+		layout.operator('ballistica.attachment_select', text="Select Anchor", icon='RESTRICT_SELECT_OFF').segment = -1
 
 		# Collapsible sub-sections (layout panels remember open/closed per
 		# id, so each attachment field group keeps its state).
-		header, body = layout.panel('BALLISTICA_attach_placement', default_closed=False)
-		header.label(text="Placement", icon='EMPTY_ARROWS')
-		if body is not None:
-			body.label(text="Where it hangs on its part: move and turn its anchor in the viewport.")
-			body.operator('ballistica.attachment_select', text="Select Anchor", icon='RESTRICT_SELECT_OFF').segment = -1
 
 		if attachments.is_springy(attachment.kind):
 			header, body = layout.panel('BALLISTICA_attach_spring', default_closed=True)
@@ -706,11 +703,8 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 				_shared_note(col, block, collection, kind)
 			elif getattr(segment, key):
 				col.label(text=f"{getattr(segment, key)} isn't in the workspace", icon='ERROR')
-		header, art = body.panel('BALLISTICA_attach_art', default_closed=True)
-		header.label(text="Art Offset")
-		if art is not None:
-			art.label(text="Moves, turns and scales the mesh on its segment, in the viewport.")
-			art.operator('ballistica.attachment_select', text="Select Art", icon='RESTRICT_SELECT_OFF').segment = j
+		# Art offset: the mesh on its segment, moved, turned and scaled in the viewport.
+		body.operator('ballistica.attachment_select', text="Select Art Anchor", icon='RESTRICT_SELECT_OFF').segment = j
 
 
 def _split(layout):
