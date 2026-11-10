@@ -616,7 +616,8 @@ class BALLISTICA_UL_attachments(bpy.types.UIList):
 
 class BALLISTICA_UL_segments(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
-		layout.label(text=f"{index + 1}: {item.mesh or '(no mesh)'}", icon='MESH_DATA' if item.mesh else 'ERROR')
+		mesh = item.mesh_block.name if item.mesh_block is not None else item.mesh.removeprefix('meshes/')
+		layout.label(text=f"{index + 1}: {mesh or '(no mesh)'}", icon='MESH_DATA' if item.mesh else 'ERROR')
 
 
 def _record(attachment):
