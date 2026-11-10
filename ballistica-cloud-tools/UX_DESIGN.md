@@ -224,10 +224,5 @@ Kept as they are:
   indices, so even more than 65,535 vertices loads.
 - **Sounds, sections closed by default, wording** (Spread, Make Unique,
   Kind): fine as they are.
-
-Open:
-
-- **The mask-role note.** A color mask whose image has a non-Data role
-  (e.g. after picking an ordinary image as the mask) shows "Masks need a
-  Data role (export sets it)" in Textures, with an error icon. Export does
-  set it, so it may only need an info icon.
+- **The mask-role note** is an info note now, not an error: export sets
+  the Data role itself.

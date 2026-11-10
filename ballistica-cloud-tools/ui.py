@@ -743,7 +743,7 @@ class VIEW3D_PT_ballistica_images(_Panel, bpy.types.Panel):
 		texture = image.ballistica_texture
 		col.prop(texture, 'role')
 		if texture_scene.is_mask_image(collection, image) and texture.role not in workspace.DATA_ROLES:
-			col.label(text="Masks need a Data role (export sets it).", icon='ERROR')
+			col.label(text="Masks need a Data role (export sets it).", icon='INFO')
 		for name in ('quality', 'wrap_h', 'wrap_v', 'alpha'):
 			col.prop(texture, name)
 
