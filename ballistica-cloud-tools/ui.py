@@ -213,6 +213,27 @@ def _current_character(context):
 	return collection if collection is not None and not migrate.needs_update(collection) else None
 
 
+# One line under a Physique or Eyes field: what it changes in the game.
+HINTS = {
+	'torso_radius': "How wide the body is for bumping and getting hit",
+	'shoulder_offset': "Moves where the arms join the body",
+	'thigh_radius': "How thick the upper legs are for collisions",
+	'ankle_radius': "How thick the lower legs are for collisions",
+	'step_separation': "How far apart the feet land when walking",
+	'idle_arm_stiffness': "How stiff the arms hang when standing (low: floppy)",
+	'arm_swing': "How much the arms swing when running",
+	'idle_sway': "How much the body sways when standing",
+	'eye_style_left': "The shape of the left eye",
+	'eye_style_right': "The shape of the right eye",
+	'eye_size': "How big the eyes are (1 is standard)",
+	'eye_position': "Where the eyes sit on the head (or move the eye handle)",
+	'eye_color': "The color of the iris",
+	'eyeball_color': "The color of the white of the eye",
+	'eyelid_color': "The color of the eyelids",
+	'eyelid_angle': "Tilts the eyelids: an angry or sad look",
+}
+
+
 class _Section(_Panel):
 	bl_parent_id = 'VIEW3D_PT_ballistica_character'
 	bl_options = {'DEFAULT_CLOSED'}
@@ -232,7 +253,15 @@ class _Section(_Panel):
 		layout.use_property_split = True
 		layout.use_property_decorate = False
 		for field in self.fields:
-			layout.prop(settings, field)
+			col = layout.column(align=True)
+			col.prop(settings, field)
+			if field in HINTS:
+				# Under the field, lined up with it (the left half is the label's).
+				split = col.split(factor=0.4)
+				split.label(text="")
+				hint = split.row()
+				hint.active = False
+				hint.label(text=HINTS[field])
 
 
 class VIEW3D_PT_ballistica_identity(_Section, bpy.types.Panel):
@@ -494,6 +523,7 @@ class VIEW3D_PT_ballistica_physique(_Section, bpy.types.Panel):
 	def draw(self, context):
 		_group_toggles(self.layout, context, active_character(context), ('Guides', 'Rig'))
 		_Section.draw(self, context)
+		self.layout.operator('ballistica.reset_section', icon='LOOP_BACK').section = 'PHYSIQUE'
 
 
 class VIEW3D_PT_ballistica_eyes(_Section, bpy.types.Panel):
@@ -508,6 +538,7 @@ class VIEW3D_PT_ballistica_eyes(_Section, bpy.types.Panel):
 		_group_toggles(self.layout, context, active_character(context), ('Eyes', 'Rig'))
 		self.layout.operator('ballistica.select_eye_handle', icon='RESTRICT_SELECT_OFF')
 		_Section.draw(self, context)
+		self.layout.operator('ballistica.reset_section', icon='LOOP_BACK').section = 'EYES'
 
 
 class BALLISTICA_UL_attachments(bpy.types.UIList):

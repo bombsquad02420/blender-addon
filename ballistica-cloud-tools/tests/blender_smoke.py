@@ -858,6 +858,15 @@ assert tuple(mask.size) == tuple(shipped.size) and mask.colorspace_settings.name
 middle = (shipped.size[1] // 2 * shipped.size[0] + shipped.size[0] // 2) * 4
 assert all(abs(a - b) < 1e-3 for a, b in zip(mask.pixels[middle:middle + 3], shipped.pixels[middle:middle + 3]))  # the starter's mask
 bpy.data.images.remove(shipped)
+# Reset to Default puts a section's fields back to the game's defaults.
+cubey.ballistica_character.arm_swing = 0.1
+cubey.ballistica_character.eye_size = 1.5
+assert bpy.ops.ballistica.reset_section(section='PHYSIQUE') == {'FINISHED'}
+assert abs(cubey.ballistica_character.arm_swing - rig.DEFAULTS['arm_swing']) < 1e-6
+assert abs(cubey.ballistica_character.eye_size - 1.5) < 1e-6  # Eyes left alone
+assert bpy.ops.ballistica.reset_section(section='EYES') == {'FINISHED'}
+assert abs(cubey.ballistica_character.eye_size - 1.0) < 1e-6
+assert all(abs(a - b) < 1e-6 for a, b in zip(cubey.ballistica_character.eye_offset, rig.DEFAULTS['eye_offset']))
 assert 'taken in this Blender file' in operators.name_problem(None, 'cubey')
 assert 'is taken' in operators.name_problem(workspace_root := operators.workspace.find_root(ws), 'spaz')
 assert operators.name_problem(workspace_root, 'brand_new') is None

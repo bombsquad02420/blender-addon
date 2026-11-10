@@ -994,6 +994,36 @@ class BALLISTICA_OT_remove_character(bpy.types.Operator):
 		return {'FINISHED'}
 
 
+# The .bchar fields each section's Reset to Default puts back.
+RESET_FIELDS = {
+	'PHYSIQUE': (
+		'torso_radius', 'shoulder_offset', 'thigh_radius', 'ankle_radius',
+		'step_separation', 'idle_arm_stiffness', 'arm_swing', 'idle_sway'),
+	'EYES': (
+		'eye_style_left', 'eye_style_right', 'eye_scale', 'eye_offset',
+		'eye_color', 'eyeball_color', 'eyelid_color', 'eyelid_angle'),
+}
+
+
+class BALLISTICA_OT_reset_section(bpy.types.Operator):
+	"""Put this section's settings back to the game's defaults"""
+	bl_idname = 'ballistica.reset_section'
+	bl_label = "Reset to Default"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	section: bpy.props.EnumProperty(items=(('PHYSIQUE', "Physique", ""), ('EYES', "Eyes", "")))
+
+	@classmethod
+	def poll(cls, context):
+		return active_character(context) is not None
+
+	def execute(self, context):
+		settings = active_character(context).ballistica_character
+		for field in RESET_FIELDS[self.section]:
+			setattr(settings, field, rig.DEFAULTS[field])
+		return {'FINISHED'}
+
+
 class BALLISTICA_OT_select_eye_handle(bpy.types.Operator):
 	"""Select the eye handle: move it to move the eyes, scale it to size them, turn it to tilt the eyelids (the other eye mirrors it)"""
 	bl_idname = 'ballistica.select_eye_handle'
@@ -1455,6 +1485,7 @@ def menu_import(self, context):
 
 classes = (
 	BALLISTICA_OT_toggle_group,
+	BALLISTICA_OT_reset_section,
 	BALLISTICA_OT_select_eye_handle,
 	BALLISTICA_OT_new_part_mesh,
 	BALLISTICA_OT_pick_part_mesh,

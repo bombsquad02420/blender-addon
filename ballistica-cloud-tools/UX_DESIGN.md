@@ -209,7 +209,7 @@ through together. What's decided, most important first:
 3. **Attachment placement in the viewport only.** (done). Placement and Art Offset
    lose their number fields; attachments are moved, turned and scaled with
    their handles in the 3D view, with the Select buttons to pick them.
-4. **Physique and Eyes: a hint per field.** A one-line description under
+4. **Physique and Eyes: a hint per field** (done). A one-line description under
    each field of what it changes in the game, and a Reset to Default per
    section. The eye controls stay visible (they're few and constrained).
 
