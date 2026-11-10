@@ -436,10 +436,10 @@ class VIEW3D_PT_ballistica_textures(_Section, bpy.types.Panel):
 		for item in settings.textures:
 			line = col.row(align=True)
 			line.prop(item, 'image', text="Color" if item.field == 'color_texture' else "Color Mask")
+			_paint_button(line, item.image)  # first, like the mesh rows' eyedropper
 			op = line.operator('ballistica.pick_from_workspace', text="", icon='FILE_FOLDER')
 			op.target, op.field = 'TEXTURE', item.field
 			line.operator('ballistica.new_texture_image', text="", icon='ADD').field = item.field
-			_paint_button(line, item.image)
 			if item.image is not None:
 				_shared_note(col, item.image, collection, 'TEXTURE', item.field)
 		layout.separator()
@@ -700,10 +700,10 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 			line.prop(segment, attr)
 			if key == 'mesh':
 				line.operator('ballistica.pick_part_mesh', text="", icon='EYEDROPPER').target = 'SEGMENT'
+			else:
+				_paint_button(line, getattr(segment, attr))
 			_pick_button(line, kind)
 			line.operator('ballistica.new_segment_block', text="", icon='ADD').key = key
-			if key != 'mesh':
-				_paint_button(line, getattr(segment, attr))
 			block = getattr(segment, attr)
 			if block is not None:
 				_shared_note(col, block, collection, kind)
