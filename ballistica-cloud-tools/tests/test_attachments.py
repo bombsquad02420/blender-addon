@@ -72,6 +72,33 @@ class RoundTripTest(unittest.TestCase):
 		self.assertGreaterEqual(count, 4)  # Zoe's three, Pixel's wing (more if the sample was edited)
 
 
+class FirstLastTest(unittest.TestCase):
+	"""A chain's dials as first and last values, and back to *_change."""
+
+	def test_round_trip(self):
+		record = attachments.new_attachment('head', 'antenna_3', 'm')
+		record['stiffness'], record['stiffness_change'] = 0.67, -0.26
+		last = attachments.last_value(record, 'stiffness')
+		self.assertAlmostEqual(last, 0.67 - 2 * 0.26)
+		self.assertAlmostEqual(attachments.change_for(record, 'stiffness', last), -0.26)
+
+	def test_last_is_clamped_to_the_range(self):
+		record = attachments.new_attachment('head', 'antenna_4', 'm')
+		record['curl'], record['curl_change'] = 0.0, -0.4  # 0, -0.4, -0.8, -1.2 -> -1
+		self.assertEqual(attachments.last_value(record, 'curl'), -1.0)
+
+	def test_change_is_clamped(self):
+		record = attachments.new_attachment('head', 'antenna_2', 'm')
+		record['curl'] = -1.0
+		self.assertEqual(attachments.change_for(record, 'curl', 1.0), 1.0)  # a step of 2 isn't allowed
+
+	def test_one_segment_keeps_its_change(self):
+		record = attachments.new_attachment('head', 'antenna', 'm')
+		record['radius_change'] = 0.3
+		self.assertEqual(attachments.last_value(record, 'radius'), record['radius'] + 0.0)
+		self.assertEqual(attachments.change_for(record, 'radius', 0.9), 0.3)
+
+
 class RulesTest(unittest.TestCase):
 	def test_allowed_options(self):
 		self.assertEqual(attachments.allowed_sides('head'), ('both',))

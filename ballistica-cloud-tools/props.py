@@ -569,11 +569,20 @@ class COLLECTION_PG_ballistica_attachment(bpy.types.PropertyGroup):
 	curl: _tuning("Curl", 'curl')
 	length: _tuning("Length", 'length')
 	radius: _tuning("Radius", 'radius')
+	# The .bchar's *_change values, as loaded: kept for a one-segment kind
+	# (which has no last segment); otherwise worked out from the *_last
+	# values on export (attachment_record).
 	curl_change: _tuning("Curl Change", 'curl_change')
 	length_change: _tuning("Length Change", 'length_change')
 	radius_change: _tuning("Radius Change", 'radius_change')
 	stiffness_change: _tuning("Stiffness Change", 'stiffness_change')
 	damping_change: _tuning("Damping Change", 'damping_change')
+	# The last segment's values (the first segment's are the plain ones).
+	stiffness_last: _tuning("Stiffness (Last)", 'stiffness')
+	damping_last: _tuning("Damping (Last)", 'damping')
+	curl_last: _tuning("Curl (Last)", 'curl')
+	length_last: _tuning("Length (Last)", 'length')
+	radius_last: _tuning("Radius (Last)", 'radius')
 	segments: bpy.props.CollectionProperty(type=COLLECTION_PG_ballistica_segment)
 	active_segment_index: bpy.props.IntProperty(
 		name="Active Segment", options=_options(), update=_active_segment_changed)
@@ -615,6 +624,8 @@ def attachment_record(attachment):
 	for key in ATTACHMENT_VALUES:
 		value = getattr(attachment, key)
 		record[key] = tuple(value) if key in ('translate', 'rotate') else value
+	for key in attach_rules.CHANGING:
+		record[f'{key}_change'] = attach_rules.change_for(record, key, getattr(attachment, f'{key}_last'))
 	record['segments'] = [
 		{**{k: getattr(s, k) for k in attach_rules.SEGMENT_REFS}, **{k: tuple(getattr(s, k)) for k in SEGMENT_VALUES}}
 		for s in attachment.segments
@@ -633,6 +644,8 @@ def set_attachment(attachment, record, raw=None):
 		attachment.kind = record['kind']
 		for key in ATTACHMENT_VALUES:
 			setattr(attachment, key, record[key])
+		for key in attach_rules.CHANGING:
+			setattr(attachment, f'{key}_last', attach_rules.last_value(record, key))
 		_set_segments(attachment, record['segments'])
 		if raw is not None:
 			attachment.raw_json = json.dumps(raw)

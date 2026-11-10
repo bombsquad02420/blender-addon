@@ -21,6 +21,11 @@ from . import rig
 
 TUNING = ('stiffness', 'damping', 'drag', 'curl', 'length', 'radius')
 TUNING_CHANGES = ('curl_change', 'length_change', 'radius_change', 'stiffness_change', 'damping_change')
+# Dials that change along a chain: the game gives segment i `value + i *
+# <value>_change` (clamped to the dial's range), so a chain's values run in
+# a straight line from its first segment to its last. Blender shows the
+# first and last segment's values; the .bchar stores the first and the change.
+CHANGING = ('stiffness', 'damping', 'curl', 'length', 'radius')
 SEGMENT_REFS = ('mesh', 'texture', 'mask_texture')
 ZERO3 = (0.0, 0.0, 0.0)
 ONE3 = (1.0, 1.0, 1.0)
@@ -42,6 +47,26 @@ def allowed_kinds(target):
 
 def segment_count(kind):
 	return rig.ATTACHMENT_SEGMENTS.get(kind, 1)
+
+
+def last_value(record, key):
+	"""The last segment's value of a changing dial (the first's, for one segment)."""
+	lo, hi = rig.ATTACHMENT_RANGES[key]
+	steps = segment_count(record['kind']) - 1
+	return min(max(record[key] + steps * record[f'{key}_change'], lo), hi)
+
+
+def change_for(record, key, last):
+	"""The `<key>_change` that runs the dial from its first value to `last`.
+
+	One segment has no last: the record's change is kept as it is (the game
+	ignores it there).
+	"""
+	steps = segment_count(record['kind']) - 1
+	if steps < 1:
+		return record[f'{key}_change']
+	lo, hi = rig.ATTACHMENT_RANGES[f'{key}_change']
+	return min(max((last - record[key]) / steps, lo), hi)
 
 
 def is_springy(kind):

@@ -508,9 +508,16 @@ selected attachment:
 - **Select Anchor** (under Target, Side, Kind): selects the handle holding
   the attachment's `transform`, where it hangs on the target part; it's
   moved and turned in the viewport (no number fields).
-- **Spring** (closed; springy kinds only): stiffness, damping, drag, curl,
-  length, radius, and their per-segment `*_change` when there's more than
-  one segment.
+- **Spring** (closed; springy kinds only): a grid of stiffness, damping,
+  drag, curl, length and radius. On a chain, each dial but drag has two
+  columns, **First** and **Last**: the first and last segment's values.
+  The game runs a dial in a straight line along the chain (segment *i*
+  gets `value + i × <value>_change`, clamped), so on import Last is
+  `value + (segments − 1) × change`, and on export the change is
+  `(Last − First) / (segments − 1)` (clamped to ±1: a 2-segment curl can't
+  span more than 1). A one-segment kind shows one column and keeps the
+  file's `*_change` as it was. Stiffness and damping are greyed for the
+  legacy kinds, which ignore them.
 - **Segments** (open): the segment list, and the selected segment's mesh
   (picker, eyedropper, **+** for a small box), texture and mask (pickers,
   **+** for a blank image; both empty: the body's textures), each with

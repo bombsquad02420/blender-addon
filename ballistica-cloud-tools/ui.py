@@ -670,13 +670,7 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 			header, body = layout.panel('BALLISTICA_attach_spring', default_closed=True)
 			header.label(text="Spring", icon='FORCE_HARMONIC')
 			if body is not None:
-				_split(body)
-				for field in attachments.TUNING:
-					body.prop(attachment, field)
-				if attachments.segment_count(attachment.kind) > 1:
-					body.label(text="Change per segment")
-					for field in attachments.TUNING_CHANGES:
-						body.prop(attachment, field)
+				_spring_grid(body, attachment)
 
 		header, body = layout.panel('BALLISTICA_attach_segments', default_closed=False)
 		header.label(text=f"Segments ({len(attachment.segments)})", icon='MESH_DATA')
@@ -711,6 +705,36 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 				col.label(text=f"{getattr(segment, key)} isn't in the workspace", icon='ERROR')
 		# Art offset: the mesh on its segment, moved, turned and scaled in the viewport.
 		_anchor_button(body, j, "Select Art Anchor", "Then move, turn or scale it to fit the mesh")
+
+
+def _spring_grid(layout, attachment):
+	"""Spring dials in a grid: the first and last segment's values side by side.
+
+	The game runs a chain's values in a straight line from first to last
+	(attachments.CHANGING); drag is one value for the whole chain. Stiffness
+	and damping only tune antennas: the legacy kinds ignore them.
+	"""
+	from . import attachments
+
+	chain = attachments.segment_count(attachment.kind) > 1
+	antenna = attachment.kind.startswith('antenna')
+	col = layout.column(align=True)
+	if chain:
+		row = col.split(factor=0.35, align=True)
+		row.label(text="")
+		heads = row.row(align=True)
+		heads.active = False
+		heads.alignment = 'EXPAND'
+		heads.label(text="First")
+		heads.label(text="Last")
+	for field in attachments.TUNING:
+		row = col.split(factor=0.35, align=True)
+		row.active = antenna or field not in ('stiffness', 'damping')
+		row.label(text=attachment.bl_rna.properties[field].name)
+		values = row.row(align=True)
+		values.prop(attachment, field, text="")
+		if chain and field in attachments.CHANGING:
+			values.prop(attachment, f'{field}_last', text="")
 
 
 def _anchor_button(layout, segment, text, hint):

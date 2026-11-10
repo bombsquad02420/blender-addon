@@ -554,6 +554,14 @@ assert written_attachments(zoe) == zoe_attachments
 
 # Rebuild keeps handle edits and follows kind changes.
 spot.location.z += 0.02
+# Spring dials show the first and last segment: Zoe's ponytail (2 segments,
+# stiffness 0.67, change -0.26) has a last stiffness of 0.41; a new last
+# value goes back out as a change.
+ponytail = zoe.ballistica_character.attachments[2]
+assert abs(ponytail.stiffness_last - 0.41) < 1e-5, ponytail.stiffness_last
+ponytail.stiffness_last = 0.27
+assert abs(props.attachment_record(ponytail)['stiffness_change'] - (0.27 - 0.67)) < 1e-5
+ponytail.stiffness_last = 0.41
 zoe.ballistica_character.attachments[2].kind = 'antenna_4'  # triggers a rebuild
 assert len([o for o in attach_scene.tagged(zoe, attach_scene.HANDLE) if o[attach_scene.INDEX_KEY] == 2]) == 4
 assert abs(zoe.ballistica_character.attachments[0].translate[1] - (0.124 + 0.02)) < 1e-5
