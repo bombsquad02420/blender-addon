@@ -571,11 +571,8 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 		header, body = layout.panel('BALLISTICA_attach_placement', default_closed=False)
 		header.label(text="Placement", icon='EMPTY_ARROWS')
 		if body is not None:
-			_split(body)
-			body.label(text="Where it hangs on the target part (game axes: Y up, Z forward).")
+			body.label(text="Where it hangs on its part: move and turn its anchor in the viewport.")
 			body.operator('ballistica.attachment_select', text="Select Anchor", icon='RESTRICT_SELECT_OFF').segment = -1
-			body.prop(attachment, 'translate')
-			body.prop(attachment, 'rotate', text="Heading, Pitch, Roll")
 
 		if attachments.is_springy(attachment.kind):
 			header, body = layout.panel('BALLISTICA_attach_spring', default_closed=True)
@@ -623,12 +620,8 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 		header, art = body.panel('BALLISTICA_attach_art', default_closed=True)
 		header.label(text="Art Offset")
 		if art is not None:
-			_split(art)
-			art.label(text="Moves the mesh on its segment; use Placement to move the attachment.")
+			art.label(text="Moves, turns and scales the mesh on its segment, in the viewport.")
 			art.operator('ballistica.attachment_select', text="Select Art", icon='RESTRICT_SELECT_OFF').segment = j
-			art.prop(segment, 'translate')
-			art.prop(segment, 'rotate', text="Heading, Pitch, Roll")
-			art.prop(segment, 'scale')
 
 
 def _split(layout):

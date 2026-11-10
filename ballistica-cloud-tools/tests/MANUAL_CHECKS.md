@@ -15,9 +15,9 @@ a fresh install (`make install`) and a restarted Blender.
   segment and the icon: a searchable list of the workspace's meshes or
   images opens; picking one shows it.
 - [ ] **Segment eyedropper.** The same from an attachment segment's Mesh row.
-- [ ] **Attachment handles.** Drag and rotate an anchor and an Art Offset
-  handle: the Placement / Art Offset numbers follow, and typing numbers
-  moves the handle.
+- [ ] **Attachment handles.** Select Anchor / Select Art, then drag and
+  rotate the handle: the attachment follows, and Export writes where it
+  is now.
 - [ ] **Eye handle.** Select Eye Handle (the Rig group shows). Move it: the
   eyes move and Position follows. Scale it: Size follows and the eyes stay
   put when Size is typed. Turn it about its free axis: the eyelids tilt and

@@ -206,7 +206,7 @@ through together. What's decided, most important first:
    fixing box. They put parts back on their bones rather than repairing
    anything broken, so they need names that say that (e.g. *Snap Back
    Selected* / *Snap Back All*).
-3. **Attachment placement in the viewport only.** Placement and Art Offset
+3. **Attachment placement in the viewport only.** (done). Placement and Art Offset
    lose their number fields; attachments are moved, turned and scaled with
    their handles in the 3D view, with the Select buttons to pick them.
 4. **Physique and Eyes: a hint per field.** A one-line description under

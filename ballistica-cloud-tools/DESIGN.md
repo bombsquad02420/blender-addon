@@ -490,8 +490,8 @@ selected attachment:
   The segment count follows the kind (`antenna_3` has 3 segments, …).
   Changing any of these rebuilds the attachment.
 - **Placement** (open by default): the attachment's `transform`, where it
-  hangs on the target part, in game axes (Y up, Z forward); rotation as
-  heading, pitch, roll in degrees. **Select Anchor** selects its handle.
+  hangs on the target part. No number fields: **Select Anchor** selects its
+  handle, which is moved and turned in the viewport.
 - **Spring** (closed; springy kinds only): stiffness, damping, drag, curl,
   length, radius, and their per-segment `*_change` when there's more than
   one segment.
@@ -503,7 +503,8 @@ selected attachment:
   `transform`: where its mesh sits on its physics segment. For a
   single-segment static attachment it moves the mesh just like Placement;
   for springy kinds Placement moves the pivot and Art Offset moves the mesh
-  on its swinging segment. **Select Art** selects its handle.
+  on its swinging segment. **Select Art** selects its handle (moved, turned
+  and scaled in the viewport; no number fields).
 
 **Placement handles.** Each attachment has an anchor empty, bone-parented
 to its target (its own location/rotation, in `YXZ` mode, are exactly the
@@ -620,7 +621,7 @@ Loading doesn't change your selection.
 - Model, UV-map and texture-paint the parts. Limbs are edited on the `.R`
   side; the `.L` side shares the mesh.
 - Edit settings in the panel; the preview follows live.
-- Place attachments with their handles or the Placement numbers.
+- Place attachments with their handles in the viewport.
 
 ### Export character
 
