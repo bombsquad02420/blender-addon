@@ -594,7 +594,8 @@ group and selects it. Export reads it, like attachment handles.
 bone back to rest). **Repair** fixes what drifted in the scene, without
 touching the pose, mesh shapes or paint: parts moved, detached, hidden or
 given another material; scaled attachment anchors (their scale is
-padlocked, softly); a deleted rig or bones moved in Edit Mode; a missing
+padlocked, softly); anchors dragged more than 0.5 from their part along an
+axis (**Move In** puts them at the limit, where the game would); a deleted rig or bones moved in Edit Mode; a missing
 root, eyes, guides, attachment handles, group collection or part object.
 The problems show in a *Needs fixing* box under Check, each with its fix
 (and **Keep** for a moved part: apply the move to its mesh), and as notes in
@@ -618,7 +619,7 @@ character would be broken) and warnings, then a summary as the last message
 last one). It reports: required fields; referenced files
 missing from the workspace (meshes and textures made in Blender count, since
 export writes them); masks not marked `texture_role: data`; meshes without
-UVs; attachment rule problems; the Flippers hint; texture sizes that aren't multiples of 8 (an error: the cloud build rejects them; Needs fixing has **Resize**); and a name or highlight labels that aren't translation keys (the
+UVs; attachment rule problems; the Flippers hint; texture sizes that aren't multiples of 8 (an error: the cloud build rejects them; Needs fixing has **Resize**); more than 10 attachments on one body part or side (a warning: the game drops the rest); a spring dial's Last further from its First than the game's per-segment step reaches (a warning: a 2-segment curl spans at most 1); and a name or highlight labels that aren't translation keys (the
 fields show the expected shape as a placeholder). There are no known
 server limits on vertex counts or texture sizes, so the checks don't invent
 any.

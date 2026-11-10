@@ -475,6 +475,25 @@ class BALLISTICA_OT_new_character(bpy.types.Operator):
 ERROR, WARNING = 'ERROR', 'WARNING'
 
 
+def _unreachable_lasts(attachment, index):
+	"""Spring dials whose Last is further from First than the game's per-segment
+	step (±1) can reach; export uses the nearest it can."""
+	from . import attachments as attach_rules
+
+	steps = attach_rules.segment_count(attachment.kind) - 1
+	if steps < 1 or not attach_rules.is_springy(attachment.kind):
+		return []
+	out = []
+	for key in attach_rules.CHANGING:
+		first, last = getattr(attachment, key), getattr(attachment, f'{key}_last')
+		if abs(last - first) > steps + 1e-5:
+			name = attachment.bl_rna.properties[key].name
+			out.append(
+				f"Attachment {index + 1}: {name} can change by at most {steps} from first to last segment "
+				f"(First {first:.2f}, Last {last:.2f}); the game gets Last {first + steps * (1 if last > first else -1):.2f}")
+	return out
+
+
 class Problem(str):
 	"""A Check message, with its level: ERROR (the cloud build would fail or
 	the character would be broken) or WARNING (works, but may not look or
@@ -543,6 +562,10 @@ def check(collection):
 	from . import attachments as attach_rules
 	for index, attachment in enumerate(settings.attachments):
 		problems += [Problem(p) for p in attach_rules.problems(props.attachment_record(attachment), index)]
+		problems += [Problem(p, WARNING) for p in _unreachable_lasts(attachment, index)]
+	for where, count in attach_rules.crowded([props.attachment_record(a) for a in settings.attachments]):
+		problems.append(Problem(
+			f"{count} attachments on the {where}: the game shows only the first {attach_rules.MAX_PER_TARGET}", WARNING))
 	in_blender = _blocks_in_blender(settings)
 	for field, kind, logical in character.referenced_assets():
 		if field in exported or workspace.file_path(root, logical, kind) is not None:

@@ -99,6 +99,18 @@ class FirstLastTest(unittest.TestCase):
 		self.assertEqual(attachments.change_for(record, 'radius', 0.9), 0.3)
 
 
+class CrowdedTest(unittest.TestCase):
+	def test_counts_per_part_and_side(self):
+		head = [attachments.new_attachment('head', 'static', 'm') for _ in range(11)]
+		self.assertEqual(attachments.crowded(head), [('head', 11)])
+		hands = [attachments.new_attachment('hand', 'static', 'm') for _ in range(11)]
+		self.assertEqual(attachments.crowded(hands), [('right hand', 11), ('left hand', 11)])
+		left = attachments.new_attachment('hand', 'static', 'm')
+		left['side'] = 'left'
+		self.assertEqual(attachments.crowded(hands + [left]), [('right hand', 11)])  # left list replaces both
+		self.assertEqual(attachments.crowded(head[:10]), [])
+
+
 class RulesTest(unittest.TestCase):
 	def test_allowed_options(self):
 		self.assertEqual(attachments.allowed_sides('head'), ('both',))

@@ -12,7 +12,7 @@ touches the pose (that's Reset to T-Pose), mesh shapes or paint, except
 import bpy
 from mathutils import Matrix
 
-from . import attach_scene, eye_scene, pose, rig, scene
+from . import attach_scene, eye_scene, pose, rig, scene, transforms
 
 PART_ROLES = tuple(p for p, _, _ in rig.PARTS)
 
@@ -22,6 +22,7 @@ DETACHED = 'detached'  # not on its bone (or handle) any more
 HIDDEN = 'hidden'  # hidden with H
 MATERIAL = 'material'  # not the character's material: preview won't match
 ANCHOR_SCALED = 'anchor_scaled'  # .bchar can't store an anchor's scale
+ANCHOR_FAR = 'anchor_far'  # an anchor further than the game allows from its part (±0.5 per axis)
 NO_RIG = 'no_rig'
 RIG_MOVED = 'rig_moved'  # bones moved (or deleted) in Edit Mode
 NO_ROOT = 'no_root'
@@ -50,7 +51,10 @@ TEXT = {
 		"(export only uses the character's textures)"),
 	ANCHOR_SCALED: ("{name} is scaled", "Fix",
 		"The anchor {name} is scaled, but attachments can't be scaled in the game. "
-		"Scale a segment's Art Offset handle instead"),
+		"Scale a segment's art anchor instead"),
+	ANCHOR_FAR: ("{name} is too far out", "Move In",
+		"The anchor {name} is more than 0.5 from its body part along an axis, which the game doesn't allow: "
+		"it would be exported at 0.5. Move In puts it at the limit"),
 	NO_RIG: ("Rig missing", "Rebuild", "The character's rig was deleted. Rebuild puts a new one at the game's joints"),
 	RIG_MOVED: ("Rig bones moved", "Put Back",
 		"Bones were moved or deleted in Edit Mode, but the game's skeleton can't change. Put Back restores them"),
@@ -175,6 +179,12 @@ def _moved(obj):
 	return not _is_identity(_own_matrix(obj))
 
 
+def _anchor_far(obj, tolerance=1e-5):
+	"""Whether an anchor sits outside the game's position range."""
+	lo, hi = rig.ATTACHMENT_RANGES['position']
+	return any(c < lo - tolerance or c > hi + tolerance for c in transforms.vec_to_game(tuple(obj.location)))
+
+
 def _object_issues(collection, obj, arm, material):
 	"""Issues of one body part, eye or attachment object."""
 	issues = []
@@ -183,6 +193,8 @@ def _object_issues(collection, obj, arm, material):
 	if tag == attach_scene.ANCHOR:
 		if not attach_scene.follows_right(collection, obj) and any(abs(s - 1.0) > 1e-5 for s in obj.scale):
 			issues.append(Issue(ANCHOR_SCALED, obj=obj))
+		if not attach_scene.follows_right(collection, obj) and _anchor_far(obj):
+			issues.append(Issue(ANCHOR_FAR, obj=obj))
 		return issues
 	if tag == attach_scene.HANDLE:
 		return issues
@@ -340,6 +352,10 @@ def fix(collection, issue, keep=False):
 			scene.assign_material(obj, material)
 	elif kind == ANCHOR_SCALED:
 		obj.scale = (1.0, 1.0, 1.0)
+	elif kind == ANCHOR_FAR:
+		lo, hi = rig.ATTACHMENT_RANGES['position']
+		game = transforms.vec_to_game(tuple(obj.location))
+		obj.location = transforms.vec_to_blender(tuple(min(max(c, lo), hi) for c in game))
 	elif kind == NO_GROUP:
 		_ensure_groups(collection)
 	elif kind == NO_ROOT:

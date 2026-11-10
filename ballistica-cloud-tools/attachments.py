@@ -45,6 +45,38 @@ def allowed_kinds(target):
 	return ('static',) if target in LIMB_TARGETS else rig.ATTACH_KINDS
 
 
+# The game keeps this many attachments per body part (and side), and drops the rest.
+MAX_PER_TARGET = 10
+
+
+def crowded(records):
+	"""[(where, count)] for body parts (and sides) with more than MAX_PER_TARGET.
+
+	On a limb, 'both' counts on each side; a 'left' list replaces 'both' on the
+	left (as the game does).
+	"""
+	right, left, has_left = {}, {}, set()
+	for record in records:
+		target, side = record['target'], record['side']
+		if side in ('both', 'right'):
+			right[target] = right.get(target, 0) + 1
+		if side == 'left':
+			has_left.add(target)
+			left[target] = left.get(target, 0) + 1
+	for record in records:
+		if record['side'] == 'both' and record['target'] not in has_left and record['target'] not in rig.UNSIDED_TARGETS:
+			left[record['target']] = left.get(record['target'], 0) + 1
+	out = []
+	for target, count in right.items():
+		if count > MAX_PER_TARGET:
+			label = target.replace('_', ' ')
+			out.append((label if target in rig.UNSIDED_TARGETS else f'right {label}', count))
+	for target, count in left.items():
+		if count > MAX_PER_TARGET:
+			out.append((f"left {target.replace('_', ' ')}", count))
+	return out
+
+
 def segment_count(kind):
 	return rig.ATTACHMENT_SEGMENTS.get(kind, 1)
 

@@ -562,6 +562,18 @@ assert abs(ponytail.stiffness_last - 0.41) < 1e-5, ponytail.stiffness_last
 ponytail.stiffness_last = 0.27
 assert abs(props.attachment_record(ponytail)['stiffness_change'] - (0.27 - 0.67)) < 1e-5
 ponytail.stiffness_last = 0.41
+ponytail.curl, ponytail.curl_last = -1.0, 1.0  # 2 segments: at most 1 apart
+assert any('Curl can change by at most 1' in p and p.level == operators.WARNING for p in operators.check(zoe))
+ponytail.curl, ponytail.curl_last = 0.0, 0.0
+# An anchor dragged past the game's ±0.5: Needs fixing moves it in.
+spot = attach_scene.anchor(zoe, 0)
+saved = spot.location.copy()
+spot.location.x = 0.9
+far = [i for i in repair.issues(zoe) if i.kind == repair.ANCHOR_FAR]
+assert len(far) == 1, far
+repair.fix(zoe, far[0])
+assert abs(spot.location.x - 0.5) < 1e-6 and not [i for i in repair.issues(zoe) if i.kind == repair.ANCHOR_FAR]
+spot.location = saved
 zoe.ballistica_character.attachments[2].kind = 'antenna_4'  # triggers a rebuild
 assert len([o for o in attach_scene.tagged(zoe, attach_scene.HANDLE) if o[attach_scene.INDEX_KEY] == 2]) == 4
 assert abs(zoe.ballistica_character.attachments[0].translate[1] - (0.124 + 0.02)) < 1e-5
