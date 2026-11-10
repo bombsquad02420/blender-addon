@@ -655,7 +655,7 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 		col.prop(attachment, 'side')
 		col.prop(attachment, 'kind')
 		# Placement: where it hangs on its part, set with the anchor in the viewport.
-		layout.operator('ballistica.attachment_select', text="Select Anchor", icon='RESTRICT_SELECT_OFF').segment = -1
+		_anchor_button(layout, -1, "Select Anchor", "Then move and turn it to place the attachment")
 
 		# Collapsible sub-sections (layout panels remember open/closed per
 		# id, so each attachment field group keeps its state).
@@ -704,7 +704,17 @@ class VIEW3D_PT_ballistica_attachments(_Section, bpy.types.Panel):
 			elif getattr(segment, key):
 				col.label(text=f"{getattr(segment, key)} isn't in the workspace", icon='ERROR')
 		# Art offset: the mesh on its segment, moved, turned and scaled in the viewport.
-		body.operator('ballistica.attachment_select', text="Select Art Anchor", icon='RESTRICT_SELECT_OFF').segment = j
+		_anchor_button(body, j, "Select Art Anchor", "Then move, turn or scale it to fit the mesh")
+
+
+def _anchor_button(layout, segment, text, hint):
+	"""A Select Anchor button with a greyed line under it saying what it's for."""
+	col = layout.column(align=True)
+	col.operator('ballistica.attachment_select', text=text, icon='RESTRICT_SELECT_OFF').segment = segment
+	sub = col.row()
+	sub.active = False
+	sub.alignment = 'CENTER'
+	sub.label(text=hint)
 
 
 def _split(layout):
