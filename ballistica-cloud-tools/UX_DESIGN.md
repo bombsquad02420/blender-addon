@@ -42,8 +42,10 @@ poses may come later).
 **Repair** fixes everything else, and never touches the pose, mesh shapes or
 paint. Two buttons:
 
-- **Fix Selected**: the parts, eyes or attachment objects that are selected.
-- **Fix Whole Character**: everything below.
+- **Snap Back Selected**: the parts, eyes or attachment objects that are selected.
+- **Fix All**: everything below.
+
+Both show only in the Needs fixing box, while there's something to fix.
 
 What Repair checks and fixes:
 
@@ -157,7 +159,7 @@ mask stay in Identity.
 
 ### Still planned
 
-- **Repair re-locks and re-links.** Fix Whole Character should quietly
+- **Repair re-locks and re-links.** Fix All should quietly
   re-apply the soft locks (anchor scale, eye handle rotation axes, bone
   locks) without listing them as problems, since unlocking may have been
   deliberate. Missing or broken drivers (material tints and reflection,
@@ -199,7 +201,7 @@ through together. What's decided, most important first:
      what happens to the old `.bchar` when a character is renamed after
      export (left alone, like removed attachments' files).
 
-2. **Repair buttons: only with problems, and named for what they do.**
+2. **Repair buttons: only with problems, and named for what they do** (done: *Snap Back Selected* and *Fix All*, in the box).
    *Fix Selected* and *Fix Whole Character* show only alongside the Needs
    fixing box. They put parts back on their bones rather than repairing
    anything broken, so they need names that say that (e.g. *Snap Back
