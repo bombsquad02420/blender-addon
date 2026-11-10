@@ -642,6 +642,10 @@ GUIDE_SCALE_DRIVERS = {
 }
 
 
+# An attachment anchor's Limit Location constraint (attach_scene._limit_location).
+LIMIT_NAME = "Game's Range"
+
+
 def drive_value(obj, path, index, collection, field, expression):
 	"""Drive obj.path[index] by `expression` of a collection setting `v`."""
 	driver = obj.driver_add(path, index).driver
@@ -891,9 +895,16 @@ def setup_spread_drivers(collection, objects=None):
 		tail = bone.matrix_local @ Matrix.Translation((0.0, bone.length, 0.0))
 		rest = (tail @ obj.matrix_parent_inverse).to_3x3()
 		local = rest.inverted() @ game_point(offset)
+		limit = obj.constraints.get(LIMIT_NAME)
 		for i in range(3):
 			if abs(local[i]) > 1e-9:
 				drive_value(obj, 'delta_location', i, collection, 'spread', f'{local[i]:.6f}*v')
+				if limit is not None:
+					# The game's range is around the anchor's own spot: move it with the spread.
+					lo, hi = rig.ATTACHMENT_RANGES['position']
+					for bound, edge in (('min', lo), ('max', hi)):
+						path = f'constraints["{LIMIT_NAME}"].{bound}_{"xyz"[i]}'
+						drive_value(obj, path, -1, collection, 'spread', f'{edge}+{local[i]:.6f}*v')
 
 
 from . import props as _props  # noqa: E402  (props must not import scene)

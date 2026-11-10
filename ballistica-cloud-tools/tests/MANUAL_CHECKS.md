@@ -26,6 +26,11 @@ a fresh install (`make install`) and a restarted Blender.
 - [ ] **Attachment handles.** Select Anchor / Select Art Anchor, then drag and
   rotate the handle: the attachment follows, and Export writes where it
   is now.
+- [ ] **Anchor limit.** Drag an attachment anchor far from its part: it
+  stops 0.5 out along each axis.
+- [ ] **Attachment guides.** Turn on Guides; add an antenna_3: three wire
+  capsules along the chain. Change Length, Radius and Curl (First and
+  Last): the capsules follow; Curl bends only the capsules, not the art.
 - [ ] **Eye handle.** Select Eye Handle (the Rig group shows). Move it: the
   eyes move and Position follows. Scale it: Size follows and the eyes stay
   put when Size is typed. Turn it about its free axis: the eyelids tilt and

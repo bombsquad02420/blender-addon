@@ -264,8 +264,10 @@ def _character_issues(collection, arm):
 		anchors = [o for o in have if o[attach_scene.ROLE_KEY] == attach_scene.ANCHOR]
 		handles = [o for o in have if o[attach_scene.ROLE_KEY] == attach_scene.HANDLE]
 		meshes = [o for o in have if o[attach_scene.ROLE_KEY] == attach_scene.MESH]
+		guides = [o for o in have if o[attach_scene.ROLE_KEY] == attach_scene.GUIDE]
 		with_mesh = sum(1 for s in attachment.segments if s.mesh)
-		if not anchors or len(handles) < len(anchors) * len(attachment.segments) or (with_mesh and not meshes):
+		want_guides = len(attachment.segments) if attachment.kind.startswith('antenna') else 0
+		if not anchors or len(handles) < len(anchors) * len(attachment.segments) or (with_mesh and not meshes) or len(guides) < want_guides:
 			issues.append(Issue(NO_ATTACHMENTS, str(index + 1)))
 	for part, field, _ in rig.PARTS:
 		row, _ = part_scene.rows(settings, part)

@@ -565,8 +565,26 @@ ponytail.stiffness_last = 0.41
 ponytail.curl, ponytail.curl_last = -1.0, 1.0  # 2 segments: at most 1 apart
 assert any('Curl can change by at most 1' in p and p.level == operators.WARNING for p in operators.check(zoe))
 ponytail.curl, ponytail.curl_last = 0.0, 0.0
+# Antenna chains get guide capsules; Length moves the art handles, Curl only bends the guides.
+ponytail.kind = 'antenna_3'  # rebuilds
+guides = sorted((o for o in attach_scene.tagged(zoe, attach_scene.GUIDE, 2)), key=lambda o: o[attach_scene.SEGMENT_KEY])
+assert len(guides) == 3 and all(o.ballistica_part.role == 'guide' for o in guides)
+grip = attach_scene.handle(zoe, 2, 1)
+before = grip.matrix_parent_inverse.copy()
+ponytail.length = 1.0  # 1.5x: the second segment's centre moves further out
+assert (grip.matrix_parent_inverse.translation - before.translation).length > 0.01
+ponytail.radius = 1.0
+assert abs(max(v.co.x for v in guides[0].data.vertices) - 3 * 0.04) < 1e-4  # Radius 1: 3x the antenna's 0.04
+held = grip.matrix_parent_inverse.copy()
+guide_before = guides[1].matrix_parent_inverse.copy()
+ponytail.curl = 0.5
+assert grip.matrix_parent_inverse == held  # art isn't bent
+assert guides[1].matrix_parent_inverse != guide_before  # the guide is
+assert not [i for i in repair.issues(zoe) if i.kind == repair.NO_ATTACHMENTS]
 # An anchor dragged past the game's ±0.5: Needs fixing moves it in.
 spot = attach_scene.anchor(zoe, 0)
+limit = spot.constraints[attach_scene.LIMIT_NAME]
+assert limit.use_transform_limit and limit.owner_space == 'LOCAL' and (limit.min_x, limit.max_z) == (-0.5, 0.5)
 saved = spot.location.copy()
 spot.location.x = 0.9
 far = [i for i in repair.issues(zoe) if i.kind == repair.ANCHOR_FAR]

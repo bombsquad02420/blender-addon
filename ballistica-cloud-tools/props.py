@@ -509,7 +509,22 @@ ATTACHMENT_REBUILD_HOOKS = {}
 def _tuning(name, field):
 	lo, hi = AR[field]
 	return bpy.props.FloatProperty(
-		name=name, default=rig.ATTACHMENT_DEFAULTS[field], min=lo, max=hi, options=_options())
+		name=name, default=rig.ATTACHMENT_DEFAULTS[field], min=lo, max=hi, options=_options(),
+		update=_spring_changed)
+
+
+def _spring_changed(self, context):
+	"""A spring dial changed: the chain's handles and guides follow."""
+	if self.get('_fixing'):
+		return
+	hook = ATTACHMENT_REBUILD_HOOKS.get('spring')
+	if hook is None:
+		return
+	collection = self.id_data
+	for index, attachment in enumerate(collection.ballistica_character.attachments):
+		if attachment == self:
+			hook(collection, index)
+			return
 
 
 def _segment_block_changed(key):

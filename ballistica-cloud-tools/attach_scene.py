@@ -11,6 +11,15 @@ For each attachment (and each side it's drawn on):
 	    mesh          child of the handle with an identity transform: move
 	                  it freely to work on it; export and placement ignore
 	                  it, and Reset to T-Pose puts it back.
+	  guide           (antenna kinds) child of the anchor: the segment's
+	                  collision capsule, at rest, in the Guides collection.
+
+The joint chain is the game's (spaz_node.cc, bg_dynamics_character.cc):
+each segment's frame is the previous one, moved to the joint point on it,
+turned by the joint's rest bend, then moved back by the joint point on
+itself; Length scales those points along the chain. The rest bend (Curl)
+only bends the guides: the handles keep the chain straight, so art is
+placed against an unbent chain and the guides show how the game bends it.
 
 Handles are the saved placement: they live in the Rig collection, and
 `sync_from_handles` reads them back into the attachment settings. Left
@@ -27,6 +36,7 @@ from . import pose, rig, scene, transforms, workspace
 ANCHOR = 'anchor'
 HANDLE = 'handle'
 MESH = 'attachment'
+GUIDE = 'guide'
 ROLE_KEY = 'bct_attach_role'
 INDEX_KEY = 'bct_attachment'
 SEGMENT_KEY = 'bct_segment'
@@ -267,7 +277,7 @@ def _build_one(collection, settings, arm, placements, index, attachment):
 	record = props.attachment_record(attachment)
 	rig_group = _group(collection, 'Rig')
 	mesh_group = _group(collection, 'Attachments')
-	anchors = rig.ATTACHMENT_ANCHORS.get(record['kind'], ())
+	guide_group = scene.group(collection, 'Guides') or rig_group
 	created = []
 	for side in _sides(record):
 		suffix = '' if side == 'C' else f'.{side}'
@@ -279,18 +289,25 @@ def _build_one(collection, settings, arm, placements, index, attachment):
 		scene.parent_to_bone(spot, arm, bone, body)
 		_set_transform(spot, record['translate'], record['rotate'])
 		spot.lock_scale = (True, True, True)  # .bchar can't store it (unlockable; Repair resets it)
+		_limit_location(spot)
 		_tag(spot, ANCHOR, index, side)
 		created.append(spot)
-		chain = Matrix.Identity(4)
+		straight = chain(record)
+		for j, matrix in enumerate(chain(record, curl=True) if record['kind'].startswith('antenna') else ()):
+			guide = bpy.data.objects.new(f'guide_attach{index}.{j}{suffix}', _guide_mesh(record, j))
+			guide_group.objects.link(guide)
+			guide.display_type = 'WIRE'
+			guide.hide_render = True
+			guide.hide_select = True
+			guide.ballistica_part.role = 'guide'
+			guide.parent = spot
+			guide.matrix_parent_inverse = matrix
+			_tag(guide, GUIDE, index, side, j)
+			created.append(guide)
 		for j, segment in enumerate(record['segments']):
-			if record['kind'] != 'static' and j < len(anchors):
-				parent_anchor, child_anchor = anchors[j]
-				if j > 0:
-					chain = chain @ Matrix.Translation(scene.game_point(parent_anchor))
-				chain = chain @ Matrix.Translation(-scene.game_point(child_anchor))
 			grip = _empty(f'attach{index}.{j}{suffix}', rig_group, 'PLAIN_AXES', 0.05)
 			grip.parent = spot
-			grip.matrix_parent_inverse = chain.copy()
+			grip.matrix_parent_inverse = straight[j].copy() if j < len(straight) else Matrix.Identity(4)
 			_set_transform(grip, segment['translate'], segment['rotate'], segment['scale'])
 			_tag(grip, HANDLE, index, side, j)
 			created.append(grip)
@@ -306,6 +323,84 @@ def _build_one(collection, settings, arm, placements, index, attachment):
 			_tag(obj, MESH, index, side, j)
 			created.append(obj)
 	return created
+
+
+def chain(record, curl=False):
+	"""Each segment's rest frame in its anchor's space (Blender axes), root first.
+
+	`curl` adds each joint's rest bend: curl x 90 degrees about the
+	segment's own X, negative, so a positive curl lifts the chain toward
+	its local up (bg_dynamics_character.cc). Static attachments have no
+	chain: their one segment sits on the anchor.
+	"""
+	import math
+
+	anchors = rig.ATTACHMENT_ANCHORS.get(record['kind'], ())
+	frames = []
+	frame = Matrix.Identity(4)
+	for j, (parent_anchor, child_anchor) in enumerate(anchors):
+		if j > 0:
+			frame = frame @ Matrix.Translation(scene.game_point(_stretched(parent_anchor, rules.length_scale(record, j - 1))))
+		if curl:
+			bend = math.radians(-90.0 * rules.dial_at(record, 'curl', j))
+			frame = frame @ (scene.TO_BLENDER @ Matrix.Rotation(bend, 3, 'X') @ scene.TO_GAME).to_4x4()
+		frame = frame @ Matrix.Translation(-scene.game_point(_stretched(child_anchor, rules.length_scale(record, j))))
+		frames.append(frame.copy())
+	return frames
+
+
+def _stretched(point, scale):
+	"""A joint point with its chain-axis (Z) coordinate scaled by Length."""
+	return (point[0], point[1], point[2] * scale)
+
+
+def _guide_mesh(record, segment):
+	"""A segment's collision capsule, sized by Radius and Length."""
+	radius, length = rig.ANTENNA_CAPSULE
+	return scene._capsule(radius * rules.radius_scale(record, segment), length * rules.length_scale(record, segment))
+
+
+def refresh_chain(collection, index):
+	"""A spring dial changed: move the handles along the chain, resize the guides."""
+	from . import props
+
+	settings = collection.ballistica_character
+	if not 0 <= index < len(settings.attachments):
+		return
+	record = props.attachment_record(settings.attachments[index])
+	straight, bent = chain(record), chain(record, curl=True)
+	for obj in tagged(collection, index=index):
+		j = obj.get(SEGMENT_KEY, 0)
+		if obj[ROLE_KEY] == HANDLE and j < len(straight):
+			obj.matrix_parent_inverse = straight[j]
+		elif obj[ROLE_KEY] == GUIDE and j < len(bent):
+			obj.matrix_parent_inverse = bent[j]
+			old = obj.data
+			obj.data = _guide_mesh(record, j)
+			if old.users == 0:
+				bpy.data.meshes.remove(old)
+
+
+LIMIT_NAME = scene.LIMIT_NAME
+
+
+def _limit_location(obj):
+	"""Keep an anchor within the game's ±0.5 of its part while it's dragged.
+
+	A Limit Location constraint with Affect Transform: the move tool stops
+	at the limit. It's a soft lock (it can be removed in the Constraints
+	tab); Needs fixing's Move In covers a value typed past it.
+	"""
+	lo, hi = rig.ATTACHMENT_RANGES['position']
+	limit = obj.constraints.get(LIMIT_NAME) or obj.constraints.new('LIMIT_LOCATION')
+	limit.name = LIMIT_NAME
+	limit.owner_space = 'LOCAL'
+	limit.use_transform_limit = True
+	for axis in 'xyz':
+		setattr(limit, f'use_min_{axis}', True)
+		setattr(limit, f'use_max_{axis}', True)
+		setattr(limit, f'min_{axis}', lo)
+		setattr(limit, f'max_{axis}', hi)
 
 
 def _empty(name, group, display, size):
@@ -458,6 +553,7 @@ def push(item):
 
 
 _props.ATTACHMENT_REBUILD_HOOKS['push'] = push
+_props.ATTACHMENT_REBUILD_HOOKS['spring'] = refresh_chain
 
 
 def character_of(obj):

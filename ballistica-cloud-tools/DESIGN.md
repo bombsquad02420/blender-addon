@@ -539,6 +539,26 @@ paint it is never saved, and Repair puts it back. Left copies of
 `both`-sided limb attachments follow the right side by drivers. Panel
 numbers and handles stay in sync both ways.
 
+**The chain and its guides.** The segment handles sit on the game's joint
+chain (`bg_dynamics_character.cc`): each segment's frame is the previous
+one moved to the joint point on it, turned by the joint's rest bend, and
+moved back by the joint point on itself, with Length (First→Last) scaling
+those points along the chain. So a segment's art offset is measured from
+its capsule's centre, as in the game, and Length moves the handles. Antenna
+kinds also get a wireframe **guide capsule** per segment in the Guides
+collection: the game's collision capsule (the antenna's 0.04 × 0.13,
+times Radius and Length), parented to the anchor. **Curl only bends the
+guides**: the handles stay on the straight chain, so art is lined up
+against the guides by moving its handle or mesh origin, as with the body
+parts. Spring dials update both live. It's the rest pose: gravity sag and
+swinging need the game. Static and legacy kinds get no guides.
+
+**Anchor limit.** Each anchor has a Limit Location constraint ("Game's
+Range", Affect Transform on) holding it within the game's ±0.5 of its part
+while it's dragged; Spread shifts its bounds along with the anchor. It's a
+soft lock (removable in the Constraints tab); Needs fixing's **Move In**
+covers a value typed past it.
+
 **Selection.** Clicking an attachment or segment row selects its meshes (in
 Object Mode); clicking an attachment mesh in the viewport selects its row.
 Add, remove, reorder and kind/target/side changes rebuild the attachment

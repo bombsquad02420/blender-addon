@@ -81,6 +81,22 @@ def segment_count(kind):
 	return rig.ATTACHMENT_SEGMENTS.get(kind, 1)
 
 
+def dial_at(record, key, segment):
+	"""A dial's value at one segment: `value + segment * change`, clamped (as the game does)."""
+	lo, hi = rig.ATTACHMENT_RANGES[key]
+	return min(max(record[key] + segment * record[f'{key}_change'], lo), hi)
+
+
+def length_scale(record, segment):
+	"""How much the Length dial stretches a segment along the chain: 0.5x to 1.5x."""
+	return 0.5 + dial_at(record, 'length', segment)
+
+
+def radius_scale(record, segment):
+	"""How much the Radius dial thickens a segment's capsule: 1x to 3x."""
+	return 1.0 + 2.0 * dial_at(record, 'radius', segment)
+
+
 def last_value(record, key):
 	"""The last segment's value of a changing dial (the first's, for one segment)."""
 	lo, hi = rig.ATTACHMENT_RANGES[key]

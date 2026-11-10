@@ -75,6 +75,10 @@ ATTACHMENT_SEGMENTS = {
 _TUFT = ((0.0, 0.0, 0.0), (0.0, -0.08, -0.12))
 _ANTENNA_ROOT = ((0.0, 0.0, 0.0), (0.0, 0.0, -0.065))
 _ANTENNA = ((0.0, 0.0, 0.065), (0.0, 0.0, -0.065))
+# An antenna segment's collision capsule (characterrig._antenna): radius and
+# length at the default Radius (0) and Length (0.5) dials, along its own +Z.
+ANTENNA_CAPSULE = (0.04, 0.13)
+
 ATTACHMENT_ANCHORS = {
 	'legacy_tuft_large': (_TUFT,),
 	'legacy_tuft_medium': (_TUFT,),
