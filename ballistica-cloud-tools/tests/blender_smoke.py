@@ -581,6 +581,13 @@ ponytail.curl = 0.5
 assert grip.matrix_parent_inverse != held  # the art bends
 assert guides[1].matrix_parent_inverse != guide_before  # with the guide
 assert grip.matrix_parent_inverse == guides[1].matrix_parent_inverse
+# Spread pushes each segment out along the chain (the web UI's rule): the
+# second segment further than the first, guide and handle alike.
+from ballistica_cloud_tools import props  # noqa: E402
+spreads = attach_scene.chain_spread(props.attachment_record(zoe.ballistica_character.attachments[2]))
+assert len(spreads) == 3 and spreads[1].length > spreads[0].length > 0.2
+assert grip.animation_data and any(d.data_path == 'delta_location' for d in grip.animation_data.drivers)
+assert any(d.data_path == 'delta_location' for d in guides[1].animation_data.drivers)
 assert not [i for i in repair.issues(zoe) if i.kind == repair.NO_ATTACHMENTS]
 # An anchor dragged past the game's ±0.5: Needs fixing moves it in.
 spot = attach_scene.anchor(zoe, 0)

@@ -30,7 +30,7 @@ by drivers, so only right-side (or centre) handles are edited.
 """
 
 import bpy
-from mathutils import Matrix
+from mathutils import Matrix, Vector
 
 from . import attachments as rules
 from . import pose, rig, scene, transforms, workspace
@@ -309,6 +309,7 @@ def _build_one(collection, settings, arm, placements, index, attachment):
 			guide.parent = spot
 			guide.matrix_parent_inverse = matrix
 			_tag(guide, GUIDE, index, side, j)
+			_drive_chain_spread(collection, guide, record, j)
 			created.append(guide)
 		for j, segment in enumerate(record['segments']):
 			grip = _empty(f'attach{index}.{j}{suffix}', rig_group, 'PLAIN_AXES', 0.05)
@@ -316,6 +317,7 @@ def _build_one(collection, settings, arm, placements, index, attachment):
 			grip.matrix_parent_inverse = frames[j].copy() if j < len(frames) else Matrix.Identity(4)
 			_set_transform(grip, segment['translate'], segment['rotate'], segment['scale'])
 			_tag(grip, HANDLE, index, side, j)
+			_drive_chain_spread(collection, grip, record, j)
 			created.append(grip)
 			mesh = attachment.segments[j].mesh_block
 			if mesh is None:
@@ -355,6 +357,39 @@ def chain(record, curl=True):
 	return frames
 
 
+def chain_spread(record):
+	"""Each segment's extra Spread offset (anchor space, Blender axes), as the web UI.
+
+	On top of its part's spread, each segment is pushed out along the chain
+	by every capsule up to and including its own, each by its full extent
+	(length + 2 x radius) along that segment's axis. Antenna kinds only.
+	"""
+	if not record['kind'].startswith('antenna'):
+		return []
+	radius, length = rig.ANTENNA_CAPSULE
+	axis = scene.game_point((0.0, 0.0, 1.0))
+	total = Vector()
+	offsets = []
+	for j, frame in enumerate(chain(record)):
+		extent = length * rules.length_scale(record, j) + 2 * radius * rules.radius_scale(record, j)
+		total = total + extent * (frame.to_3x3() @ axis)
+		offsets.append(total.copy())
+	return offsets
+
+
+def _drive_chain_spread(collection, obj, record, j):
+	"""Drive obj's delta location (in its chain frame) by Spread x its chain offset."""
+	obj.driver_remove('delta_location')
+	obj.delta_location = (0.0, 0.0, 0.0)
+	offsets = chain_spread(record)
+	if j >= len(offsets):
+		return
+	local = obj.matrix_parent_inverse.to_3x3().inverted() @ offsets[j]
+	for i in range(3):
+		if abs(local[i]) > 1e-9:
+			scene.drive_value(obj, 'delta_location', i, collection, 'spread', f'{local[i]:.6f}*v')
+
+
 def _stretched(point, scale):
 	"""A joint point with its chain-axis (Z) coordinate scaled by Length."""
 	return (point[0], point[1], point[2] * scale)
@@ -379,8 +414,10 @@ def refresh_chain(collection, index):
 		j = obj.get(SEGMENT_KEY, 0)
 		if obj[ROLE_KEY] == HANDLE and j < len(frames):
 			obj.matrix_parent_inverse = frames[j]
+			_drive_chain_spread(collection, obj, record, j)
 		elif obj[ROLE_KEY] == GUIDE and j < len(frames):
 			obj.matrix_parent_inverse = frames[j]
+			_drive_chain_spread(collection, obj, record, j)
 			old = obj.data
 			obj.data = _guide_mesh(record, j)
 			if old.users == 0:

@@ -551,6 +551,12 @@ collection: the game's collision capsule (the antenna's 0.04 × 0.13,
 times Radius and Length), parented to the anchor, sharing the handles' frames. Spring dials update both live. It's the rest pose: gravity sag and
 swinging need the game. Static and legacy kinds get no guides.
 
+**Chain spread.** As in the web UI, Spread pushes an antenna's segments
+(handles, art and guides) further than their part: each by the full extent
+(length + 2 × radius) of every capsule up to and including its own, along
+each one's chain axis (`attach_scene.chain_spread`; checked against a web
+UI dump of agent_johnson's tail). Static attachments spread with their part.
+
 **Anchor limit.** Each anchor is limited to the game's ±0.5 of its part
 (see Handles and their limits).
 
