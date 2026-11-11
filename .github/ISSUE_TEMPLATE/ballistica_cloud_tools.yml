@@ -1,0 +1,55 @@
+name: Ballistica Cloud Tools (custom characters)
+description: Something went wrong, or could be easier, in the Ballistica Cloud Tools addon
+title: "[Cloud Tools] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for writing in! Fill in what you can; it's fine to skip things you don't know.
+        (The **Report a Problem** button in the addon's Help section fills in the versions for you.)
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: What did you try to do, and what went wrong (or was confusing)?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to see it again
+      placeholder: |
+        1. In the Ballistica panel, I clicked '...'
+        2. ...
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or files
+      description: >
+        A screenshot of Blender helps a lot. If you can, attach the character's files
+        (the .bchar, .obj and .png files) or the .blend as a .zip.
+  - type: textarea
+    id: messages
+    attributes:
+      label: Messages
+      description: Anything Blender said (the Needs fixing box, Check, or the info bar at the bottom).
+      render: text
+  - type: input
+    id: addon_version
+    attributes:
+      label: Addon version
+      placeholder: e.g. 0.1.0
+  - type: input
+    id: blender_version
+    attributes:
+      label: Blender version
+      placeholder: e.g. 5.2.2 LTS
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: e.g. Windows 11, macOS 15
