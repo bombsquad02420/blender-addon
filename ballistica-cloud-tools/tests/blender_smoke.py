@@ -578,8 +578,9 @@ assert abs(max(v.co.x for v in guides[0].data.vertices) - 3 * 0.04) < 1e-4  # Ra
 held = grip.matrix_parent_inverse.copy()
 guide_before = guides[1].matrix_parent_inverse.copy()
 ponytail.curl = 0.5
-assert grip.matrix_parent_inverse == held  # art isn't bent
-assert guides[1].matrix_parent_inverse != guide_before  # the guide is
+assert grip.matrix_parent_inverse != held  # the art bends
+assert guides[1].matrix_parent_inverse != guide_before  # with the guide
+assert grip.matrix_parent_inverse == guides[1].matrix_parent_inverse
 assert not [i for i in repair.issues(zoe) if i.kind == repair.NO_ATTACHMENTS]
 # An anchor dragged past the game's ±0.5: Needs fixing moves it in.
 spot = attach_scene.anchor(zoe, 0)

@@ -34,7 +34,7 @@ a fresh install (`make install`) and a restarted Blender.
   still works and the limits hold.
 - [ ] **Attachment guides.** Turn on Guides; add an antenna_3: three wire
   capsules along the chain. Change Length, Radius and Curl (First and
-  Last): the capsules follow; Curl bends only the capsules, not the art.
+  Last): the capsules follow; Curl bends the capsules and the art together.
 - [ ] **Eye handle.** Select Eye Handle (the Rig group shows). Move it: the
   eyes move and Position follows. Scale it: Size follows and the eyes stay
   put when Size is typed. Turn it about its free axis: the eyelids tilt and

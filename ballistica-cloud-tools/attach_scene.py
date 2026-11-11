@@ -298,8 +298,8 @@ def _build_one(collection, settings, arm, placements, index, attachment):
 		scene.limit_location(spot, *rig.ATTACHMENT_RANGES['position'])
 		_tag(spot, ANCHOR, index, side)
 		created.append(spot)
-		straight = chain(record)
-		for j, matrix in enumerate(chain(record, curl=True) if record['kind'].startswith('antenna') else ()):
+		frames = chain(record)
+		for j, matrix in enumerate(frames if record['kind'].startswith('antenna') else ()):
 			guide = bpy.data.objects.new(f'guide_attach{index}.{j}{suffix}', _guide_mesh(record, j))
 			guide_group.objects.link(guide)
 			guide.display_type = 'WIRE'
@@ -313,7 +313,7 @@ def _build_one(collection, settings, arm, placements, index, attachment):
 		for j, segment in enumerate(record['segments']):
 			grip = _empty(f'attach{index}.{j}{suffix}', rig_group, 'PLAIN_AXES', 0.05)
 			grip.parent = spot
-			grip.matrix_parent_inverse = straight[j].copy() if j < len(straight) else Matrix.Identity(4)
+			grip.matrix_parent_inverse = frames[j].copy() if j < len(frames) else Matrix.Identity(4)
 			_set_transform(grip, segment['translate'], segment['rotate'], segment['scale'])
 			_tag(grip, HANDLE, index, side, j)
 			created.append(grip)
@@ -331,7 +331,7 @@ def _build_one(collection, settings, arm, placements, index, attachment):
 	return created
 
 
-def chain(record, curl=False):
+def chain(record, curl=True):
 	"""Each segment's rest frame in its anchor's space (Blender axes), root first.
 
 	`curl` adds each joint's rest bend: curl x 90 degrees about the
@@ -367,20 +367,20 @@ def _guide_mesh(record, segment):
 
 
 def refresh_chain(collection, index):
-	"""A spring dial changed: move the handles along the chain, resize the guides."""
+	"""A spring dial changed: move the handles (and so the art) along the chain, resize the guides."""
 	from . import props
 
 	settings = collection.ballistica_character
 	if not 0 <= index < len(settings.attachments):
 		return
 	record = props.attachment_record(settings.attachments[index])
-	straight, bent = chain(record), chain(record, curl=True)
+	frames = chain(record)
 	for obj in tagged(collection, index=index):
 		j = obj.get(SEGMENT_KEY, 0)
-		if obj[ROLE_KEY] == HANDLE and j < len(straight):
-			obj.matrix_parent_inverse = straight[j]
-		elif obj[ROLE_KEY] == GUIDE and j < len(bent):
-			obj.matrix_parent_inverse = bent[j]
+		if obj[ROLE_KEY] == HANDLE and j < len(frames):
+			obj.matrix_parent_inverse = frames[j]
+		elif obj[ROLE_KEY] == GUIDE and j < len(frames):
+			obj.matrix_parent_inverse = frames[j]
 			old = obj.data
 			obj.data = _guide_mesh(record, j)
 			if old.users == 0:
