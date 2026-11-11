@@ -94,6 +94,16 @@ class BALLISTICA_UL_characters(bpy.types.UIList):
 		return flags, []
 
 
+class VIEW3D_PT_ballistica_workspace(_Panel, bpy.types.Panel):
+	bl_label = "Workspace"
+
+	def draw_header(self, context):
+		self.layout.label(icon='FILE_FOLDER')
+
+	def draw(self, context):
+		_workspace_section(self.layout, context)
+
+
 class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 	bl_label = "Characters"
 
@@ -102,7 +112,8 @@ class VIEW3D_PT_ballistica_character(_Panel, bpy.types.Panel):
 
 	def draw(self, context):
 		layout = self.layout
-		if not _workspace_section(layout, context):
+		if scene_workspace(context.scene) is None:
+			layout.label(text="Choose a workspace above first.", icon='INFO')
 			return
 		row = layout.row()
 		row.template_list(
@@ -153,7 +164,7 @@ def _workspace_section(layout, context):
 
 	scene = context.scene
 	root = scene_workspace(scene)
-	box = layout.box()
+	box = layout
 	row = box.row(align=True)
 	if root is None:
 		row.label(text="Choose a workspace folder first", icon='FILE_FOLDER')
@@ -937,6 +948,7 @@ class VIEW3D_PT_ballistica_help(_Panel, bpy.types.Panel):
 
 
 classes = (
+	VIEW3D_PT_ballistica_workspace,
 	BALLISTICA_UL_characters,
 	BALLISTICA_UL_sounds,
 	BALLISTICA_UL_images,
