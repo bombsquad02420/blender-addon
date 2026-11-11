@@ -84,8 +84,8 @@ def _build(context, root, character_path, character, meshes=None):
 	scene.build_eyes(collection, arm, placements, settings, groups['Eyes'])
 	eye_scene.build(collection, arm, groups['Rig'])
 	shoulder_scene.build(collection, arm, groups['Rig'])
-	attach_scene.build(collection, placements, spread=False)
 	scene.build_guides(collection, arm, placements, joints, settings)
+	attach_scene.build(collection, placements, spread=False)  # after: its guides go in Guides
 	scene.setup_offset_drivers(collection, arm)
 	scene.setup_spread_drivers(collection)
 	return collection, missing

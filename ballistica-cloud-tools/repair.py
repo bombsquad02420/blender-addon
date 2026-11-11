@@ -571,10 +571,17 @@ def _rebuild_guides(collection):
 	if arm is None:
 		return
 	old = _guides(collection)
+	kept = []  # the attachments' guide capsules aren't the body's: keep them
 	if old is not None:
 		for obj in list(old.objects):
-			bpy.data.objects.remove(obj)
+			if obj.get(attach_scene.ROLE_KEY) == attach_scene.GUIDE:
+				kept.append(obj)
+				old.objects.unlink(obj)
+			else:
+				bpy.data.objects.remove(obj)
 		bpy.data.collections.remove(old)
 	placements, joints = _rest()
 	guides = scene.build_guides(collection, arm, placements, joints, collection.ballistica_character)
 	scene.setup_spread_drivers(collection, list(guides.objects))
+	for obj in kept:
+		guides.objects.link(obj)

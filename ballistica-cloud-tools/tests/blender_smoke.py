@@ -569,6 +569,7 @@ ponytail.curl, ponytail.curl_last = 0.0, 0.0
 ponytail.kind = 'antenna_3'  # rebuilds
 guides = sorted((o for o in attach_scene.tagged(zoe, attach_scene.GUIDE, 2)), key=lambda o: o[attach_scene.SEGMENT_KEY])
 assert len(guides) == 3 and all(o.ballistica_part.role == 'guide' for o in guides)
+assert all(c.name.endswith(' Guides') for o in guides for c in o.users_collection)  # toggled with Guides, not Rig
 grip = attach_scene.handle(zoe, 2, 1)
 before = grip.matrix_parent_inverse.copy()
 ponytail.length = 1.0  # 1.5x: the second segment's centre moves further out
@@ -670,6 +671,11 @@ assert [o.name for o in bpy.context.selected_objects] == ['pixel.001_root']
 from ballistica_cloud_tools import part_scene  # noqa: E402
 agent = bpy.data.collections['agent_johnson']
 agent_settings = agent.ballistica_character
+imported_guides = list(attach_scene.tagged(agent, attach_scene.GUIDE))
+assert all(c.name.endswith(" Guides") for o in imported_guides for c in o.users_collection)  # import too
+repair._rebuild_guides(agent)
+assert len(list(attach_scene.tagged(agent, attach_scene.GUIDE))) == len(imported_guides)  # Repair keeps them
+
 assert [(r.part, r.side) for r in agent_settings.parts] == part_scene.ROWS
 rows = {(r.part, r.side): r for r in agent_settings.parts}
 head_obj = next(o for o in agent.all_objects if o.ballistica_part.role == 'head')
