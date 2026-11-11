@@ -7,7 +7,7 @@ import re
 import bpy
 from bpy_extras.io_utils import ImportHelper
 
-from . import attach_scene, bchar, clone, eye_scene, migrate, part_scene, texture_scene, objfile, pose, props, rig, scene, template, workspace
+from . import attach_scene, bchar, clone, eye_scene, shoulder_scene, migrate, part_scene, texture_scene, objfile, pose, props, rig, scene, template, workspace
 from .ui import active_character, in_workspace, scene_workspace
 
 
@@ -83,6 +83,7 @@ def _build(context, root, character_path, character, meshes=None):
 	texture_scene.fill_icons(collection)
 	scene.build_eyes(collection, arm, placements, settings, groups['Eyes'])
 	eye_scene.build(collection, arm, groups['Rig'])
+	shoulder_scene.build(collection, arm, groups['Rig'])
 	attach_scene.build(collection, placements, spread=False)
 	scene.build_guides(collection, arm, placements, joints, settings)
 	scene.setup_offset_drivers(collection, arm)
@@ -895,6 +896,7 @@ class BALLISTICA_OT_export_character(bpy.types.Operator):
 		written = []
 		attach_scene.sync_from_handles(collection)
 		eye_scene.pull(collection)
+		shoulder_scene.pull(collection)
 
 		# Meshes: each part's mesh to its export path (unchanged ones skipped).
 		part_scene.assign_paths(collection)
@@ -1121,19 +1123,37 @@ class BALLISTICA_OT_select_eye_handle(bpy.types.Operator):
 		return context.mode == 'OBJECT' and active_character(context) is not None
 
 	def execute(self, context):
-		obj = eye_scene.handle(active_character(context))
-		if obj is None:
-			self.report({'ERROR'}, "This character has no eye handle; Repair adds it.")
-			return {'CANCELLED'}
-		from .scene import _layer_collections
+		return _select_handle(self, context, eye_scene.handle(active_character(context)), "eye handle")
 
-		for layer in _layer_collections(context.view_layer.layer_collection, obj.users_collection[0]):
-			layer.hide_viewport = False  # the Rig group starts hidden
-		for other in context.view_layer.objects.selected:
-			other.select_set(False)
-		obj.select_set(True)
-		context.view_layer.objects.active = obj
-		return {'FINISHED'}
+
+def _select_handle(operator, context, obj, what):
+	"""Show the Rig group and select a handle."""
+	if obj is None:
+		operator.report({'ERROR'}, f"This character has no {what}; Repair adds it.")
+		return {'CANCELLED'}
+	from .scene import _layer_collections
+
+	for layer in _layer_collections(context.view_layer.layer_collection, obj.users_collection[0]):
+		layer.hide_viewport = False  # the Rig group starts hidden
+	for other in context.view_layer.objects.selected:
+		other.select_set(False)
+	obj.select_set(True)
+	context.view_layer.objects.active = obj
+	return {'FINISHED'}
+
+
+class BALLISTICA_OT_select_shoulder_handle(bpy.types.Operator):
+	"""Select the shoulder handle: move it to move where the arms join the body (the left shoulder mirrors it)"""
+	bl_idname = 'ballistica.select_shoulder_handle'
+	bl_label = "Select Shoulder Handle"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	@classmethod
+	def poll(cls, context):
+		return context.mode == 'OBJECT' and active_character(context) is not None
+
+	def execute(self, context):
+		return _select_handle(self, context, shoulder_scene.handle(active_character(context)), "shoulder handle")
 
 
 class BALLISTICA_OT_new_part_mesh(bpy.types.Operator):
@@ -1574,6 +1594,7 @@ classes = (
 	BALLISTICA_OT_toggle_group,
 	BALLISTICA_OT_reset_section,
 	BALLISTICA_OT_select_eye_handle,
+	BALLISTICA_OT_select_shoulder_handle,
 	BALLISTICA_OT_new_part_mesh,
 	BALLISTICA_OT_pick_part_mesh,
 	BALLISTICA_OT_new_texture_image,

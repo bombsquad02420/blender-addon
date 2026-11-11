@@ -2,9 +2,11 @@
 
 For each attachment (and each side it's drawn on):
 
-	anchor empty      bone-parented to the target part; rest place on the
-	                  bone in its parent inverse; its own location and
-	                  rotation (mode YXZ) ARE the .bchar transform.
+	spread parent     hidden, bone-parented to the target part at its rest
+	                  place; carries Spread (scene.spread_parent).
+	anchor empty      hangs from it; its own location and rotation (mode
+	                  YXZ) ARE the .bchar transform, limited to the game's
+	                  ±0.5 (scene.limit_location).
 	  segment handle  child of the anchor; the kind's joint chain in its
 	                  parent inverse; its own location/rotation/scale are
 	                  the segment's transform.
@@ -37,6 +39,7 @@ ANCHOR = 'anchor'
 HANDLE = 'handle'
 MESH = 'attachment'
 GUIDE = 'guide'
+SPREAD = 'spread'
 ROLE_KEY = 'bct_attach_role'
 INDEX_KEY = 'bct_attachment'
 SEGMENT_KEY = 'bct_segment'
@@ -267,7 +270,7 @@ def build(collection, placements=None, spread=True):
 		created += _build_one(collection, settings, arm, placements, index, attachment)
 	_mirror_drivers(collection)
 	if spread:
-		scene.setup_spread_drivers(collection, [o for o in created if o.get(ROLE_KEY) == ANCHOR])
+		scene.setup_spread_drivers(collection, [o for o in created if o.get(ROLE_KEY) == SPREAD])
 	return created
 
 
@@ -285,11 +288,14 @@ def _build_one(collection, settings, arm, placements, index, attachment):
 		if side == 'L':
 			body = scene.MIRROR_X @ body
 		bone = scene.bone_name(record['target'], 'R' if side == 'C' else side)
+		layer = scene.spread_parent(f'attach{index}{suffix} spread', rig_group, arm, bone, body)
+		_tag(layer, SPREAD, index, side)
+		created.append(layer)
 		spot = _empty(f'attach{index}{suffix}', rig_group, 'ARROWS', 0.08)
-		scene.parent_to_bone(spot, arm, bone, body)
+		scene.hang(spot, layer)
 		_set_transform(spot, record['translate'], record['rotate'])
 		spot.lock_scale = (True, True, True)  # .bchar can't store it (unlockable; Repair resets it)
-		_limit_location(spot)
+		scene.limit_location(spot, *rig.ATTACHMENT_RANGES['position'])
 		_tag(spot, ANCHOR, index, side)
 		created.append(spot)
 		straight = chain(record)
@@ -384,25 +390,6 @@ def refresh_chain(collection, index):
 LIMIT_NAME = scene.LIMIT_NAME
 
 
-def _limit_location(obj):
-	"""Keep an anchor within the game's ±0.5 of its part while it's dragged.
-
-	A Limit Location constraint with Affect Transform: the move tool stops
-	at the limit. It's a soft lock (it can be removed in the Constraints
-	tab); Needs fixing's Move In covers a value typed past it.
-	"""
-	lo, hi = rig.ATTACHMENT_RANGES['position']
-	limit = obj.constraints.get(LIMIT_NAME) or obj.constraints.new('LIMIT_LOCATION')
-	limit.name = LIMIT_NAME
-	limit.owner_space = 'LOCAL'
-	limit.use_transform_limit = True
-	for axis in 'xyz':
-		setattr(limit, f'use_min_{axis}', True)
-		setattr(limit, f'use_max_{axis}', True)
-		setattr(limit, f'min_{axis}', lo)
-		setattr(limit, f'max_{axis}', hi)
-
-
 def _empty(name, group, display, size):
 	obj = bpy.data.objects.new(name, None)
 	group.objects.link(obj)
@@ -433,7 +420,7 @@ def _set_transform(obj, translate, rotate, scale=(1.0, 1.0, 1.0)):
 def _mirror_drivers(collection):
 	"""Left copies follow the right side's handles."""
 	for obj in tagged(collection):
-		if obj.get(SIDE_KEY) != 'L' or obj[ROLE_KEY] == MESH:
+		if obj.get(SIDE_KEY) != 'L' or obj[ROLE_KEY] in (MESH, SPREAD):
 			continue
 		source = next(
 			(o for o in tagged(collection, obj[ROLE_KEY], obj[INDEX_KEY])

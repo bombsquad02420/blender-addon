@@ -580,6 +580,7 @@ class VIEW3D_PT_ballistica_physique(_Section, bpy.types.Panel):
 
 	def draw(self, context):
 		_group_toggles(self.layout, context, active_character(context), ('Guides', 'Rig'))
+		self.layout.operator('ballistica.select_shoulder_handle', icon='RESTRICT_SELECT_OFF')
 		_Section.draw(self, context)
 		self.layout.operator('ballistica.reset_section', icon='LOOP_BACK').section = 'PHYSIQUE'
 

@@ -13,7 +13,11 @@ eye_style_right styles); the other eye mirrors it. Its location is the
 position, its (uniform) scale the size, and its turn about the forward
 axis the eyelid angle (the lids' preview turn, clamped to the game's
 range); the other two rotation axes are padlocked. It lives in the Rig
-collection, so it shows with the rig, like attachment anchors.
+collection, so it shows with the rig, like attachment anchors. It hangs
+from a hidden spread parent on the head bone (scene.spread_parent), and
+its limits are constraints the tools stop at: size 0.5-2, eyelid ±30
+degrees, and position within ±0.5 x size per axis (the game's eye_offset
+range times the size, so that one follows Size by a driver).
 Handle and panel numbers stay in sync both ways, like attachment handles.
 """
 
@@ -56,9 +60,39 @@ def build(collection, arm, group):
 	obj.lock_rotation = (True, False, True)  # only the forward axis (Blender Y): the eyelid angle
 	obj.ballistica_part.role = 'NONE'
 	obj[HANDLE_KEY] = True
-	scene.parent_to_bone(obj, arm, 'head', Matrix.Translation(scene.game_point(placements['head'].location)))
+	layer = scene.spread_parent('eye_handle spread', group, arm, 'head', rest_matrix(placements))
+	scene.hang(obj, layer)
+	_limits(collection, obj)
 	push(collection)
 	return obj
+
+
+def rest_matrix(placements):
+	"""Where the handle's spread parent rests: the head centre, game axes."""
+	return Matrix.Translation(scene.game_point(placements['head'].location))
+
+
+def _limits(collection, obj):
+	lo, hi = rig.BASIC_SPAZ_RANGES['eye_offset']
+	limit = scene.limit_location(obj, lo, hi)
+	for axis in 'xyz':  # position = size x offset: the range follows Size
+		for bound, edge in (('min', lo), ('max', hi)):
+			scene.drive_value(obj, f'constraints["{scene.LIMIT_NAME}"].{bound}_{axis}', -1, collection, 'eye_scale', f'{edge}*v')
+	scene.limit_scale(obj, *rig.BASIC_SPAZ_RANGES['eye_scale'])
+	lo, hi = rig.BASIC_SPAZ_RANGES['eyelid_angle']
+	scene.limit_rotation(obj, 'y', lo, hi)  # symmetric, so lid_turn's sign doesn't matter
+	return limit
+
+
+def remove(collection):
+	"""Delete the handle and its spread parent (Repair builds them again)."""
+	obj = handle(collection)
+	if obj is None:
+		return
+	layer = obj.parent if obj.parent is not None and obj.parent.get(scene.SPREAD_KEY) else None
+	bpy.data.objects.remove(obj)
+	if layer is not None:
+		bpy.data.objects.remove(layer)
 
 
 def push(collection):

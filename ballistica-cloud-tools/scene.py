@@ -642,8 +642,84 @@ GUIDE_SCALE_DRIVERS = {
 }
 
 
-# An attachment anchor's Limit Location constraint (attach_scene._limit_location).
+# ---- handles: a spread parent, and fixed limits ----
+#
+# A handle (attachment anchor, eye handle, shoulder handle) is an empty whose
+# own transform IS a setting's value. It hangs, with nothing in between, from
+# a hidden *spread parent*: an empty bone-parented where the handle rests,
+# which carries the Spread offset (setup_spread_drivers). So the handle's
+# transform never includes Spread, and its limits are plain constraints
+# (Affect Transform on: the move, rotate and scale tools stop at them).
+
+SPREAD_KEY = 'bct_spread_parent'
 LIMIT_NAME = "Game's Range"
+LIMIT_SCALE_NAME = "Game's Size Range"
+LIMIT_ROTATION_NAME = "Game's Turn Range"
+
+
+def spread_parent(name, group, arm, bone, rest_matrix):
+	"""A hidden empty bone-parented at `rest_matrix`: a handle's spread layer."""
+	obj = bpy.data.objects.new(name, None)
+	group.objects.link(obj)
+	obj.empty_display_size = 0.01
+	obj.hide_viewport = True  # its children still show
+	obj.hide_select = True
+	obj.hide_render = True
+	obj.ballistica_part.role = 'NONE'
+	obj[SPREAD_KEY] = True
+	parent_to_bone(obj, arm, bone, rest_matrix)
+	return obj
+
+
+def hang(child, parent):
+	"""Parent `child` to `parent` with nothing in between."""
+	child.parent = parent
+	child.parent_type = 'OBJECT'
+	child.matrix_parent_inverse = Matrix.Identity(4)
+
+
+def _limit(obj, kind, name):
+	limit = obj.constraints.get(name) or obj.constraints.new(kind)
+	limit.name = name
+	limit.owner_space = 'LOCAL'
+	limit.use_transform_limit = True
+	return limit
+
+
+def limit_location(obj, lo, hi):
+	"""Keep the handle's location within lo..hi: numbers for every axis, or
+	game-axis corners (x, y, z), turned into Blender's axes."""
+	limit = _limit(obj, 'LIMIT_LOCATION', LIMIT_NAME)
+	if isinstance(lo, (int, float)):
+		lows, highs = (lo,) * 3, (hi,) * 3
+	else:
+		a, b = game_point(lo), game_point(hi)
+		lows, highs = [min(p, q) for p, q in zip(a, b)], [max(p, q) for p, q in zip(a, b)]
+	for axis, low, high in zip('xyz', lows, highs):
+		setattr(limit, f'use_min_{axis}', True)
+		setattr(limit, f'use_max_{axis}', True)
+		setattr(limit, f'min_{axis}', low)
+		setattr(limit, f'max_{axis}', high)
+	return limit
+
+
+def limit_scale(obj, lo, hi):
+	limit = _limit(obj, 'LIMIT_SCALE', LIMIT_SCALE_NAME)
+	for axis in 'xyz':
+		setattr(limit, f'use_min_{axis}', True)
+		setattr(limit, f'use_max_{axis}', True)
+		setattr(limit, f'min_{axis}', lo)
+		setattr(limit, f'max_{axis}', hi)
+	return limit
+
+
+def limit_rotation(obj, axis, lo_degrees, hi_degrees):
+	"""Keep the handle's turn about one of its own axes within a range."""
+	limit = _limit(obj, 'LIMIT_ROTATION', LIMIT_ROTATION_NAME)
+	setattr(limit, f'use_limit_{axis}', True)
+	setattr(limit, f'min_{axis}', math.radians(lo_degrees))
+	setattr(limit, f'max_{axis}', math.radians(hi_degrees))
+	return limit
 
 
 def drive_value(obj, path, index, collection, field, expression):
@@ -895,16 +971,9 @@ def setup_spread_drivers(collection, objects=None):
 		tail = bone.matrix_local @ Matrix.Translation((0.0, bone.length, 0.0))
 		rest = (tail @ obj.matrix_parent_inverse).to_3x3()
 		local = rest.inverted() @ game_point(offset)
-		limit = obj.constraints.get(LIMIT_NAME)
 		for i in range(3):
 			if abs(local[i]) > 1e-9:
 				drive_value(obj, 'delta_location', i, collection, 'spread', f'{local[i]:.6f}*v')
-				if limit is not None:
-					# The game's range is around the anchor's own spot: move it with the spread.
-					lo, hi = rig.ATTACHMENT_RANGES['position']
-					for bound, edge in (('min', lo), ('max', hi)):
-						path = f'constraints["{LIMIT_NAME}"].{bound}_{"xyz"[i]}'
-						drive_value(obj, path, -1, collection, 'spread', f'{edge}+{local[i]:.6f}*v')
 
 
 from . import props as _props  # noqa: E402  (props must not import scene)

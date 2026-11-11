@@ -907,6 +907,42 @@ assert tuple(mask.size) == tuple(shipped.size) and mask.colorspace_settings.name
 middle = (shipped.size[1] // 2 * shipped.size[0] + shipped.size[0] // 2) * 4
 assert all(abs(a - b) < 1e-3 for a, b in zip(mask.pixels[middle:middle + 3], shipped.pixels[middle:middle + 3]))  # the starter's mask
 bpy.data.images.remove(shipped)
+# Handles hang from a spread parent, with fixed limits on their own transform.
+from ballistica_cloud_tools import eye_scene, shoulder_scene  # noqa: E402
+from ballistica_cloud_tools import scene as bscene_  # noqa: E402
+scene_ = bscene_
+cs_ = cubey.ballistica_character
+shoulder = shoulder_scene.handle(cubey)
+assert shoulder is not None and shoulder.parent.get(bscene_.SPREAD_KEY) and shoulder.parent.parent_bone == 'torso'
+limit = shoulder.constraints[bscene_.LIMIT_NAME]
+assert limit.use_transform_limit and abs(limit.min_z + 0.05) < 1e-6 and abs(limit.max_z - 0.03) < 1e-6  # game y -> Blender z
+cs_.shoulder_offset = (-0.02, 0.01, 0.0)  # panel -> handle
+assert (scene_.game_point((-0.02, 0.01, 0.0)) - shoulder.location).length < 1e-6
+shoulder.location = scene_.game_point((0.03, -0.04, 0.02))  # handle -> panel
+shoulder_scene.pull(cubey)
+assert all(abs(a - b) < 1e-6 for a, b in zip(cs_.shoulder_offset, (0.03, -0.04, 0.02)))
+cs_.shoulder_offset = (0.0, 0.0, 0.0)
+eye = eye_scene.handle(cubey)
+assert eye.parent.get(bscene_.SPREAD_KEY) and eye.parent.parent_bone == 'head'
+cs_.eye_size = 1.5
+bpy.context.view_layer.update()
+assert abs(eye.constraints[bscene_.LIMIT_NAME].max_x - 0.75) < 1e-5  # ±0.5 x size
+assert eye.constraints[bscene_.LIMIT_SCALE_NAME].max_x == 2.0
+cs_.eye_size = 1.0
+# Spread moves the spread parents, never the handles' own transforms.
+held = (tuple(eye.location), tuple(shoulder.location))
+cs_.spread = 1.0
+bpy.context.view_layer.update()
+assert (tuple(eye.location), tuple(shoulder.location)) == held
+cs_.spread = 0.0
+bpy.context.view_layer.update()
+# A deleted shoulder handle: Needs fixing adds it back.
+shoulder_scene.remove(cubey)
+missing = [i for i in repair.issues(cubey) if i.kind == repair.NO_SHOULDER_HANDLE]
+assert missing
+repair.fix(cubey, missing[0])
+assert shoulder_scene.handle(cubey) is not None
+assert not [i for i in repair.issues(cubey) if i.kind in (repair.NO_SHOULDER_HANDLE, repair.DETACHED)], repair.issues(cubey)
 # Reset to Default puts a section's fields back to the game's defaults.
 cubey.ballistica_character.arm_swing = 0.1
 cubey.ballistica_character.eye_size = 1.5

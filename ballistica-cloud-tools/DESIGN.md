@@ -553,11 +553,8 @@ against the guides by moving its handle or mesh origin, as with the body
 parts. Spring dials update both live. It's the rest pose: gravity sag and
 swinging need the game. Static and legacy kinds get no guides.
 
-**Anchor limit.** Each anchor has a Limit Location constraint ("Game's
-Range", Affect Transform on) holding it within the game's ±0.5 of its part
-while it's dragged; Spread shifts its bounds along with the anchor. It's a
-soft lock (removable in the Constraints tab); Needs fixing's **Move In**
-covers a value typed past it.
+**Anchor limit.** Each anchor is limited to the game's ±0.5 of its part
+(see Handles and their limits).
 
 **Selection.** Clicking an attachment or segment row selects its meshes (in
 Object Mode); clicking an attachment mesh in the viewport selects its row.
@@ -592,6 +589,29 @@ to size them, turn it about the forward axis to tilt the eyelids
 (`eyelid_angle`, clamped to ±30°); the other eye mirrors it, and the other
 rotation axes are padlocked. **Select Eye Handle** (in Eyes) shows the Rig
 group and selects it. Export reads it, like attachment handles.
+
+### Handles and their limits
+
+The eye handle, the **shoulder handle** (a small sphere at the right
+shoulder: its location is `shoulder_offset`; the left mirrors it; **Select
+Shoulder Handle** in Physique) and each attachment anchor follow one
+pattern:
+
+- The handle's own transform **is** the setting's value, and nothing else.
+- It hangs, with nothing in between, from a hidden **spread parent**: an
+  empty bone-parented where the handle rests, which carries Spread. So
+  Spread never touches the handle's transform.
+- Its limits are constraints with Affect Transform on, so the move,
+  rotate and scale tools stop at them: the shoulder's −0.05…0.03 per axis,
+  an anchor's ±0.5, the eye's size 0.5…2 and eyelid ±30°, all fixed; the
+  eye's position limit is ±0.5 × size (the game's `eye_offset` range times
+  the size), driven by Size.
+- Panel fields and handles sync both ways; fields write the handle from
+  code, which constraints don't block, and have the same ranges.
+
+They're soft locks (removable in the Constraints tab). Needs fixing adds a
+missing eye or shoulder handle, rebuilds a detached one, and **Move In**
+puts an anchor typed past its range back at the limit.
 
 ### Preview and guides
 

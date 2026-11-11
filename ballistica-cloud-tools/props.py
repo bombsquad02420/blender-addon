@@ -34,6 +34,15 @@ def _tag_collection(self, context):
 	self.id_data.update_tag()
 
 
+def _shoulder_changed(self, context):
+	"""Shoulder offset changed: re-run drivers and move the shoulder handle."""
+	self.id_data.update_tag()
+	if not self.get('_loading'):
+		hook = ATTACHMENT_REBUILD_HOOKS.get('shoulder')
+		if hook is not None:
+			hook(self)
+
+
 def _eye_changed(self, context):
 	"""Eye offset or scale changed: re-run drivers and move the eye handle."""
 	self.id_data.update_tag()
@@ -772,7 +781,7 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	# Physique
 	torso_radius: _float("Torso Radius", 'torso_radius', update=_tag_collection)
 	shoulder_offset: _vec(
-		"Shoulder Offset", 'shoulder_offset', update=_tag_collection,
+		"Shoulder Offset", 'shoulder_offset', update=_shoulder_changed,
 		description="Drives the shoulder_offset bones (right side; mirrored for the left)")
 	thigh_radius: _float("Thigh Radius", 'thigh_radius', update=_tag_collection)
 	ankle_radius: _float("Ankle Radius", 'ankle_radius', update=_tag_collection)

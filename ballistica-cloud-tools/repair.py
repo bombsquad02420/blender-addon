@@ -12,7 +12,7 @@ touches the pose (that's Reset to T-Pose), mesh shapes or paint, except
 import bpy
 from mathutils import Matrix
 
-from . import attach_scene, eye_scene, pose, rig, scene, transforms
+from . import attach_scene, eye_scene, pose, rig, scene, shoulder_scene, transforms
 
 PART_ROLES = tuple(p for p, _, _ in rig.PARTS)
 
@@ -32,6 +32,7 @@ NO_GUIDES = 'no_guides'
 NO_ATTACHMENTS = 'no_attachments'  # an attachment's handles or meshes are gone
 NO_PART = 'no_part'  # a part with a mesh has no object
 NO_EYE_HANDLE = 'no_eye_handle'
+NO_SHOULDER_HANDLE = 'no_shoulder_handle'
 BAD_NAME = 'bad_name'  # a character, mesh or image name that makes a poor file name
 BAD_SIZE = 'bad_size'  # an image whose width or height isn't a multiple of 8
 # Kinds the cloud build rejects outright: Check lists them as errors.
@@ -71,6 +72,7 @@ TEXT = {
 		"Characters, meshes and images are exported under their names, so they should be lowercase letters, digits and "
 		"underscores. Rename fixes \"{name}\" (capitals, spaces, symbols, or Blender's .001 ending)"),
 	NO_EYE_HANDLE: ("Eye handle missing", "Add", "The handle that moves, sizes and tilts the eyes was deleted"),
+	NO_SHOULDER_HANDLE: ("Shoulder handle missing", "Add", "The handle that moves the shoulders isn't there"),
 	EYE_HANDLE_SKEWED: ("Eye handle is turned or stretched", "Fix",
 		"Eyes can only be moved and scaled evenly. Fix clears the turn and evens out the scale"),
 }
@@ -143,8 +145,6 @@ def _expected_parent(collection, obj, arm):
 			world = scene.MIRROR_X @ world
 		bone = scene.bone_name(role, 'L' if side == 'L' else 'R')
 		return arm, bone, world
-	if obj.get(eye_scene.HANDLE_KEY):
-		return arm, 'head', Matrix.Translation(scene.game_point(placements['head'].location))
 	if role == 'eye' and obj.name.startswith('eye.'):
 		world = Matrix.Translation(scene.game_point(placements['head'].location)) @ scene.EYEBALL_PITCH
 		return arm, f'eye_offset.{side}', world
@@ -198,11 +198,13 @@ def _object_issues(collection, obj, arm, material):
 		return issues
 	if tag == attach_scene.HANDLE:
 		return issues
+	if obj.get(shoulder_scene.HANDLE_KEY):
+		if arm is not None and not _hangs_right(obj, arm, 'torso', shoulder_scene.rest_matrix(_rest()[0])):
+			issues.append(Issue(DETACHED, obj=obj))
+		return issues
 	if obj.get(eye_scene.HANDLE_KEY):
-		if arm is not None:
-			parent, bone, rest = _expected_parent(collection, obj, arm)
-			if obj.parent != parent or obj.parent_bone != bone or not _close(obj.matrix_parent_inverse, scene.bone_rest_parent_inverse(parent, bone, rest)):
-				issues.append(Issue(DETACHED, obj=obj))
+		if arm is not None and not _hangs_right(obj, arm, 'head', eye_scene.rest_matrix(_rest()[0])):
+			issues.append(Issue(DETACHED, obj=obj))
 		scale = obj.scale
 		turned = abs(obj.rotation_euler.x) > 1e-5 or abs(obj.rotation_euler.z) > 1e-5 or obj.rotation_mode != 'YXZ'
 		if turned or max(scale) - min(scale) > 1e-5:
@@ -254,6 +256,8 @@ def _character_issues(collection, arm):
 		issues.append(Issue(NO_EYES))
 	if eye_scene.handle(collection) is None:
 		issues.append(Issue(NO_EYE_HANDLE))
+	if shoulder_scene.handle(collection) is None:
+		issues.append(Issue(NO_SHOULDER_HANDLE))
 	issues += _name_issues(collection)
 	guides = _guides(collection)
 	if guides is None or not guides.objects:
@@ -377,7 +381,12 @@ def fix(collection, issue, keep=False):
 		arm = armature(collection)
 		if arm is not None:
 			handle = eye_scene.build(collection, arm, scene.group(collection, 'Rig') or collection)
-			scene.setup_spread_drivers(collection, [handle])
+			scene.setup_spread_drivers(collection, [handle.parent])
+	elif kind == NO_SHOULDER_HANDLE:
+		arm = armature(collection)
+		if arm is not None:
+			handle = shoulder_scene.build(collection, arm, scene.group(collection, 'Rig') or collection)
+			scene.setup_spread_drivers(collection, [handle.parent])
 	elif kind == EYE_HANDLE_SKEWED:
 		obj.rotation_mode = 'YXZ'
 		obj.rotation_euler = (0.0, 0.0, 0.0)
@@ -396,7 +405,7 @@ def fix(collection, issue, keep=False):
 
 
 # Character-level fixes run first: they recreate what object fixes need.
-ORDER = (NO_GROUP, NO_RIG, RIG_MOVED, NO_ROOT, NO_GUIDES, NO_EYES, NO_EYE_HANDLE, NO_ATTACHMENTS, NO_PART, BAD_NAME, BAD_SIZE)
+ORDER = (NO_GROUP, NO_RIG, RIG_MOVED, NO_ROOT, NO_GUIDES, NO_EYES, NO_EYE_HANDLE, NO_SHOULDER_HANDLE, NO_ATTACHMENTS, NO_PART, BAD_NAME, BAD_SIZE)
 
 
 def repair(collection, objects=None):
@@ -444,8 +453,26 @@ def _apply_to_mesh(obj):
 	obj.data.update()
 
 
+def _hangs_right(obj, arm, bone, rest):
+	"""Whether a handle hangs, untouched, from its spread parent on `bone` at `rest`."""
+	layer = obj.parent
+	return (
+		layer is not None and layer.get(scene.SPREAD_KEY) and obj.parent_type == 'OBJECT'
+		and _close(obj.matrix_parent_inverse, Matrix.Identity(4))
+		and layer.parent == arm and layer.parent_bone == bone
+		and _close(layer.matrix_parent_inverse, scene.bone_rest_parent_inverse(arm, bone, rest)))
+
+
 def _reattach(collection, obj):
 	arm = armature(collection)
+	if obj.get(eye_scene.HANDLE_KEY):
+		eye_scene.remove(collection)
+		fix(collection, Issue(NO_EYE_HANDLE))
+		return
+	if obj.get(shoulder_scene.HANDLE_KEY):
+		shoulder_scene.remove(collection)
+		fix(collection, Issue(NO_SHOULDER_HANDLE))
+		return
 	if obj.ballistica_part.role == 'attachment' or arm is None:
 		attach_scene.rebuild(collection)
 		return
