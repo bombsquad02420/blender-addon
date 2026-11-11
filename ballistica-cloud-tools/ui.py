@@ -610,15 +610,27 @@ class BALLISTICA_UL_attachments(bpy.types.UIList):
 		first = item.segments[0] if len(item.segments) else None
 		mesh = first.mesh_block.name if first is not None and first.mesh_block is not None else (first.mesh if first is not None else '')
 		if mesh:
-			label = f"{mesh.removeprefix('meshes/')} · {label}"
+			label = f"{_short_mesh(mesh, item)} · {label}"
 		problems = attachments.problems(_record(item))
 		layout.label(text=label, icon='ERROR' if problems else 'LINKED')
 
 
 class BALLISTICA_UL_segments(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
-		mesh = item.mesh_block.name if item.mesh_block is not None else item.mesh.removeprefix('meshes/')
+		mesh = _short_mesh(item.mesh_block.name if item.mesh_block is not None else item.mesh, item)
 		layout.label(text=f"{index + 1}: {mesh or '(no mesh)'}", icon='MESH_DATA' if item.mesh else 'ERROR')
+
+
+def _short_mesh(mesh, item):
+	"""A mesh name for a list row: without `meshes/`, and without this
+	character's name in front (meshes/blocky_crown on blocky -> crown)."""
+	mesh = mesh.removeprefix('meshes/')
+	owner = item.id_data
+	if isinstance(owner, bpy.types.Collection):
+		prefix = owner.name.rsplit('/', 1)[-1] + '_'
+		if mesh.startswith(prefix) and len(mesh) > len(prefix):
+			mesh = mesh[len(prefix):]
+	return mesh
 
 
 def _record(attachment):
