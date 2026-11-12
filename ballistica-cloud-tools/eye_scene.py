@@ -15,7 +15,7 @@ axis the eyelid angle (the lids' preview turn, clamped to the game's
 range); the other two rotation axes are padlocked. It lives in the Rig
 collection, so it shows with the rig, like attachment anchors. It hangs
 from a hidden spread parent on the head bone (scene.spread_parent), and
-its limits are constraints the tools stop at: size 0.5-2, eyelid ±30
+its limits are constraints the tools stop at: size 0.1-2, eyelid ±30
 degrees, and position within ±0.5 x size per axis (the game's eye_offset
 range times the size, so that one follows Size by a driver).
 Handle and panel numbers stay in sync both ways, like attachment handles.

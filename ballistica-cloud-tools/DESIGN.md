@@ -607,7 +607,7 @@ pattern:
   Spread never touches the handle's transform.
 - Its limits are constraints with Affect Transform on, so the move,
   rotate and scale tools stop at them: the shoulder's −0.05…0.03 per axis,
-  an anchor's ±0.5, the eye's size 0.5…2 and eyelid ±30°, all fixed; the
+  an anchor's ±0.5, the eye's size 0.1…2 and eyelid ±30°, all fixed; the
   eye's position limit is ±0.5 × size (the game's `eye_offset` range times
   the size), driven by Size.
 - Panel fields and handles sync both ways; fields write the handle from

@@ -942,6 +942,7 @@ cs_.eye_size = 1.5
 bpy.context.view_layer.update()
 assert abs(eye.constraints[bscene_.LIMIT_NAME].max_x - 0.75) < 1e-5  # ±0.5 x size
 assert eye.constraints[bscene_.LIMIT_SCALE_NAME].max_x == 2.0
+assert abs(eye.constraints[bscene_.LIMIT_SCALE_NAME].min_x - 0.1) < 1e-6  # ballistica 1.8.3
 cs_.eye_size = 1.0
 # Spread moves the spread parents, never the handles' own transforms.
 held = (tuple(eye.location), tuple(shoulder.location))

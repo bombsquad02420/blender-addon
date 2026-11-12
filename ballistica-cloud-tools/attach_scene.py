@@ -336,7 +336,7 @@ def _build_one(collection, settings, arm, placements, index, attachment):
 def chain(record, curl=True):
 	"""Each segment's rest frame in its anchor's space (Blender axes), root first.
 
-	`curl` adds each joint's rest bend: curl x 90 degrees about the
+	`curl` adds each joint's rest bend: curl x 180 degrees (since ballistica 1.8.3) about the
 	segment's own X, negative, so a positive curl lifts the chain toward
 	its local up (bg_dynamics_character.cc). Static attachments have no
 	chain: their one segment sits on the anchor.
@@ -350,7 +350,7 @@ def chain(record, curl=True):
 		if j > 0:
 			frame = frame @ Matrix.Translation(scene.game_point(_stretched(parent_anchor, rules.length_scale(record, j - 1))))
 		if curl:
-			bend = math.radians(-90.0 * rules.dial_at(record, 'curl', j))
+			bend = math.radians(-180.0 * rules.dial_at(record, 'curl', j))
 			frame = frame @ (scene.TO_BLENDER @ Matrix.Rotation(bend, 3, 'X') @ scene.TO_GAME).to_4x4()
 		frame = frame @ Matrix.Translation(-scene.game_point(_stretched(child_anchor, rules.length_scale(record, j))))
 		frames.append(frame.copy())

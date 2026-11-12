@@ -26,6 +26,7 @@ paths_exclude_pattern = [
 	"/DESIGN.md",
 	"/BCHAR_FORMAT.md",
 	"/UX_DESIGN.md",
+	"/UPSTREAM.md",
 	"/webui/",
 	"/tests/",
 	"/Makefile",

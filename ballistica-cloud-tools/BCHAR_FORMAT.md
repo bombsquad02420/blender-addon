@@ -126,7 +126,7 @@ are clamped.
 | Field | Default | Range |
 |---|---|---|
 | `eye_style_left`, `eye_style_right` | `regular` | `regular` / `lidless` / `none` |
-| `eye_scale` | 1.0 | 0.5–2.0 |
+| `eye_scale` | 1.0 | 0.1–2.0 |
 | `eye_offset` (vec3, mirrored) | 0.065, −0.036, 0.205 | −0.5–0.5 |
 | `eye_color` (iris) | 0.5, 0.5, 1.2 | 0–2 |
 | `eyeball_color` | 0.46, 0.38, 0.36 | 0–1 |
@@ -167,7 +167,8 @@ affect gameplay.
 - Tuning values:
   - `stiffness`, `damping`, `drag`, `length`: 0–1, default 0.5
   - `radius`: 0–1, default 0
-  - `curl`: −1 to 1, default 0
+  - `curl`: −1 to 1, default 0. Each joint bends by curl × 180° (a half
+    turn at 1; it was 90° before ballistica 1.8.3)
 - `*_change` values (−1 to 1): how much each tuning value changes from one
   segment to the next. Available for `curl`, `length`, `radius`, `stiffness`
   and `damping`.
