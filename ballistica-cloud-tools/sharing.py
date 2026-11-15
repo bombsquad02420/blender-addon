@@ -73,7 +73,7 @@ def copy_image(image, name):
 	"""A new image with `image`'s pixels (unsaved paint included) and settings."""
 	width, height = image.size
 	copy = bpy.data.images.new(name, width, height, alpha=True)
-	copy.colorspace_settings.name = image.colorspace_settings.name  # before the pixels: it regenerates
+	copy.colorspace_settings.interop_id = image.colorspace_settings.interop_id  # before the pixels: it regenerates
 	if image.has_data or image.filepath:
 		pixels = [0.0] * (width * height * 4)
 		image.pixels.foreach_get(pixels)

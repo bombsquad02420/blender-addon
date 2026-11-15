@@ -551,20 +551,26 @@ def find_texture(root, logical):
 		None)
 
 
+# Color Interop Forum ids (Blender 5.3+): they hold under any OpenColorIO
+# config, where names such as 'Non-Color' may not exist.
+COLORSPACE_IDS = {'Non-Color': ('data',), 'sRGB': ('srgb_rec709_scene', 'srgb_rec709_display')}
+
+
 def set_colorspace(image, name):
 	"""Change how Blender reads an image's colors, keeping unsaved paint.
 
-	Changing a generated or edited image's color space regenerates or
+	`name` is 'Non-Color' or 'sRGB'; it is set by its interop id. Changing a generated or edited image's color space regenerates or
 	reloads it, which would wipe what was painted, so its pixels are kept.
 	"""
-	if image.colorspace_settings.name == name:
+	ids = COLORSPACE_IDS[name]
+	if image.colorspace_settings.interop_id in ids:
 		return
 	keep = image.source == 'GENERATED' or image.is_dirty
 	pixels = None
 	if keep and image.has_data:
 		pixels = [0.0] * len(image.pixels)
 		image.pixels.foreach_get(pixels)
-	image.colorspace_settings.name = name
+	image.colorspace_settings.interop_id = ids[0]
 	if pixels is not None:
 		image.pixels.foreach_set(pixels)
 

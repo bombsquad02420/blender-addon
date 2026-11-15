@@ -128,7 +128,7 @@ assert agent_head.data.ballistica_asset.path == 'meshes/agent_head'
 assert agent_head.data.name == 'agent_head'  # named by its path, without the folder
 assert agent_head.data.ballistica_asset.export_uv == agent_head.data.uv_layers[0].name
 mask_image = next(i for i in bpy.data.images if i.ballistica_texture.path == 'textures/agent_color_mask')
-assert mask_image.ballistica_texture.role == 'data' and mask_image.colorspace_settings.name == 'Non-Color'
+assert mask_image.ballistica_texture.role == 'data' and mask_image.colorspace_settings.interop_id == 'data'
 color_image = next(i for i in bpy.data.images if i.ballistica_texture.path == 'textures/agent_color')
 assert color_image.ballistica_texture.role == 'default' and color_image.ballistica_texture.wrap_h == 'clamp'
 
@@ -917,7 +917,7 @@ assert len(parts) == 15, sorted(parts)  # 3 center parts + 6 paired parts on bot
 assert operators.check(cubey) == [], operators.check(cubey)
 mask = bpy.data.images['cubey_color_mask']
 shipped = bpy.data.images.load(template.texture_path('color_mask'))
-assert tuple(mask.size) == tuple(shipped.size) and mask.colorspace_settings.name == 'Non-Color'
+assert tuple(mask.size) == tuple(shipped.size) and mask.colorspace_settings.interop_id == 'data'
 middle = (shipped.size[1] // 2 * shipped.size[0] + shipped.size[0] // 2) * 4
 assert all(abs(a - b) < 1e-3 for a, b in zip(mask.pixels[middle:middle + 3], shipped.pixels[middle:middle + 3]))  # the starter's mask
 bpy.data.images.remove(shipped)
@@ -1119,7 +1119,7 @@ scene.ballistica_active_character = cubey2
 cs.active_texture_index = 1
 cubey_mask = mask_row.image
 assert bpy.ops.ballistica.new_texture_image() == {'FINISHED'}
-assert mask_row.image != cubey_mask and mask_row.image.colorspace_settings.name == 'Non-Color'
+assert mask_row.image != cubey_mask and mask_row.image.colorspace_settings.interop_id == 'data'
 assert mask_row.image.ballistica_texture.role == 'data'
 assert texture_scene.fields(cubey2)['color_mask_texture'] == 'textures/cubey_001_color_mask', (cubey2.name, texture_scene.fields(cubey2))  # renamed by Fix All
 mask_row.image = cubey_mask
@@ -1227,7 +1227,8 @@ assert bpy.context.mode == 'PAINT_TEXTURE'
 image_paint = bpy.context.scene.tool_settings.image_paint
 assert image_paint.mode == 'IMAGE' and image_paint.canvas == mask_row.image
 assert image_paint.brush.name == 'Ballistica Add Highlight' and image_paint.brush.blend == 'ADD'
-assert tuple(image_paint.unified_paint_settings.color) == (0.0, 1.0, 0.0)
+u = image_paint.unified_paint_settings  # 5.3: unified color is off by default
+assert tuple(u.color if u.use_unified_color else image_paint.brush.color) == (0.0, 1.0, 0.0)
 draw_panels()  # the paint box and brushes draw
 image_paint.unified_paint_settings.use_unified_color = False
 draw_panels()  # the paint box with the shared color off (no warning)
@@ -1356,7 +1357,7 @@ assert bpy.ops.ballistica.pick_from_workspace(target='PART', asset='meshes/zoe_h
 assert ds.parts[ds.active_part_index].mesh.ballistica_asset.path == 'meshes/zoe_head'
 ds.active_texture_index = 1
 assert bpy.ops.ballistica.pick_from_workspace(target='TEXTURE', asset='textures/zoe_color_mask') == {'FINISHED'}
-assert ds.textures[1].image.colorspace_settings.name == 'Non-Color'
+assert ds.textures[1].image.colorspace_settings.interop_id == 'data'
 ds.active_attachment_index = 0
 assert bpy.ops.ballistica.pick_from_workspace(target='SEGMENT_MESH', asset='meshes/hair_tuft1') == {'FINISHED'}
 assert ds.attachments[0].segments[0].mesh == 'meshes/hair_tuft1'

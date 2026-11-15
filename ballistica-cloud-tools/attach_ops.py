@@ -111,7 +111,7 @@ def template_record(collection, item):
 		source = bpy.data.images.load(attach_templates.texture_path(is_mask))
 		try:
 			if is_mask:
-				source.colorspace_settings.name = 'Non-Color'
+				source.colorspace_settings.interop_id = 'data'
 			width, height = source.size
 			pixels = [0.0] * (width * height * 4)
 			source.pixels.foreach_get(pixels)

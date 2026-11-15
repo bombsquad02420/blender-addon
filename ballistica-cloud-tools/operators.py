@@ -251,7 +251,7 @@ def _template_image(root, logical, texture):
 	"""A bundled template PNG as a new in-memory image for `logical`."""
 	source = bpy.data.images.load(template.texture_path(texture))
 	try:
-		source.colorspace_settings.name = 'Non-Color' if 'mask' in texture else 'sRGB'
+		source.colorspace_settings.interop_id = 'data' if 'mask' in texture else 'srgb_rec709_scene'
 		size = source.size[0]
 		pixels = [0.0] * (size * source.size[1] * 4)
 		source.pixels.foreach_get(pixels)
@@ -266,7 +266,7 @@ def _new_image(root, logical, pixels, size, data, height=None):
 	if data:
 		# Before the pixels: changing a generated image's color space
 		# regenerates it, wiping them.
-		image.colorspace_settings.name = 'Non-Color'
+		image.colorspace_settings.interop_id = 'data'
 	image.pixels.foreach_set(pixels)
 	image.filepath_raw = workspace.new_file_path(root, logical, 'texture')
 	image.file_format = 'PNG'
@@ -341,7 +341,7 @@ def _copy_assets(source_root, root, character, meshes, textures):
 		source = bpy.data.images.load(path)
 		try:
 			if new in masks:
-				source.colorspace_settings.name = 'Non-Color'
+				source.colorspace_settings.interop_id = 'data'
 			width, height = source.size
 			pixels = [0.0] * (width * height * 4)
 			source.pixels.foreach_get(pixels)

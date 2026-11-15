@@ -129,7 +129,7 @@ def new_image(collection, field):
 	mask = field in MASKS
 	image = bpy.data.images.new(name, NEW_SIZE, NEW_SIZE, alpha=True)
 	if mask:
-		image.colorspace_settings.name = 'Non-Color'  # before painting: it regenerates the image
+		image.colorspace_settings.interop_id = 'data'  # before painting: it regenerates the image
 		image.ballistica_texture['role'] = workspace.TEXTURE_SETTINGS['texture_role'][0].index('data')
 	image.generated_color = (0.0, 0.0, 0.0, 1.0) if mask else (1.0, 1.0, 1.0, 1.0)
 	image.file_format = 'PNG'

@@ -48,7 +48,7 @@ Why not sync from inside Blender yet:
 
 - **No reusable Python client.** Ballistica's own Python `bacloud` uses
   Python 3.14-only syntax (e.g. `except ValueError, OSError:`), while Blender
-  5.2 ships Python 3.13. A Blender-side SDK means a fresh port of the TS SDK
+  5.3 ships Python 3.13. A Blender-side SDK means a fresh port of the TS SDK
   (wire protocol, SmartSocket session, transfers) — similar in size to it.
 - **Extra dependency.** The session runs over WebSocket; Blender does not
   bundle `websockets`, so the extension would need to ship it as a wheel.
@@ -789,8 +789,10 @@ Answered 2026-10-17:
 - ~~Sounds and strings~~: sounds are plain strings; strings are shown as
   translation keys only and the `strings/` folder is ignored.
 - ~~In-Blender sync~~: not needed for now.
-- ~~Blender version floor~~: 5.2 (`blender_version_min = "5.2.0"`),
-  developed and tested on 5.2.2. The bundled asset `.blend` is generated at
+- ~~Blender version floor~~: 5.3 (`blender_version_min = "5.3.0"`),
+  developed and tested on 5.3.0. Image color spaces are set by their
+  interop id (`data`, `srgb_rec709_scene`), new in 5.3, so they hold
+  under any OpenColorIO config a project picks. The bundled asset `.blend` is generated at
   build time, so build releases with the minimum supported Blender.
 - ~~Attachments, `left_*`, `flippers`~~: JSON-only in the web UI; the addon
   edits them in its Meshes and Attachments sections.

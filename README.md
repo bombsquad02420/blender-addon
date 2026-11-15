@@ -16,7 +16,7 @@ Blender addons for BombSquad / Ballistica:
 | BombSquad Tools | 2.77 - 2.79b | ~ 1.4 | Unmaintained | https://github.com/Mrmaxmeier/BombSquad-Community-Mod-Manager/tree/master/utils/blender |
 | BombSquad Tools | >=2.80 | ~ 1.4 | Unmaintained | https://github.com/bombsquad02420/blender-addon/releases/tag/blender4.2 |
 | BombSquad Tools | >=4.2 | 1.7 | Supported | https://extensions.blender.org/add-ons/bombsquad-tools/ |
-| Ballistica Cloud Tools | >=5.2 | >=1.8 | Experimental | https://extensions.blender.org/add-ons/ballistica-cloud-tools/ |
+| Ballistica Cloud Tools | >=5.3 | >=1.8 | Experimental | https://extensions.blender.org/add-ons/ballistica-cloud-tools/ |
 
 > [!IMPORTANT]
 > BombSquad Tools works with BombSquad up to 1.7 only. BombSquad 1.8 no
@@ -41,7 +41,7 @@ Since BombSquad 1.8, mods are cloud **workspaces**: folders of `.bchar`,
 addon edits characters in a local copy of a workspace; syncing with the cloud
 happens outside Blender (`bacloud workspace get` / `put`, or `bacloud-ts`).
 
-Requires Blender 5.2+. In the 3D viewport, open **N panel → Ballistica**:
+Requires Blender 5.3+. In the 3D viewport, open **N panel → Ballistica**:
 
 - **New Character** starts a cuboid character in a workspace folder;
   **Import Character** opens a `.bchar`; **Export Character** writes meshes,
