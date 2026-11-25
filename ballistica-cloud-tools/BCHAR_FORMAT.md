@@ -65,6 +65,26 @@ The top level is `{"data": {...}}`, with `data.type` set to `"basic_spaz"`.
 That's currently the only kind. Any number you leave out uses the standard
 Spaz value.
 
+Two optional fields sit beside `data` (since ballistica 1.8.8). Both are
+about how the character shows up in its published package, not in a game:
+
+| Field                | Type   | Default | What it does |
+| -------------------- | ------ | ------- | ------------ |
+| `docs`               | string | `""`    | Free-form notes on the character, shown with it on the package's contents pages. |
+| `thumbnail_priority` | int    | `0`     | How much this character wants to be the package's thumbnail (below). |
+
+**`thumbnail_priority`**: a package gets a thumbnail picture made from its
+contents. Assets are ranked by this number: higher goes first, ties keep
+their order in the package, and a negative value keeps the asset out of
+the thumbnail altogether. So in a package with several characters, giving
+your best one `1` puts it on the cover, and `-1` hides a test character.
+Textures and meshes have the same field (and `docs`) in `workspace.json`.
+A negative value suits masks and other data textures that make no sense
+as a picture. Like other defaults, `0` and `""` aren't written to the file.
+
+The addon keeps both fields when it imports and exports a character, but
+doesn't edit them yet.
+
 ### Textures and tinting
 
 The whole body uses one `color_texture` plus one `color_mask_texture`. In the

@@ -6,14 +6,14 @@ format, its ranges, the rig, and how attachments are built.
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| Synced with commit  | `d6049a667286ff906406ccc7d635f3d315256df3` (`v1.8.7-6`, 2026-11-04) |
-| Game version        | 1.8.7 (build 23089)                                                 |
+| Synced with commit  | `60b6a16d43e596aaeed1348b885f2dffde67cf76` (`v1.8.10`, 2026-11-24)   |
+| Game version        | 1.8.10 (build 23098)                                                |
 
 To see what changed upstream since this sync:
 
 ```bash
 git -C ../../ballistica fetch
-git -C ../../ballistica log --oneline d6049a667286..origin/main -- \
+git -C ../../ballistica log --oneline --full-history 60b6a16d43e5..origin/main -- \
   tools/bacommon/characterranges.py tools/bacommon/characterrig.py \
   tools/bacommon/characterbuilder.py \
   src/ballistica/base/support/character_def.h \
@@ -25,7 +25,8 @@ git -C ../../ballistica log --oneline d6049a667286..origin/main -- \
 ```
 
 Also read the character entries in ballistica's `CHANGELOG.md` since the
-synced version. After syncing, update the commit and version above.
+synced version. `--full-history` matters: upstream lands changes through
+merges, which a plain `git log -- <paths>` can hide. After syncing, update the commit and version above.
 
 ## File map
 
@@ -48,3 +49,9 @@ against its JSON dumps (`tests/fixtures/pixel_preview.json`, agent_johnson).
   the commit before and caught up at `d6049a667`. The web UI still bends
   90° per curl (its agent_johnson dump), so curled antennas look more bent
   in Blender and the game than in the web UI's preview.
+- **1.8.8–1.8.10** (`60b6a16d4`): `.bchar` gains two optional top-level
+  fields, `docs` (notes shown on the package's pages) and
+  `thumbnail_priority`. The addon keeps unknown top-level keys, so both
+  survive import and export; it doesn't edit them yet. `spaz_node.cc`
+  changed only which limb physics a live spaz uses, which the addon doesn't
+  model.
