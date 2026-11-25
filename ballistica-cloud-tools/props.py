@@ -227,10 +227,27 @@ class MESH_PG_ballistica_asset(bpy.types.PropertyGroup):
 		"Lets you paint or bake from another UV map")
 
 
+def docs_to_field(text):
+	"""A `docs` string as one line for a text box: line breaks shown as \\r and \\n.
+
+	Blender's text boxes hold one line, so breaks are written the way the
+	JSON file has them. A backslash is doubled so it comes back as itself.
+	"""
+	return text.replace('\\', '\\\\').replace('\r', '\\r').replace('\n', '\\n')
+
+
+def docs_from_field(text):
+	"""The `docs` string from a text box: \\r, \\n and \\\\ back to what they stand for."""
+	import re
+
+	return re.sub(r'\\([\\rn])', lambda m: {'r': '\r', 'n': '\n'}.get(m[1], '\\'), text).strip()
+
+
 # Image setting -> workspace.json key.
 TEXTURE_KEYS = {
 	'role': 'texture_role', 'quality': 'texture_quality',
 	'wrap_h': 'texture_wrapping_h', 'wrap_v': 'texture_wrapping_v', 'alpha': 'texture_alpha',
+	'docs': 'docs', 'thumbnail_priority': 'thumbnail_priority',
 }
 TEXTURE_LABELS = {
 	'default': "Default", 'source_premultiplied': "Source Premultiplied", 'straight_alpha': "Straight Alpha",
@@ -268,6 +285,14 @@ class IMAGE_PG_ballistica_texture(bpy.types.PropertyGroup):
 	alpha: _texture_enum(
 		"Alpha", 'texture_alpha', "Whether the alpha channel matters. Auto: transparent if any pixel is; "
 		"No: opaque, whatever stray transparency the image has")
+	docs: bpy.props.StringProperty(
+		name="Notes", description="A comment added for this texture in the package's wrapper modules. Type \\n for a new line",
+		options=_options())
+	thumbnail_priority: bpy.props.IntProperty(
+		name="Thumbnail Priority",
+		description="Higher values come first in the package thumbnail (ties keep the package's order). "
+		"Below 0: never appears there (good for masks)",
+		default=0, soft_min=-1, soft_max=10, options=_options())
 
 
 def load_texture_settings(image, settings):
@@ -275,8 +300,11 @@ def load_texture_settings(image, settings):
 	texture = image.ballistica_texture
 	keep = []
 	for attr, key in TEXTURE_KEYS.items():
-		value = settings.get(key, workspace.TEXTURE_SETTINGS[key][1])
-		if value in workspace.TEXTURE_SETTINGS[key][0]:
+		values, default = workspace.TEXTURE_SETTINGS[key]
+		value = settings.get(key, default)
+		if values is None and isinstance(value, type(default)):
+			setattr(texture, attr, docs_to_field(value) if attr == 'docs' else value)
+		elif values is not None and value in values:
 			if attr == 'role':
 				texture['role'] = workspace.TEXTURE_SETTINGS[key][0].index(value)  # no color space change here
 			else:
@@ -293,7 +321,10 @@ def texture_settings_of(image):
 	"""{workspace.json key: value} to write for an image (unknown values left out)."""
 	texture = image.ballistica_texture
 	keep = set(image.get(KEEP_KEY, ()))
-	return {key: getattr(texture, attr) for attr, key in TEXTURE_KEYS.items() if key not in keep}
+	values = {key: getattr(texture, attr) for attr, key in TEXTURE_KEYS.items() if key not in keep}
+	if 'docs' in values:
+		values['docs'] = docs_from_field(values['docs'])
+	return values
 
 
 class OBJECT_PG_ballistica_part(bpy.types.PropertyGroup):
@@ -728,6 +759,16 @@ class COLLECTION_PG_ballistica_character(bpy.types.PropertyGroup):
 	icon_block: bpy.props.PointerProperty(
 		type=bpy.types.Image, name="Icon", options=_options(), update=_icon_changed('icon_texture'),
 		description="The character's picture in the game's menus")
+	# Beside `data` in the .bchar: how it shows up in its published package.
+	package_docs: bpy.props.StringProperty(
+		name="Notes",
+		description="A comment added for this character on the package's pages. Type \\n for a new line",
+		options=_options())
+	thumbnail_priority: bpy.props.IntProperty(
+		name="Thumbnail Priority",
+		description="Higher values come first in the package thumbnail (ties keep the package's order). "
+		"Below 0: never appears there",
+		default=0, soft_min=-1, soft_max=10, options=_options())
 	icon_mask_block: bpy.props.PointerProperty(
 		type=bpy.types.Image, name="Icon Mask", options=_options(), update=_icon_changed('icon_mask_texture'),
 		description="Which parts of the icon take the player color (red) and highlights (green, blue)")
@@ -890,6 +931,8 @@ def _load_into(settings, character):
 	for field in rig.SOUND_FIELDS:
 		setattr(settings, field, ', '.join(character.get(field, [])))
 	ensure_sound_rows(settings)
+	settings.package_docs = docs_to_field(character.raw.get('docs') or '')
+	settings.thumbnail_priority = character.raw.get('thumbnail_priority') or 0
 	settings.attachments.clear()
 	for raw in character.attachments:
 		set_attachment(settings.attachments.add(), attach_rules.from_json(raw), raw)
@@ -914,6 +957,12 @@ def to_character(settings, overrides=None):
 	for field in rig.SOUND_FIELDS:
 		sounds = [s.strip() for s in getattr(settings, field).split(',') if s.strip()]
 		character.set(field, sounds)
+	# Defaults aren't written, as the game's own tools leave them out.
+	for key, value in (('docs', docs_from_field(settings.package_docs)), ('thumbnail_priority', settings.thumbnail_priority)):
+		if value:
+			character.raw[key] = value
+		else:
+			character.raw.pop(key, None)
 	written = [
 		attach_rules.to_json(attachment_record(a), json.loads(a.raw_json) if a.raw_json else None)
 		for a in settings.attachments

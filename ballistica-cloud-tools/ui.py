@@ -283,6 +283,20 @@ def _current_character(context):
 
 
 # One line under a Physique or Eyes field: what it changes in the game.
+# Under the package fields (Identity and Textures).
+DOCS_HINT = "A comment for this asset in the package (\\n: new line)"
+PRIORITY_HINT = "Higher comes first in the package thumbnail; below 0: never"
+
+
+def _hint(col, text):
+	"""A greyed hint under a split field, lined up with it (the left half is the label's)."""
+	split = col.split(factor=0.4)
+	split.label(text="")
+	hint = split.row()
+	hint.active = False
+	hint.label(text=text)
+
+
 HINTS = {
 	'torso_radius': "How wide the body is for bumping and getting hit",
 	'shoulder_offset': "Moves where the arms join the body",
@@ -325,12 +339,7 @@ class _Section(_Panel):
 			col = layout.column(align=True)
 			col.prop(settings, field)
 			if field in HINTS:
-				# Under the field, lined up with it (the left half is the label's).
-				split = col.split(factor=0.4)
-				split.label(text="")
-				hint = split.row()
-				hint.active = False
-				hint.label(text=HINTS[field])
+				_hint(col, HINTS[field])
 
 
 class VIEW3D_PT_ballistica_identity(_Section, bpy.types.Panel):
@@ -360,6 +369,13 @@ class VIEW3D_PT_ballistica_identity(_Section, bpy.types.Panel):
 					line.prop(settings, 'icon_block' if field == 'icon_texture' else 'icon_mask_block')
 					_pick_button(line, 'ICON' if field == 'icon_texture' else 'ICON_MASK')
 					line.operator('ballistica.new_icon_image', text="", icon='ADD').field = field
+		layout.separator()
+		col = layout.column(align=True)
+		col.label(text="In its package")
+		col.prop(settings, 'package_docs', placeholder="Notes for people browsing the package")
+		_hint(col, DOCS_HINT)
+		col.prop(settings, 'thumbnail_priority', text="Thumbnail Priority")
+		_hint(col, PRIORITY_HINT)
 
 
 def _standard_colors_note(layout, context):
@@ -886,6 +902,13 @@ class VIEW3D_PT_ballistica_images(_Panel, bpy.types.Panel):
 			col.label(text="Masks need a Data role (export sets it).", icon='INFO')
 		for name in ('quality', 'wrap_h', 'wrap_v', 'alpha'):
 			col.prop(texture, name)
+		col.separator()
+		col.prop(texture, 'docs', placeholder="Notes for people browsing the package")
+		_hint(col, DOCS_HINT)
+		col.prop(texture, 'thumbnail_priority')
+		_hint(col, PRIORITY_HINT)
+		if texture.thumbnail_priority >= 0 and texture.role in workspace.DATA_ROLES:
+			col.label(text="A mask makes a poor thumbnail: try -1.", icon='INFO')
 
 
 class VIEW3D_PT_ballistica_paint(_Panel, bpy.types.Panel):

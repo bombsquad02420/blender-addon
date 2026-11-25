@@ -1217,6 +1217,33 @@ assert bpy.ops.ballistica.make_unique(kind='SEGMENT_MESH') == {'FINISHED'}
 assert wing.mesh_block != p1.attachments[0].segments[0].mesh_block and wing.mesh.startswith('meshes/pixel_two_attachment0'), wing.mesh
 assert sharing.users(wing.mesh_block) == [pixel_two]
 
+# Package fields beside `data`: docs and thumbnail_priority load and save; defaults aren't written.
+from ballistica_cloud_tools import bchar  # noqa: E402
+
+pkg = bpy.data.collections.new('pkg_test').ballistica_character
+props.load_into(pkg, bchar.Character({'data': {'type': 'basic_spaz'}, 'docs': 'Hi', 'thumbnail_priority': 2}))
+assert pkg.package_docs == 'Hi' and pkg.thumbnail_priority == 2
+pkg.thumbnail_priority = -1
+raw = props.to_character(pkg).raw
+assert raw['docs'] == 'Hi' and raw['thumbnail_priority'] == -1
+pkg.package_docs, pkg.thumbnail_priority = '  ', 0
+raw = props.to_character(pkg).raw
+assert 'docs' not in raw and 'thumbnail_priority' not in raw
+# Line breaks show as \r\n in the one-line box and come back as they were (web UI writes \r\n).
+web_docs = "this is my character's description\r\nthis is in the next line\r\n\r\nthis has an entire empty line before"
+props.load_into(pkg, bchar.Character({'data': {'type': 'basic_spaz'}, 'docs': web_docs}))
+assert '\n' not in pkg.package_docs and pkg.package_docs.count('\\r\\n') == 3
+assert props.to_character(pkg).raw['docs'] == web_docs
+pkg.package_docs = 'a\\nb \\\\n'  # typed: a\nb \\n
+assert props.to_character(pkg).raw['docs'] == 'a\nb \\n'
+bpy.data.collections.remove(pkg.id_data)
+img = bpy.data.images.new('pkg_tex', 4, 4)
+props.load_texture_settings(img, {'docs': 'Mask', 'thumbnail_priority': -1, 'texture_role': 'data'})
+assert img.ballistica_texture.docs == 'Mask' and img.ballistica_texture.thumbnail_priority == -1
+img.ballistica_texture.docs = ' Mask '
+assert props.texture_settings_of(img)['docs'] == 'Mask' and props.texture_settings_of(img)['thumbnail_priority'] == -1
+bpy.data.images.remove(img)
+
 # Painting: the mask brushes add or remove one tint channel each.
 from ballistica_cloud_tools import paint  # noqa: E402
 

@@ -84,6 +84,9 @@ TEXTURE_SETTINGS = {
 	'texture_wrapping_h': (('clamp', 'repeat'), 'clamp'),
 	'texture_wrapping_v': (('clamp', 'repeat'), 'clamp'),
 	'texture_alpha': (('auto', 'yes', 'no'), 'auto'),
+	# Free values (None: any string or int): for the package's pages.
+	'docs': (None, ''),
+	'thumbnail_priority': (None, 0),
 }
 # Roles for masks: their channels are data, not color.
 DATA_ROLES = ('data', 'premultiplied_data')

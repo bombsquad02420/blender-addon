@@ -82,9 +82,6 @@ Textures and meshes have the same field (and `docs`) in `workspace.json`.
 A negative value suits masks and other data textures that make no sense
 as a picture. Like other defaults, `0` and `""` aren't written to the file.
 
-The addon keeps both fields when it imports and exports a character, but
-doesn't edit them yet.
-
 ### Textures and tinting
 
 The whole body uses one `color_texture` plus one `color_mask_texture`. In the

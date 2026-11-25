@@ -57,7 +57,8 @@ class WorkspaceTest(TempWorkspace):
 		self.assertEqual(workspace.texture_settings(self.root, mask)['texture_role'], 'data')
 		self.assertEqual(workspace.texture_settings(self.root, color), {
 			'texture_role': 'default', 'texture_quality': 'default',
-			'texture_wrapping_h': 'clamp', 'texture_wrapping_v': 'clamp', 'texture_alpha': 'auto'})
+			'texture_wrapping_h': 'clamp', 'texture_wrapping_v': 'clamp', 'texture_alpha': 'auto',
+			'docs': '', 'thumbnail_priority': 0})
 
 	def test_set_texture_settings_keeps_other_keys_and_drops_defaults(self):
 		mask = os.path.join(self.root, 'textures', 'a_mask.png')
@@ -75,6 +76,18 @@ class WorkspaceTest(TempWorkspace):
 		self.assertNotIn('textures/a_color.png', entries)
 		self.assertIn('textures/a_mask.png', entries)
 		self.assertFalse(workspace.set_texture_settings(self.root, {color: {'texture_wrapping_h': 'clamp'}}))
+
+	def test_texture_docs_and_thumbnail_priority(self):
+		mask = os.path.join(self.root, 'textures', 'a_mask.png')
+		self.assertEqual(workspace.texture_settings(self.root, mask)['thumbnail_priority'], 0)
+		workspace.set_texture_settings(self.root, {mask: {'docs': 'Tint mask', 'thumbnail_priority': -1}})
+		entry = jsonfile.read(os.path.join(self.root, 'workspace.json'))['path']['textures/a_mask.png']
+		self.assertEqual((entry['docs'], entry['thumbnail_priority']), ('Tint mask', -1))
+		self.assertEqual(workspace.texture_settings(self.root, mask)['docs'], 'Tint mask')
+		workspace.set_texture_settings(self.root, {mask: {'docs': '', 'thumbnail_priority': 0}})
+		entry = jsonfile.read(os.path.join(self.root, 'workspace.json'))['path']['textures/a_mask.png']
+		self.assertNotIn('docs', entry)
+		self.assertNotIn('thumbnail_priority', entry)
 
 class CharacterTest(unittest.TestCase):
 	def test_set_follows_web_ui_rules(self):
